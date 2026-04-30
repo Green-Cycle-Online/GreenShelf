@@ -3,37 +3,182 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GreenCycle</title>
+  <title>GreenCycle — Recycle School Books in Oman</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #f4f8f5;
       color: #1a2e1f;
       line-height: 1.6;
     }
-    .container { max-width: 720px; margin: 0 auto; padding: 80px 24px; }
-    h1 { font-size: 3rem; color: #2d6a3e; margin-bottom: 16px; }
-    .tagline { font-size: 1.25rem; color: #4a6b52; margin-bottom: 40px; }
-    p { margin-bottom: 16px; }
+    .nav {
+      max-width: 1100px; margin: 0 auto; padding: 20px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .logo { font-weight: 700; font-size: 1.3rem; color: #2d6a3e; }
+    .nav a { color: #2d6a3e; text-decoration: none; margin-left: 24px; font-weight: 500; }
+
+    .hero {
+      max-width: 900px; margin: 0 auto; padding: 60px 24px 40px; text-align: center;
+    }
+    .badge {
+      display: inline-block; background: #d4ead9; color: #2d6a3e;
+      padding: 6px 14px; border-radius: 999px; font-size: 0.85rem;
+      font-weight: 600; margin-bottom: 20px;
+    }
+    h1 { font-size: 3rem; color: #1a2e1f; margin-bottom: 18px; line-height: 1.15; }
+    h1 span { color: #2d6a3e; }
+    .tagline { font-size: 1.2rem; color: #4a6b52; max-width: 620px; margin: 0 auto 32px; }
+    .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
     .cta {
-      display: inline-block;
-      background: #2d6a3e;
-      color: white;
-      padding: 12px 28px;
-      border-radius: 6px;
-      text-decoration: none;
-      margin-top: 24px;
+      display: inline-block; background: #2d6a3e; color: white;
+      padding: 14px 28px; border-radius: 8px; text-decoration: none;
+      font-weight: 600; transition: background 0.15s;
     }
     .cta:hover { background: #245532; }
+    .cta.secondary { background: white; color: #2d6a3e; border: 2px solid #2d6a3e; padding: 12px 26px; }
+
+    .section { max-width: 1100px; margin: 0 auto; padding: 60px 24px; }
+    .section h2 { font-size: 2rem; text-align: center; margin-bottom: 12px; }
+    .section .sub { text-align: center; color: #4a6b52; margin-bottom: 40px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+    .card {
+      background: white; padding: 28px; border-radius: 12px;
+      border: 1px solid #e0ebe3;
+    }
+    .card .icon { font-size: 2rem; margin-bottom: 12px; }
+    .card h3 { font-size: 1.1rem; margin-bottom: 8px; color: #2d6a3e; }
+    .card p { color: #4a6b52; font-size: 0.95rem; }
+
+    .filter-demo {
+      background: white; border-radius: 12px; padding: 32px;
+      border: 1px solid #e0ebe3; max-width: 700px; margin: 0 auto;
+    }
+    .filter-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .filter-row select {
+      flex: 1; min-width: 140px; padding: 12px;
+      border: 1px solid #c5d6cb; border-radius: 8px; font-size: 1rem;
+      background: #f4f8f5; color: #1a2e1f;
+    }
+    .book-list { display: flex; flex-direction: column; gap: 10px; }
+    .book {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px; background: #f4f8f5; border-radius: 8px;
+    }
+    .book-title { font-weight: 600; }
+    .book-meta { font-size: 0.85rem; color: #4a6b52; }
+    .book-tag {
+      background: #d4ead9; color: #2d6a3e; padding: 4px 10px;
+      border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+    }
+
+    footer {
+      text-align: center; padding: 40px 24px; color: #4a6b52;
+      border-top: 1px solid #e0ebe3; margin-top: 40px;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 2.2rem; }
+      .nav a { margin-left: 14px; font-size: 0.9rem; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>GreenCycle</h1>
-    <p class="tagline">Coming soon — something good for you and the planet.</p>
-    <p>We're building GreenCycle to make sustainable choices easier. Check back soon, or get in touch.</p>
-    <a href="mailto:hello@example.com" class="cta">Get in touch</a>
-  </div>
+  <nav class="nav">
+    <div class="logo">GreenCycle</div>
+    <div>
+      <a href="#how">How it works</a>
+      <a href="#browse">Browse</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="badge">Coming soon to Oman</div>
+    <h1>Pass on your school books — <span>not into the bin.</span></h1>
+    <p class="tagline">A simple, free way for students and parents in Oman to share school books at the end of the year. No more endless WhatsApp groups. Just filter by grade and subject, and find what you need.</p>
+    <div class="cta-row">
+      <a href="#contact" class="cta">Join the waitlist</a>
+      <a href="#how" class="cta secondary">Learn more</a>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <h2>How it works</h2>
+    <p class="sub">Free. No selling. Just neighbours helping neighbours.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">📚</div>
+        <h3>1. List your books</h3>
+        <p>Finished the year? Add the books you no longer need. Takes a minute.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔍</div>
+        <h3>2. Filter & find</h3>
+        <p>Search by grade and subject. No scrolling through 500 WhatsApp messages.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🤝</div>
+        <h3>3. Meet & swap</h3>
+        <p>Connect directly with the family. Pick up the book. Done.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="browse">
+    <h2>A glimpse of how it'll feel</h2>
+    <p class="sub">This is a preview — real listings coming soon.</p>
+    <div class="filter-demo">
+      <div class="filter-row">
+        <select>
+          <option>All grades</option>
+          <option>Grade 7</option>
+          <option>Grade 8</option>
+          <option>Grade 9</option>
+          <option>Grade 10</option>
+          <option>Grade 11</option>
+          <option>Grade 12</option>
+        </select>
+        <select>
+          <option>All subjects</option>
+          <option>Math</option>
+          <option>Science</option>
+          <option>English</option>
+          <option>Arabic</option>
+          <option>Social Studies</option>
+        </select>
+      </div>
+      <div class="book-list">
+        <div class="book">
+          <div>
+            <div class="book-title">Cambridge IGCSE Mathematics</div>
+            <div class="book-meta">Grade 10 · Math · Muscat</div>
+          </div>
+          <div class="book-tag">Available</div>
+        </div>
+        <div class="book">
+          <div>
+            <div class="book-title">Oxford Biology for IGCSE</div>
+            <div class="book-meta">Grade 9 · Science · Sohar</div>
+          </div>
+          <div class="book-tag">Available</div>
+        </div>
+        <div class="book">
+          <div>
+            <div class="book-title">Arabic Language — Level 11</div>
+            <div class="book-meta">Grade 11 · Arabic · Muscat</div>
+          </div>
+          <div class="book-tag">Available</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer id="contact">
+    <p>Questions or want to help launch? <a href="mailto:hello@greencycle.om" style="color:#2d6a3e;">hello@greencycle.om</a></p>
+    <p style="margin-top: 12px; font-size: 0.85rem;">© 2026 GreenCycle · Made in Oman 🇴🇲</p>
+  </footer>
 </body>
 </html>
