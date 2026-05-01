@@ -18,6 +18,7 @@
       --sage-light: #d4e4c8;
       --brown: #8b6f47;
       --gold: #c9a961;
+      --error: #c95d4a;
       --text: #1f2e25;
       --text-muted: #6a7a6f;
       --border: #e3dccd;
@@ -30,11 +31,15 @@
     header { background: var(--bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
     nav { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; max-width: 1100px; margin: 0 auto; }
     .logo { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 700; color: var(--green-dark); display: flex; align-items: center; gap: 8px; }
-    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links { display: flex; gap: 16px; align-items: center; }
     .nav-links a { color: var(--text); text-decoration: none; font-weight: 500; font-size: 0.95rem; }
     .nav-links a:hover { color: var(--green-dark); }
-    .btn-primary { background: var(--green-dark); color: white; padding: 9px 18px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.95rem; border: none; cursor: pointer; }
+    .nav-user { color: var(--text-muted); font-size: 0.9rem; }
+    .btn-primary { background: var(--green-dark); color: white; padding: 9px 18px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.95rem; border: none; cursor: pointer; font-family: inherit; }
     .btn-primary:hover { background: #234534; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9rem; cursor: pointer; font-family: inherit; }
+    .btn-secondary:hover { background: var(--bg-card); border-color: var(--text-muted); }
 
     .hero { padding: 60px 24px 40px; text-align: center; }
     .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.15; margin-bottom: 16px; color: var(--green-dark); }
@@ -68,6 +73,7 @@
     .modal-backdrop { position: fixed; inset: 0; background: rgba(31,46,37,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
     .modal-backdrop.hidden { display: none; }
     .modal { background: var(--bg-card); border-radius: 16px; max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(31,46,37,0.25); position: relative; }
+    .modal.auth-modal { max-width: 420px; }
     .modal-image { aspect-ratio: 16/9; background: linear-gradient(135deg, var(--sage-light), #c8dcb6); display: flex; align-items: center; justify-content: center; font-size: 5rem; border-radius: 16px 16px 0 0; }
     .modal-image img { width: 100%; height: 100%; object-fit: cover; border-radius: 16px 16px 0 0; }
     .modal-body { padding: 28px; }
@@ -79,7 +85,19 @@
     .contact-name { font-weight: 600; margin-bottom: 4px; }
     .contact-link { display: inline-flex; align-items: center; gap: 6px; color: var(--green-dark); text-decoration: none; font-weight: 500; }
     .contact-link:hover { text-decoration: underline; }
-    .modal-close { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; color: var(--text); }
+    .modal-close { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; color: var(--text); z-index: 1; }
+
+    .auth-body { padding: 36px 32px 32px; }
+    .auth-title { text-align: center; margin-bottom: 6px; }
+    .auth-subtitle { text-align: center; color: var(--text-muted); margin-bottom: 22px; font-size: 0.95rem; }
+    .auth-tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+    .auth-tab { flex: 1; padding: 9px; border: none; background: transparent; border-radius: 7px; font-family: inherit; font-size: 0.95rem; font-weight: 500; cursor: pointer; color: var(--text-muted); }
+    .auth-tab.active { background: var(--bg-card); color: var(--text); box-shadow: var(--shadow); }
+    .auth-label { display: block; margin-bottom: 14px; font-size: 0.9rem; font-weight: 500; color: var(--text); }
+    .auth-label input { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: var(--bg); color: var(--text); margin-top: 5px; }
+    .auth-label input:focus { outline: none; border-color: var(--sage); background: white; }
+    .auth-error { color: var(--error); font-size: 0.9rem; min-height: 1.4em; margin-bottom: 12px; }
+    .auth-submit { width: 100%; padding: 12px; font-size: 1rem; }
 
     footer { border-top: 1px solid var(--border); padding: 32px 24px; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
     footer a { color: var(--green-dark); }
@@ -87,8 +105,9 @@
     @media (max-width: 600px) {
       .filter-grid { grid-template-columns: 1fr 1fr; }
       .filter-grid input { grid-column: 1 / -1; }
-      .nav-links { gap: 12px; }
+      .nav-links { gap: 10px; }
       .nav-links a { font-size: 0.9rem; }
+      .nav-user { display: none; }
     }
   </style>
 </head>
@@ -96,9 +115,8 @@
   <header>
     <nav>
       <div class="logo">🌿 GreenCycle</div>
-      <div class="nav-links">
+      <div class="nav-links" id="nav-auth">
         <a href="#browse">Browse</a>
-        <a href="#" class="btn-primary">Sign in</a>
       </div>
     </nav>
   </header>
@@ -142,6 +160,7 @@
   </main>
 
   <div id="modal" class="modal-backdrop hidden"></div>
+  <div id="auth-modal" class="modal-backdrop hidden"></div>
 
   <footer>
     <p>Made with 🌿 in Oman · <a href="mailto:hello@greencycle.om">hello@greencycle.om</a></p>
@@ -151,15 +170,134 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 
     // ============================================================
-    // PASTE YOUR SUPABASE VALUES HERE
-    // ============================================================
     const SUPABASE_URL = 'https://wvladknkebqiqutboohw.supabase.co'
-    const SUPABASE_KEY = 'sb_publishable_J0JrrWBQipfP201_L3A0pw_UGF6R1qL'
+    const SUPABASE_KEY = 'sb_publishable_J0JrrWBQipfP201_L3A0pw_UGF6R1qL'  // <-- PASTE YOUR FULL sb_publishable_... KEY HERE
     // ============================================================
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
     let allListings = []
+    let currentUser = null
 
+    // ---- AUTH ----
+    function updateNav() {
+      const navAuth = document.getElementById('nav-auth')
+      if (currentUser) {
+        const email = currentUser.email
+        const displayEmail = email.length > 22 ? email.slice(0, 20) + '…' : email
+        navAuth.innerHTML = `
+          <a href="#browse">Browse</a>
+          <span class="nav-user">${escapeHtml(displayEmail)}</span>
+          <button class="btn-secondary" id="signout-btn">Sign out</button>
+        `
+        document.getElementById('signout-btn').addEventListener('click', signOut)
+      } else {
+        navAuth.innerHTML = `
+          <a href="#browse">Browse</a>
+          <button class="btn-primary" id="signin-btn">Sign in</button>
+        `
+        document.getElementById('signin-btn').addEventListener('click', showAuthModal)
+      }
+    }
+
+    function showAuthModal() {
+      const modal = document.getElementById('auth-modal')
+      modal.innerHTML = `
+        <div class="modal auth-modal">
+          <button class="modal-close" id="auth-close" aria-label="Close">×</button>
+          <div class="auth-body">
+            <h2 class="auth-title">Welcome to GreenCycle</h2>
+            <p class="auth-subtitle">Sign in or create an account to share books.</p>
+            <div class="auth-tabs">
+              <button type="button" class="auth-tab active" data-mode="signin">Sign in</button>
+              <button type="button" class="auth-tab" data-mode="signup">Create account</button>
+            </div>
+            <form id="auth-form">
+              <label class="auth-label">
+                Email
+                <input type="email" id="auth-email" required autocomplete="email">
+              </label>
+              <label class="auth-label">
+                Password
+                <input type="password" id="auth-password" required minlength="6" autocomplete="current-password">
+              </label>
+              <div class="auth-error" id="auth-error"></div>
+              <button type="submit" class="btn-primary auth-submit" id="auth-submit">Sign in</button>
+            </form>
+          </div>
+        </div>
+      `
+      modal.classList.remove('hidden')
+
+      let mode = 'signin'
+      const tabs = modal.querySelectorAll('.auth-tab')
+      const submitBtn = modal.querySelector('#auth-submit')
+      const passwordInput = modal.querySelector('#auth-password')
+      const errorDiv = modal.querySelector('#auth-error')
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('active'))
+          tab.classList.add('active')
+          mode = tab.dataset.mode
+          submitBtn.textContent = mode === 'signin' ? 'Sign in' : 'Create account'
+          passwordInput.autocomplete = mode === 'signin' ? 'current-password' : 'new-password'
+          errorDiv.textContent = ''
+        })
+      })
+
+      modal.querySelector('#auth-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const email = modal.querySelector('#auth-email').value.trim()
+        const password = modal.querySelector('#auth-password').value
+        errorDiv.textContent = ''
+        submitBtn.disabled = true
+        submitBtn.textContent = mode === 'signin' ? 'Signing in…' : 'Creating account…'
+
+        try {
+          if (mode === 'signin') {
+            const { error } = await supabase.auth.signInWithPassword({ email, password })
+            if (error) throw error
+          } else {
+            const { error } = await supabase.auth.signUp({ email, password })
+            if (error) throw error
+          }
+          closeAuthModal()
+        } catch (err) {
+          errorDiv.textContent = friendlyAuthError(err.message)
+          submitBtn.disabled = false
+          submitBtn.textContent = mode === 'signin' ? 'Sign in' : 'Create account'
+        }
+      })
+
+      modal.querySelector('#auth-close').addEventListener('click', closeAuthModal)
+      modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeAuthModal()
+      })
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-modal').classList.add('hidden')
+    }
+
+    function friendlyAuthError(msg) {
+      if (!msg) return 'Something went wrong. Try again?'
+      if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.'
+      if (/already registered/i.test(msg)) return 'An account with that email already exists. Try signing in.'
+      if (/password.*6/i.test(msg)) return 'Password needs to be at least 6 characters.'
+      return msg
+    }
+
+    async function signOut() {
+      await supabase.auth.signOut()
+    }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      currentUser = session?.user || null
+      updateNav()
+    })
+
+    // ---- LISTINGS ----
     async function loadListings() {
       const { data, error } = await supabase
         .from('listings')
@@ -170,7 +308,7 @@
       if (error) {
         console.error('Supabase error:', error)
         document.getElementById('listings-grid').innerHTML =
-          `<div class="empty">Couldn't load listings. Open the browser console (right-click → Inspect → Console) for details.</div>`
+          `<div class="empty">Couldn't load listings. Open the browser console for details.</div>`
         document.getElementById('listings-meta').textContent = 'Error loading'
         return
       }
@@ -295,9 +433,14 @@
     })
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal()
+      if (e.key === 'Escape') {
+        closeModal()
+        closeAuthModal()
+      }
     })
 
+    // Init
+    updateNav()
     loadListings()
   </script>
 </body>
