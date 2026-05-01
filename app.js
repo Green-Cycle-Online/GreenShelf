@@ -8,6 +8,13 @@ const AREAS_MUSCAT = ['Al Khoud', 'Al Khuwair', 'Al Hail', 'Al Mabela', 'Al Mawa
 const AREAS_OTHER_OMAN = ['Bahla', 'Barka', 'Buraimi', 'Ibri', 'Khasab', 'Liwa', 'Nizwa', 'Rustaq', 'Saham', 'Salalah', 'Sohar', 'Sur', 'Suwaiq']
 const ALL_AREAS = [...AREAS_MUSCAT, ...AREAS_OTHER_OMAN]
 const MAX_PHOTOS = 4
+const REPORT_REASONS = {
+  spam: 'Spam or scam',
+  inappropriate: 'Inappropriate content',
+  duplicate: 'Duplicate listing',
+  wrong_info: 'Wrong information',
+  other: 'Other',
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let allListings = []
@@ -431,7 +438,7 @@ function ensureAboutSection() {
     <div class="about-grid">
       <div class="about-person">
         <div class="about-photo">
-          <img src="hitesh.jpeg" alt="Hitesh" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="hitesh.jpeg" alt="Hitesh" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="about-photo-fallback" style="display:none;">H</div>
         </div>
         <h3>Hitesh</h3>
@@ -439,7 +446,7 @@ function ensureAboutSection() {
       </div>
       <div class="about-person">
         <div class="about-photo">
-          <img src="anshul.jpeg" alt="Anshul" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="anshul.jpeg" alt="Anshul" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="about-photo-fallback" style="display:none;">A</div>
         </div>
         <h3>Anshul</h3>
@@ -472,10 +479,10 @@ function ensureFaqSection() {
       <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click + List a book, fill in details, post.</div></details>
       <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click the listing, see contact info, reach out directly.</div></details>
       <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. We only ask for your area, never full address.</div></details>
-      <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when listing. Use photos. Ask for more if unsure.</div></details>
-      <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Mark it as claimed. It'll be removed from the public feed. You can un-claim if needed.</div></details>
+      <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when listing. Use photos.</div></details>
+      <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Mark it as claimed. You can un-claim if needed.</div></details>
       <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll down → Delete my account.</div></details>
-      <details class="faq-item"><summary>I saw a spammy listing.</summary><div class="faq-answer">Email hello@greencycle.om and we'll remove it.</div></details>
+      <details class="faq-item"><summary>I saw a spammy listing.</summary><div class="faq-answer">Click <strong>Report</strong> on the listing — we'll review it.</div></details>
     </div>
   `
   document.querySelector('main').appendChild(section)
@@ -504,13 +511,18 @@ async function loadAdminStats() {
   const content = document.getElementById('admin-content')
   if (!content) return
 
-  const { data: listings, error } = await supabase.from('listings').select('*').order('created_at', { ascending: false })
-  if (error) {
-    content.innerHTML = `<div class="empty">Couldn't load stats: ${escapeHtml(error.message)}</div>`
+  const [listingsRes, reportsRes] = await Promise.all([
+    supabase.from('listings').select('*').order('created_at', { ascending: false }),
+    supabase.from('reports').select('*, listing:listings(id, title, owner_name, status)').eq('status', 'pending').order('created_at', { ascending: false }),
+  ])
+
+  if (listingsRes.error) {
+    content.innerHTML = `<div class="empty">Couldn't load stats: ${escapeHtml(listingsRes.error.message)}</div>`
     return
   }
 
-  const all = listings || []
+  const all = listingsRes.data || []
+  const pendingReports = reportsRes.data || []
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const stats = {
     total: all.length,
@@ -518,6 +530,7 @@ async function loadAdminStats() {
     claimed: all.filter(l => l.status === 'claimed').length,
     last7Days: all.filter(l => new Date(l.created_at).getTime() > sevenDaysAgo).length,
     totalPhotos: all.reduce((sum, l) => sum + (Array.isArray(l.photos) ? l.photos.length : 0), 0),
+    pendingReports: pendingReports.length,
     byArea: countBy(all, 'area'),
     bySubject: countBy(all, 'subject'),
     byGrade: countBy(all, 'grade_level'),
@@ -525,6 +538,20 @@ async function loadAdminStats() {
   }
 
   content.innerHTML = `
+    ${pendingReports.length > 0 ? `
+      <div class="admin-card">
+        <h3>Pending reports (${pendingReports.length})</h3>
+        <div class="reports-list" id="reports-list">
+          ${pendingReports.map(r => renderReport(r, all)).join('')}
+        </div>
+      </div>
+    ` : `
+      <div class="admin-card">
+        <h3>Pending reports</h3>
+        <div class="no-reports">No pending reports. 🌿</div>
+      </div>
+    `}
+
     <div class="stat-row">
       <div class="stat-card">
         <div class="stat-num">${stats.total}</div>
@@ -585,6 +612,59 @@ async function loadAdminStats() {
       `}
     </div>
   `
+
+  // Wire up report actions
+  content.querySelectorAll('[data-report-action]').forEach(btn => {
+    btn.addEventListener('click', () => handleReportAction(btn.dataset.reportId, btn.dataset.reportAction, btn.dataset.listingId))
+  })
+}
+
+function renderReport(r, allListings) {
+  const listing = r.listing
+  const listingTitle = listing ? listing.title : '(listing deleted)'
+  const reasonLabel = REPORT_REASONS[r.reason] || r.reason
+  return `
+    <div class="report-row">
+      <div class="report-info">
+        <div class="report-listing-title">${escapeHtml(listingTitle)}</div>
+        <div class="report-meta">
+          <span class="report-reason-chip">${escapeHtml(reasonLabel)}</span>
+          ${listing ? `Owner: ${escapeHtml(listing.owner_name || '—')} · ` : ''}${formatRelativeTime(r.created_at)}
+        </div>
+        ${r.notes ? `<div class="report-notes">"${escapeHtml(r.notes)}"</div>` : ''}
+      </div>
+      <div class="report-actions">
+        ${listing ? `<button class="btn-secondary" data-report-action="view" data-report-id="${r.id}" data-listing-id="${listing.id}">View</button>` : ''}
+        <button class="btn-secondary" data-report-action="dismiss" data-report-id="${r.id}">Dismiss</button>
+      </div>
+    </div>
+  `
+}
+
+async function handleReportAction(reportId, action, listingId) {
+  if (action === 'view' && listingId) {
+    let listing = allListings.find(l => l.id === listingId)
+    if (!listing) {
+      const { data } = await supabase.from('listings').select('*').eq('id', listingId).maybeSingle()
+      listing = data
+    }
+    if (listing) showModal(listing)
+    else showToast('Listing not found.', 'error')
+    return
+  }
+
+  if (action === 'dismiss') {
+    const ok = await customConfirm({
+      title: 'Dismiss this report?',
+      message: 'The report will be marked as reviewed and removed from the pending list.',
+      confirmText: 'Dismiss',
+    })
+    if (!ok) return
+    const { error } = await supabase.from('reports').update({ status: 'dismissed' }).eq('id', reportId)
+    if (error) { showToast("Couldn't dismiss: " + error.message, 'error'); return }
+    showToast('Report dismissed.', 'success')
+    await loadAdminStats()
+  }
 }
 
 function countBy(items, key) {
@@ -829,7 +909,7 @@ function showCreateListingModal(editingListing = null) {
       const src = slot.url || (slot.file ? URL.createObjectURL(slot.file) : '')
       return `
         <div class="photo-slot">
-          <img src="${escapeHtml(src)}" alt="">
+          <img src="${escapeHtml(src)}" alt="" loading="lazy">
           <button type="button" class="photo-remove" data-index="${i}" aria-label="Remove">×</button>
         </div>
       `
@@ -969,6 +1049,72 @@ function closeCreateModal() {
   if (modal) modal.classList.add('hidden')
 }
 
+// ---- REPORT MODAL ----
+function showReportModal(listing) {
+  if (!currentUser) {
+    closeModal()
+    showAuthModal()
+    showToast('Sign in to report a listing.', 'info')
+    return
+  }
+  const overlay = document.createElement('div')
+  overlay.className = 'modal-backdrop'
+  overlay.innerHTML = `
+    <div class="modal auth-modal">
+      <button class="modal-close" id="report-close" aria-label="Close">×</button>
+      <div class="auth-body">
+        <h2 class="auth-title">Report this listing</h2>
+        <p class="auth-subtitle">Tell us what's wrong with "${escapeHtml(listing.title)}". An admin will review.</p>
+        <form id="report-form">
+          <label class="auth-label">Reason
+            <select name="reason" required>
+              <option value="">Choose…</option>
+              ${Object.entries(REPORT_REASONS).map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="auth-label">Notes (optional)
+            <textarea name="notes" rows="3" placeholder="Anything else we should know?"></textarea>
+          </label>
+          <div class="auth-error" id="report-error"></div>
+          <button type="submit" class="btn-primary auth-submit" id="report-submit">Submit report</button>
+        </form>
+      </div>
+    </div>
+  `
+  document.body.appendChild(overlay)
+
+  const close = () => overlay.remove()
+  overlay.querySelector('#report-close').addEventListener('click', close)
+  overlay.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
+
+  overlay.querySelector('#report-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const form = e.target
+    const btn = overlay.querySelector('#report-submit')
+    const errorDiv = overlay.querySelector('#report-error')
+    errorDiv.textContent = ''
+    btn.disabled = true
+    btn.textContent = 'Submitting…'
+
+    const { error } = await supabase.from('reports').insert({
+      listing_id: listing.id,
+      reporter_id: currentUser.id,
+      reason: form.reason.value,
+      notes: form.notes.value.trim() || null,
+    })
+
+    if (error) {
+      errorDiv.textContent = error.message
+      btn.disabled = false
+      btn.textContent = 'Submit report'
+      return
+    }
+    close()
+    showToast('Thanks — we\'ll review this listing.', 'success')
+  })
+}
+
 // ---- LISTINGS ----
 function renderLoadingSkeleton() {
   const grid = document.getElementById('listings-grid')
@@ -1049,7 +1195,7 @@ function renderCard(l) {
   return `
     <article class="card" data-id="${l.id}">
       <div class="card-image">
-        ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}">` : '📖'}
+        ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}" loading="lazy">` : '📖'}
         ${moreCount > 0 ? `<div class="photo-count">+${moreCount}</div>` : ''}
       </div>
       <div class="card-body">
@@ -1150,7 +1296,7 @@ function showModal(listing) {
   } else {
     photoBlockHtml = `
       <div class="photo-carousel" data-index="0">
-        <img src="${escapeHtml(photos[0])}" alt="${escapeHtml(listing.title)}" id="carousel-img">
+        <img src="${escapeHtml(photos[0])}" alt="${escapeHtml(listing.title)}" id="carousel-img" loading="lazy">
         ${photos.length > 1 ? `
           <button class="carousel-nav prev" id="carousel-prev" aria-label="Previous">‹</button>
           <button class="carousel-nav next" id="carousel-next" aria-label="Next">›</button>
@@ -1172,6 +1318,16 @@ function showModal(listing) {
       ` : (isAdmin ? `<button class="btn-secondary action-delete" id="delete-btn">Delete (admin)</button>` : '')}
     </div>
   `
+
+  // Show "Report" link to anyone who's not the owner
+  let reportRowHtml = ''
+  if (!isOwner) {
+    reportRowHtml = `
+      <div class="report-btn-row">
+        <button type="button" class="report-link" id="report-btn">Report this listing</button>
+      </div>
+    `
+  }
 
   modal.innerHTML = `
     <div class="modal">
@@ -1196,6 +1352,7 @@ function showModal(listing) {
           </div>
         </div>
         ${actionsHtml}
+        ${reportRowHtml}
       </div>
     </div>
   `
@@ -1210,6 +1367,9 @@ function showModal(listing) {
   modal.addEventListener('click', closeModal)
 
   modal.querySelector('#share-btn').addEventListener('click', () => shareListing(listing))
+
+  const reportBtn = modal.querySelector('#report-btn')
+  if (reportBtn) reportBtn.addEventListener('click', () => showReportModal(listing))
 
   if (photos.length > 1) {
     let idx = 0
