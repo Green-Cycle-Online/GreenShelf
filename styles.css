@@ -137,3 +137,7 @@ footer a { color: var(--green-dark); }
 .tag-status.available { background: var(--sage-light); color: var(--green-dark); }
 .tag-status.claimed { background: #f0e8d6; color: var(--brown); }
 @media (max-width: 600px) { .profile-row { grid-template-columns: 1fr; } }
+.password-wrap { position: relative; margin-top: 5px; }
+.password-wrap input { margin-top: 0 !important; padding-right: 64px; }
+.password-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; font-weight: 500; padding: 4px 10px; font-family: inherit; }
+.password-toggle:hover { color: var(--green-dark); }
