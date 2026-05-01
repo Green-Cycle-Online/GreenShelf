@@ -413,7 +413,7 @@ function ensureAboutSection() {
     <div class="about-grid">
       <div class="about-person">
         <div class="about-photo">
-          <img src="hitesh.jpg" alt="Hitesh" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="hitesh.jpeg" alt="Hitesh" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="about-photo-fallback" style="display:none;">H</div>
         </div>
         <h3>Hitesh</h3>
@@ -421,7 +421,7 @@ function ensureAboutSection() {
       </div>
       <div class="about-person">
         <div class="about-photo">
-          <img src="anshul.jpg" alt="Anshul" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="anshul.jpeg" alt="Anshul" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="about-photo-fallback" style="display:none;">A</div>
         </div>
         <h3>Anshul</h3>
