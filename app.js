@@ -89,90 +89,176 @@ function updateNav() {
 
 function showAuthModal() {
   const modal = document.getElementById('auth-modal')
+  let mode = 'signin' // 'signin' | 'signup' | 'forgot'
+
+  function render() {
+    const isForgot = mode === 'forgot'
+    modal.innerHTML = `
+      <div class="modal auth-modal">
+        <button class="modal-close" id="auth-close" aria-label="Close">×</button>
+        <div class="auth-body">
+          <h2 class="auth-title">${isForgot ? 'Reset your password' : 'Welcome to GreenCycle'}</h2>
+          <p class="auth-subtitle">${isForgot ? "We'll email you a link to set a new password." : 'Sign in or create an account to share books.'}</p>
+          ${isForgot ? '' : `
+            <div class="auth-tabs">
+              <button type="button" class="auth-tab ${mode === 'signin' ? 'active' : ''}" data-mode="signin">Sign in</button>
+              <button type="button" class="auth-tab ${mode === 'signup' ? 'active' : ''}" data-mode="signup">Create account</button>
+            </div>
+          `}
+          <form id="auth-form">
+            <label class="auth-label">Email
+              <input type="email" id="auth-email" required autocomplete="email">
+            </label>
+            ${isForgot ? '' : `
+              <label class="auth-label">Password
+                <div class="password-wrap">
+                  <input type="password" id="auth-password" required minlength="6" autocomplete="${mode === 'signin' ? 'current-password' : 'new-password'}">
+                  <button type="button" class="password-toggle" id="password-toggle">Show</button>
+                </div>
+              </label>
+              ${mode === 'signin' ? `<div class="auth-forgot"><a id="forgot-link">Forgot password?</a></div>` : ''}
+            `}
+            <div class="auth-error" id="auth-error"></div>
+            <button type="submit" class="btn-primary auth-submit" id="auth-submit">${
+              isForgot ? 'Send reset link' : (mode === 'signin' ? 'Sign in' : 'Create account')
+            }</button>
+            ${isForgot ? `<div class="auth-back"><a id="back-to-signin">← Back to sign in</a></div>` : ''}
+          </form>
+        </div>
+      </div>
+    `
+    wireUp()
+  }
+
+  function wireUp() {
+    const submitBtn = modal.querySelector('#auth-submit')
+    const errorDiv = modal.querySelector('#auth-error')
+    const emailInput = modal.querySelector('#auth-email')
+    const pwInput = modal.querySelector('#auth-password')
+
+    if (pwInput) {
+      const pwToggle = modal.querySelector('#password-toggle')
+      pwToggle.addEventListener('click', () => {
+        pwInput.type = pwInput.type === 'password' ? 'text' : 'password'
+        pwToggle.textContent = pwInput.type === 'password' ? 'Show' : 'Hide'
+      })
+    }
+
+    modal.querySelectorAll('.auth-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        mode = tab.dataset.mode
+        render()
+      })
+    })
+
+    const forgotLink = modal.querySelector('#forgot-link')
+    if (forgotLink) forgotLink.addEventListener('click', () => { mode = 'forgot'; render() })
+
+    const backLink = modal.querySelector('#back-to-signin')
+    if (backLink) backLink.addEventListener('click', () => { mode = 'signin'; render() })
+
+    modal.querySelector('#auth-form').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const email = emailInput.value.trim()
+      const password = pwInput ? pwInput.value : null
+      errorDiv.textContent = ''
+      submitBtn.disabled = true
+      const originalText = submitBtn.textContent
+      submitBtn.textContent = 'One sec…'
+
+      try {
+        if (mode === 'signin') {
+          const { error } = await supabase.auth.signInWithPassword({ email, password })
+          if (error) throw error
+          showToast('Welcome back 🌿', 'success')
+          closeAuthModal()
+        } else if (mode === 'signup') {
+          const { error } = await supabase.auth.signUp({ email, password })
+          if (error) throw error
+          showToast('Account created. Welcome!', 'success')
+          closeAuthModal()
+        } else if (mode === 'forgot') {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin,
+          })
+          if (error) throw error
+          showToast('Check your inbox for a reset link.', 'success')
+          closeAuthModal()
+        }
+      } catch (err) {
+        errorDiv.textContent = friendlyAuthError(err.message)
+        submitBtn.disabled = false
+        submitBtn.textContent = originalText
+      }
+    })
+
+    modal.querySelector('#auth-close').addEventListener('click', closeAuthModal)
+    modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeAuthModal() })
+  }
+
+  modal.classList.remove('hidden')
+  render()
+}
+
+function closeAuthModal() {
+  document.getElementById('auth-modal').classList.add('hidden')
+}
+
+function showSetNewPasswordModal() {
+  let modal = document.getElementById('reset-modal')
+  if (!modal) {
+    modal = document.createElement('div')
+    modal.id = 'reset-modal'
+    modal.className = 'modal-backdrop'
+    document.body.appendChild(modal)
+  }
   modal.innerHTML = `
     <div class="modal auth-modal">
-      <button class="modal-close" id="auth-close" aria-label="Close">×</button>
       <div class="auth-body">
-        <h2 class="auth-title">Welcome to GreenCycle</h2>
-        <p class="auth-subtitle">Sign in or create an account to share books.</p>
-        <div class="auth-tabs">
-          <button type="button" class="auth-tab active" data-mode="signin">Sign in</button>
-          <button type="button" class="auth-tab" data-mode="signup">Create account</button>
-        </div>
-        <form id="auth-form">
-          <label class="auth-label">Email
-            <input type="email" id="auth-email" required autocomplete="email">
-          </label>
-          <label class="auth-label">Password
+        <h2 class="auth-title">Set a new password</h2>
+        <p class="auth-subtitle">Choose something at least 6 characters long.</p>
+        <form id="reset-form">
+          <label class="auth-label">New password
             <div class="password-wrap">
-              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password">
-              <button type="button" class="password-toggle" id="password-toggle">Show</button>
+              <input type="password" id="reset-password" required minlength="6" autocomplete="new-password">
+              <button type="button" class="password-toggle" id="reset-toggle">Show</button>
             </div>
           </label>
-          <div class="auth-error" id="auth-error"></div>
-          <button type="submit" class="btn-primary auth-submit" id="auth-submit">Sign in</button>
+          <div class="auth-error" id="reset-error"></div>
+          <button type="submit" class="btn-primary auth-submit" id="reset-submit">Update password</button>
         </form>
       </div>
     </div>
   `
   modal.classList.remove('hidden')
 
-  const pwToggle = modal.querySelector('#password-toggle')
-  const pwInput = modal.querySelector('#auth-password')
+  const pwInput = modal.querySelector('#reset-password')
+  const pwToggle = modal.querySelector('#reset-toggle')
   pwToggle.addEventListener('click', () => {
     pwInput.type = pwInput.type === 'password' ? 'text' : 'password'
     pwToggle.textContent = pwInput.type === 'password' ? 'Show' : 'Hide'
   })
 
-  let mode = 'signin'
-  const tabs = modal.querySelectorAll('.auth-tab')
-  const submitBtn = modal.querySelector('#auth-submit')
-  const errorDiv = modal.querySelector('#auth-error')
-
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'))
-      tab.classList.add('active')
-      mode = tab.dataset.mode
-      submitBtn.textContent = mode === 'signin' ? 'Sign in' : 'Create account'
-      pwInput.autocomplete = mode === 'signin' ? 'current-password' : 'new-password'
-      errorDiv.textContent = ''
-    })
-  })
-
-  modal.querySelector('#auth-form').addEventListener('submit', async (e) => {
+  modal.querySelector('#reset-form').addEventListener('submit', async (e) => {
     e.preventDefault()
-    const email = modal.querySelector('#auth-email').value.trim()
-    const password = pwInput.value
+    const submitBtn = modal.querySelector('#reset-submit')
+    const errorDiv = modal.querySelector('#reset-error')
     errorDiv.textContent = ''
     submitBtn.disabled = true
-    submitBtn.textContent = mode === 'signin' ? 'Signing in…' : 'Creating account…'
+    submitBtn.textContent = 'Updating…'
 
-    try {
-      if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
-        showToast('Welcome back 🌿', 'success')
-      } else {
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
-        showToast('Account created. Welcome!', 'success')
-      }
-      closeAuthModal()
-    } catch (err) {
-      errorDiv.textContent = friendlyAuthError(err.message)
+    const { error } = await supabase.auth.updateUser({ password: pwInput.value })
+    if (error) {
+      errorDiv.textContent = error.message
       submitBtn.disabled = false
-      submitBtn.textContent = mode === 'signin' ? 'Sign in' : 'Create account'
+      submitBtn.textContent = 'Update password'
+      return
     }
+    modal.remove()
+    showToast("Password updated. You're signed in.", 'success')
+    history.replaceState(null, '', window.location.pathname)
   })
-
-  modal.querySelector('#auth-close').addEventListener('click', closeAuthModal)
-  modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeAuthModal() })
-}
-
-function closeAuthModal() {
-  document.getElementById('auth-modal').classList.add('hidden')
 }
 
 function friendlyAuthError(msg) {
@@ -189,6 +275,10 @@ async function signOut() {
 }
 
 supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    showSetNewPasswordModal()
+    return
+  }
   currentUser = session?.user || null
   if (!currentUser && currentView === 'profile') {
     showBrowseView()
@@ -204,9 +294,12 @@ function showProfileView() {
   document.querySelector('.hero').classList.add('hidden-section')
   document.getElementById('browse').classList.add('hidden-section')
   document.querySelector('.listings').classList.add('hidden-section')
-  document.querySelector('.how').classList.add('hidden-section')
-  document.querySelector('.browse-section').classList.add('hidden-section')
-  document.querySelector('.mission').classList.add('hidden-section')
+  const how = document.querySelector('.how')
+  const browseSection = document.querySelector('.browse-section')
+  const mission = document.querySelector('.mission')
+  if (how) how.classList.add('hidden-section')
+  if (browseSection) browseSection.classList.add('hidden-section')
+  if (mission) mission.classList.add('hidden-section')
   ensureProfileSection().classList.remove('hidden-section')
   updateNav()
   loadProfile()
@@ -219,9 +312,12 @@ function showBrowseView() {
   document.querySelector('.hero').classList.remove('hidden-section')
   document.getElementById('browse').classList.remove('hidden-section')
   document.querySelector('.listings').classList.remove('hidden-section')
-  document.querySelector('.how').classList.remove('hidden-section')
-  document.querySelector('.browse-section').classList.remove('hidden-section')
-  document.querySelector('.mission').classList.remove('hidden-section')
+  const how = document.querySelector('.how')
+  const browseSection = document.querySelector('.browse-section')
+  const mission = document.querySelector('.mission')
+  if (how) how.classList.remove('hidden-section')
+  if (browseSection) browseSection.classList.remove('hidden-section')
+  if (mission) mission.classList.remove('hidden-section')
   const ps = document.getElementById('profile-section')
   if (ps) ps.classList.add('hidden-section')
   updateNav()
