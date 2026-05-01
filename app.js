@@ -1,7 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 
 const SUPABASE_URL = 'https://wvladknkebqiqutboohw.supabase.co'
-const SUPABASE_KEY = 'sb_publishable_J0JrrWBQipfP201_L3A0pw_UGF6R1qL'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bGFka25rZWJxaXF1dGJvb2h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTAxMjksImV4cCI6MjA5MzEyNjEyOX0.xHIZHgUQ72XRxHtQkHBJ4AbI7M9shejCPR5iv5SmqJ4'
 const PHOTO_BUCKET = 'book-photos'
 const BASE_SUBJECTS = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business']
 const AREAS_MUSCAT = ['Al Khoud', 'Al Khuwair', 'Al Hail', 'Al Mabela', 'Al Mawaleh', 'Azaiba', 'Bausher', 'Ghubra', 'Madinat Qaboos', 'Mutrah', 'Qurum', 'Ruwi', 'Seeb']
@@ -1503,29 +1503,22 @@ document.addEventListener('keydown', (e) => {
   }
 })
 
-// Init: explicitly wait for session restoration before rendering nav
 // Render initial nav immediately so Sign in button always shows
 updateNav()
 loadListings()
 
-// Restore session in background (won't block UI)
-// Render initial nav immediately so Sign in button always shows
-updateNav()
-loadListings()
-
-// Aggressive session restore: try getSession, then refreshSession as fallback
+// Session restore with timeout + auto-clear to prevent stuck states
 ;(async () => {
   let session = null
   try {
-    const result = await supabase.auth.getSession()
+    const result = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+    ])
     session = result.data?.session
-  } catch (e) { console.error('getSession failed:', e) }
-
-  if (!session) {
-    try {
-      const result = await supabase.auth.refreshSession()
-      session = result.data?.session
-    } catch (e) { console.error('refreshSession failed:', e) }
+  } catch (e) {
+    console.error('Session restore failed, clearing bad tokens:', e)
+    Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
   }
 
   if (session?.user) {
