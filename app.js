@@ -453,17 +453,17 @@ function ensureFaqSection() {
   section.innerHTML = `
     <div class="faq-header">
       <h1>Questions you might have</h1>
-      <p>Short answers to the most common ones. If yours isn't here, email us at hello@greencycle.om.</p>
+      <p>Short answers. If yours isn't here, email hello@greencycle.om.</p>
     </div>
     <div class="faq-list">
-      <details class="faq-item"><summary>Is GreenCycle free?</summary><div class="faq-answer">Yes, completely. No fees, no commission, no money changes hands.</div></details>
-      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click <strong>+ List a book</strong>, fill in the details, post.</div></details>
-      <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click on the listing to see the lister's contact info — usually a WhatsApp number, phone, or email. Reach out directly.</div></details>
-      <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. The contact info you put on each listing is visible to anyone browsing — share only what you're comfortable with. We only ask for your <strong>area</strong>, not your full address.</div></details>
-      <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when listing. Use photos. Ask for more if you're unsure.</div></details>
-      <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Mark it as claimed from your profile or the listing. It'll be removed from the public feed. You can also un-claim if needed.</div></details>
-      <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll to the bottom and click <strong>Delete my account</strong>. To fully erase your email, email us at hello@greencycle.om.</div></details>
-      <details class="faq-item"><summary>I saw a spammy listing — what do I do?</summary><div class="faq-answer">Email us at hello@greencycle.om and we'll remove it.</div></details>
+      <details class="faq-item"><summary>Is GreenCycle free?</summary><div class="faq-answer">Yes, completely. No fees, no commission.</div></details>
+      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click + List a book, fill in details, post.</div></details>
+      <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click the listing, see contact info, reach out directly.</div></details>
+      <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. The contact info on each listing is visible — share only what you're comfortable with. We only ask for your area, never full address.</div></details>
+      <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when listing. Use photos. Ask for more if unsure.</div></details>
+      <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Mark it as claimed. It'll be removed from the public feed. You can un-claim if needed.</div></details>
+      <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll down → Delete my account. Your email is retained — email us to fully erase.</div></details>
+      <details class="faq-item"><summary>I saw a spammy listing.</summary><div class="faq-answer">Email hello@greencycle.om and we'll remove it.</div></details>
     </div>
   `
   document.querySelector('main').appendChild(section)
@@ -812,7 +812,28 @@ function closeCreateModal() {
 }
 
 // ---- LISTINGS ----
+function renderLoadingSkeleton() {
+  const grid = document.getElementById('listings-grid')
+  if (!grid) return
+  grid.innerHTML = Array.from({length: 6}).map(() => `
+    <article class="skeleton-card">
+      <div class="skeleton skeleton-image"></div>
+      <div class="skeleton-body">
+        <div class="skeleton skeleton-line title"></div>
+        <div class="skeleton skeleton-line short"></div>
+        <div class="skeleton-meta">
+          <span class="skeleton skeleton-tag"></span>
+          <span class="skeleton skeleton-tag"></span>
+          <span class="skeleton skeleton-tag"></span>
+        </div>
+      </div>
+    </article>
+  `).join('')
+  document.getElementById('listings-meta').textContent = ''
+}
+
 async function loadListings() {
+  renderLoadingSkeleton()
   const sixMonthsAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30 * 6).toISOString()
   const { data, error } = await supabase
     .from('listings').select('*').eq('status', 'available')
@@ -826,8 +847,21 @@ async function loadListings() {
     return
   }
   allListings = data || []
+  ensureAreaFilter()
   updateSubjectFilterOptions()
+  updateAreaFilterOptions()
   renderListings(allListings)
+  openListingFromHash()
+}
+
+function ensureAreaFilter() {
+  if (document.getElementById('area-filter')) return
+  const filterGrid = document.querySelector('.filter-grid')
+  if (!filterGrid) return
+  const select = document.createElement('select')
+  select.id = 'area-filter'
+  filterGrid.appendChild(select)
+  select.addEventListener('change', applyFilters)
 }
 
 function updateSubjectFilterOptions() {
@@ -837,6 +871,16 @@ function updateSubjectFilterOptions() {
   const merged = [...new Set([...BASE_SUBJECTS, ...fromListings])].sort()
   const currentValue = select.value
   select.innerHTML = `<option value="">All subjects</option>` + merged.map(s => `<option>${escapeHtml(s)}</option>`).join('')
+  if (currentValue && merged.includes(currentValue)) select.value = currentValue
+}
+
+function updateAreaFilterOptions() {
+  const select = document.getElementById('area-filter')
+  if (!select) return
+  const fromListings = [...new Set(allListings.map(l => l.area).filter(Boolean))]
+  const merged = [...new Set([...ALL_AREAS, ...fromListings])].sort()
+  const currentValue = select.value
+  select.innerHTML = `<option value="">All areas</option>` + merged.map(a => `<option>${escapeHtml(a)}</option>`).join('')
   if (currentValue && merged.includes(currentValue)) select.value = currentValue
 }
 
@@ -880,15 +924,59 @@ function applyFilters() {
   const grade = document.getElementById('grade-filter').value
   const subject = document.getElementById('subject-filter').value
   const condition = document.getElementById('condition-filter').value
+  const area = document.getElementById('area-filter') ? document.getElementById('area-filter').value : ''
   const filtered = allListings.filter(l => {
     if (search && !l.title.toLowerCase().includes(search) && !l.subject.toLowerCase().includes(search)) return false
     if (grade && l.grade_level !== grade) return false
     if (subject && l.subject !== subject) return false
     if (condition && l.condition !== condition) return false
+    if (area && l.area !== area) return false
     return true
   })
   renderListings(filtered)
 }
+
+// ---- SHARING & URL ROUTING ----
+async function shareListing(listing) {
+  const url = `${window.location.origin}${window.location.pathname}#listing/${listing.id}`
+  const shareData = {
+    title: `${listing.title} — GreenCycle`,
+    text: `Check out this book on GreenCycle: ${listing.title}`,
+    url,
+  }
+  if (navigator.share) {
+    try { await navigator.share(shareData) }
+    catch (err) { if (err.name !== 'AbortError') console.error(err) }
+  } else {
+    try {
+      await navigator.clipboard.writeText(url)
+      showToast('Link copied — paste it anywhere', 'success')
+    } catch {
+      showToast('Couldn\'t copy automatically. Link: ' + url, 'error')
+    }
+  }
+}
+
+function getListingIdFromHash() {
+  const m = window.location.hash.match(/^#listing\/(.+)$/)
+  return m ? m[1] : null
+}
+
+async function openListingFromHash() {
+  const id = getListingIdFromHash()
+  if (!id) return
+  let listing = allListings.find(l => l.id === id)
+  if (!listing) {
+    const { data } = await supabase.from('listings').select('*').eq('id', id).maybeSingle()
+    listing = data
+  }
+  if (listing) showModal(listing)
+  else showToast('Listing not found.', 'error')
+}
+
+window.addEventListener('hashchange', () => {
+  if (getListingIdFromHash()) openListingFromHash()
+})
 
 function showModal(listing) {
   const modal = document.getElementById('modal')
@@ -916,24 +1004,16 @@ function showModal(listing) {
     `
   }
 
-  let actionsHtml = ''
-  if (isOwner) {
-    const claimId = isClaimed ? 'unclaim-btn' : 'claim-btn'
-    const claimText = isClaimed ? 'Mark available' : 'Mark claimed'
-    actionsHtml = `
-      <div class="owner-actions">
+  let actionsHtml = `
+    <div class="owner-actions">
+      <button class="btn-secondary action-share" id="share-btn">Share</button>
+      ${isOwner ? `
         <button class="btn-secondary" id="edit-btn">Edit</button>
-        <button class="btn-secondary action-claim" id="${claimId}">${claimText}</button>
+        <button class="btn-secondary action-claim" id="${isClaimed ? 'unclaim-btn' : 'claim-btn'}">${isClaimed ? 'Mark available' : 'Mark claimed'}</button>
         <button class="btn-secondary action-delete" id="delete-btn">Delete</button>
-      </div>
-    `
-  } else if (isAdmin) {
-    actionsHtml = `
-      <div class="owner-actions">
-        <button class="btn-secondary action-delete" id="delete-btn">Delete (admin)</button>
-      </div>
-    `
-  }
+      ` : (isAdmin ? `<button class="btn-secondary action-delete" id="delete-btn">Delete (admin)</button>` : '')}
+    </div>
+  `
 
   modal.innerHTML = `
     <div class="modal">
@@ -962,9 +1042,17 @@ function showModal(listing) {
     </div>
   `
   modal.classList.remove('hidden')
+
+  // Update URL hash for shareable link
+  if (window.location.hash !== `#listing/${listing.id}`) {
+    history.replaceState(null, '', `#listing/${listing.id}`)
+  }
+
   modal.querySelector('.modal-close').addEventListener('click', closeModal)
   modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
   modal.addEventListener('click', closeModal)
+
+  modal.querySelector('#share-btn').addEventListener('click', () => shareListing(listing))
 
   if (photos.length > 1) {
     let idx = 0
@@ -1039,6 +1127,9 @@ async function refreshCurrentView() {
 
 function closeModal() {
   document.getElementById('modal').classList.add('hidden')
+  if (window.location.hash.startsWith('#listing/')) {
+    history.replaceState(null, '', window.location.pathname)
+  }
 }
 
 function getContactLink(method, value) {
