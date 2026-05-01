@@ -75,15 +75,17 @@ function updateNav() {
       ${viewLink}
       <button class="btn-primary" id="new-listing-btn">+ List a book</button>
       <span class="nav-user">${escapeHtml(displayEmail)}</span>
-      ${isAdmin ? '<span class="admin-badge">ADMIN</span>' : ''}
+      ${isAdmin ? '<a href="#" class="admin-badge admin-link" id="admin-link">ADMIN</a>' : ''}
       <button class="btn-secondary" id="signout-btn">Sign out</button>
     `
     document.getElementById('signout-btn').addEventListener('click', signOut)
     document.getElementById('new-listing-btn').addEventListener('click', () => showCreateListingModal())
     const profileLink = document.getElementById('profile-link')
     const browseLink = document.getElementById('browse-link')
+    const adminLink = document.getElementById('admin-link')
     if (profileLink) profileLink.addEventListener('click', (e) => { e.preventDefault(); showProfileView() })
     if (browseLink) browseLink.addEventListener('click', (e) => { e.preventDefault(); showBrowseView() })
+    if (adminLink) adminLink.addEventListener('click', (e) => { e.preventDefault(); showAdminView() })
   } else {
     navAuth.innerHTML = `
       <a href="#browse">Browse</a>
@@ -307,7 +309,7 @@ function hideAllSections() {
     const el = document.querySelector(sel)
     if (el) el.classList.add('hidden-section')
   })
-  ;['profile-section', 'about-section', 'faq-section'].forEach(id => {
+  ;['profile-section', 'about-section', 'faq-section', 'admin-section'].forEach(id => {
     const el = document.getElementById(id)
     if (el) el.classList.add('hidden-section')
   })
@@ -348,6 +350,16 @@ function showFaqView() {
   hideAllSections()
   ensureFaqSection().classList.remove('hidden-section')
   updateNav()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function showAdminView() {
+  if (!isAdmin) return
+  currentView = 'admin'
+  hideAllSections()
+  ensureAdminSection().classList.remove('hidden-section')
+  updateNav()
+  loadAdminStats()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -459,15 +471,161 @@ function ensureFaqSection() {
       <details class="faq-item"><summary>Is GreenCycle free?</summary><div class="faq-answer">Yes, completely. No fees, no commission.</div></details>
       <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click + List a book, fill in details, post.</div></details>
       <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click the listing, see contact info, reach out directly.</div></details>
-      <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. The contact info on each listing is visible — share only what you're comfortable with. We only ask for your area, never full address.</div></details>
+      <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. We only ask for your area, never full address.</div></details>
       <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when listing. Use photos. Ask for more if unsure.</div></details>
       <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Mark it as claimed. It'll be removed from the public feed. You can un-claim if needed.</div></details>
-      <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll down → Delete my account. Your email is retained — email us to fully erase.</div></details>
+      <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll down → Delete my account.</div></details>
       <details class="faq-item"><summary>I saw a spammy listing.</summary><div class="faq-answer">Email hello@greencycle.om and we'll remove it.</div></details>
     </div>
   `
   document.querySelector('main').appendChild(section)
   return section
+}
+
+function ensureAdminSection() {
+  let section = document.getElementById('admin-section')
+  if (section) return section
+  section = document.createElement('section')
+  section.id = 'admin-section'
+  section.className = 'admin-section'
+  section.innerHTML = `
+    <div class="admin-header">
+      <h1>Admin dashboard</h1>
+      <p>Overview of GreenCycle activity. Visible only to admins.</p>
+    </div>
+    <div id="admin-content"><div class="loading">Loading stats…</div></div>
+  `
+  document.querySelector('main').appendChild(section)
+  return section
+}
+
+async function loadAdminStats() {
+  if (!isAdmin) return
+  const content = document.getElementById('admin-content')
+  if (!content) return
+
+  const { data: listings, error } = await supabase.from('listings').select('*').order('created_at', { ascending: false })
+  if (error) {
+    content.innerHTML = `<div class="empty">Couldn't load stats: ${escapeHtml(error.message)}</div>`
+    return
+  }
+
+  const all = listings || []
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const stats = {
+    total: all.length,
+    available: all.filter(l => l.status === 'available').length,
+    claimed: all.filter(l => l.status === 'claimed').length,
+    last7Days: all.filter(l => new Date(l.created_at).getTime() > sevenDaysAgo).length,
+    totalPhotos: all.reduce((sum, l) => sum + (Array.isArray(l.photos) ? l.photos.length : 0), 0),
+    byArea: countBy(all, 'area'),
+    bySubject: countBy(all, 'subject'),
+    byGrade: countBy(all, 'grade_level'),
+    recent: all.slice(0, 10),
+  }
+
+  content.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-num">${stats.total}</div>
+        <div class="stat-label">Total listings</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${stats.available}</div>
+        <div class="stat-label">Available</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${stats.claimed}</div>
+        <div class="stat-label">Claimed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${stats.last7Days}</div>
+        <div class="stat-label">Posted (last 7 days)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${stats.totalPhotos}</div>
+        <div class="stat-label">Photos uploaded</div>
+      </div>
+    </div>
+
+    <div class="admin-grid">
+      <div class="admin-card">
+        <h3>By area</h3>
+        ${renderBars(stats.byArea)}
+      </div>
+      <div class="admin-card">
+        <h3>By subject</h3>
+        ${renderBars(stats.bySubject)}
+      </div>
+      <div class="admin-card">
+        <h3>By grade</h3>
+        ${renderBars(stats.byGrade)}
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <h3>Recent listings</h3>
+      ${stats.recent.length === 0 ? '<p class="muted">No listings yet.</p>' : `
+        <table class="admin-table">
+          <thead>
+            <tr><th>Title</th><th>Area</th><th>Subject</th><th>Status</th><th>When</th></tr>
+          </thead>
+          <tbody>
+            ${stats.recent.map(l => `
+              <tr>
+                <td>${escapeHtml(l.title)}</td>
+                <td>${escapeHtml(l.area || '—')}</td>
+                <td>${escapeHtml(l.subject || '—')}</td>
+                <td><span class="admin-status-chip ${l.status}">${l.status}</span></td>
+                <td class="muted">${formatRelativeTime(l.created_at)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `}
+    </div>
+  `
+}
+
+function countBy(items, key) {
+  const counts = {}
+  for (const item of items) {
+    const v = item[key]
+    if (v == null || v === '') continue
+    counts[v] = (counts[v] || 0) + 1
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])
+}
+
+function renderBars(entries, limit = 8) {
+  if (entries.length === 0) return '<p class="muted">No data yet.</p>'
+  const visible = entries.slice(0, limit)
+  const more = entries.length - limit
+  const max = Math.max(...visible.map(([_, c]) => c), 1)
+  const bars = visible.map(([label, count]) => {
+    const pct = (count / max) * 100
+    return `
+      <div class="bar-row">
+        <div class="bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width: ${pct}%"></div></div>
+        <div class="bar-count">${count}</div>
+      </div>
+    `
+  }).join('')
+  return bars + (more > 0 ? `<div class="muted" style="margin-top: 8px;">+ ${more} more</div>` : '')
+}
+
+function formatRelativeTime(iso) {
+  if (!iso) return '—'
+  const diff = Date.now() - new Date(iso).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return new Date(iso).toLocaleDateString()
 }
 
 async function loadProfile() {
@@ -1043,7 +1201,6 @@ function showModal(listing) {
   `
   modal.classList.remove('hidden')
 
-  // Update URL hash for shareable link
   if (window.location.hash !== `#listing/${listing.id}`) {
     history.replaceState(null, '', `#listing/${listing.id}`)
   }
@@ -1123,6 +1280,7 @@ async function deleteListing(id, asAdmin = false) {
 async function refreshCurrentView() {
   if (currentView === 'browse') await loadListings()
   else if (currentView === 'profile') await loadMyListings()
+  else if (currentView === 'admin') await loadAdminStats()
 }
 
 function closeModal() {
