@@ -98,3 +98,18 @@ footer a { color: var(--green-dark); }
   .nav-links a { font-size: 0.9rem; }
   .nav-user { display: none; }
 }
+.create-modal { max-width: 520px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.auth-label textarea, .auth-label select { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: var(--bg); color: var(--text); margin-top: 5px; }
+.auth-label textarea { resize: vertical; min-height: 70px; }
+.auth-label textarea:focus, .auth-label select:focus { outline: none; border-color: var(--sage); background: white; }
+.owner-actions { display: flex; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border); }
+.owner-actions button { flex: 1; }
+.action-claim { color: var(--green-dark); border-color: var(--sage-light); }
+.action-claim:hover { background: var(--sage-light); border-color: var(--sage); }
+.action-delete { color: var(--error); border-color: #f3d4ce; }
+.action-delete:hover { background: #fbe9e4; border-color: var(--error); }
+
+@media (max-width: 480px) {
+  .form-row { grid-template-columns: 1fr; }
+}
