@@ -345,3 +345,10 @@ footer a { color: var(--green-dark); }
 .report-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .report-actions button { padding: 6px 12px; font-size: 0.85rem; }
 .no-reports { padding: 20px; text-align: center; color: var(--text-muted); }
+/* Pagination */
+.pagination { display: flex; gap: 6px; justify-content: center; margin-top: 32px; flex-wrap: wrap; padding: 0 24px; }
+.pag-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; font-family: inherit; font-size: 0.95rem; font-weight: 500; cursor: pointer; min-width: 38px; transition: background 0.15s, border-color 0.15s; }
+.pag-btn:hover:not(:disabled):not(.active) { background: var(--sage-light); border-color: var(--sage); color: var(--green-dark); }
+.pag-btn.active { background: var(--green-dark); color: white; border-color: var(--green-dark); cursor: default; }
+.pag-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pag-ellipsis { padding: 8px 4px; color: var(--text-muted); user-select: none; }
