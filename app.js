@@ -422,7 +422,7 @@ function ensureProfileSection() {
     </div>
     <div class="profile-card danger-zone" style="margin-top: 40px;">
       <h3>Danger zone</h3>
-      <p>Removes all your listings and clears your profile data. Your email is retained — to have it fully erased, email us at hello@GreenShelf.online.</p>
+      <p>Removes all your listings and clears your profile data. Your email is retained — to have it fully erased, email us at greenshelf1320@gmail.com.</p>
       <button type="button" class="btn-danger" id="delete-account-btn">Delete my account</button>
     </div>
   `
@@ -481,7 +481,7 @@ function ensureFaqSection() {
   section.innerHTML = `
     <div class="faq-header">
       <h1>Questions you might have</h1>
-      <p>Short answers. If yours isn't here, email hello@GreenShelf.online.</p>
+      <p>Short answers. If yours isn't here, email greenshelf1320@gmail.com.</p>
     </div>
     <div class="faq-list">
       <details class="faq-item"><summary>Is GreenShelf free?</summary><div class="faq-answer">Yes, completely. No fees, no commission.</div></details>
@@ -759,7 +759,7 @@ async function saveProfile(e) {
 async function deleteAccount() {
   const ok = await customConfirm({
     title: 'Delete your account?',
-    message: 'All your listings will be permanently removed and your profile cleared. Your email is retained — to have it fully erased, email hello@GreenShelf.online.',
+    message: 'All your listings will be permanently removed and your profile cleared. Your email is retained — to have it fully erased, email greenshelf1320@gmail.com.',
     confirmText: 'Yes, delete everything',
     danger: true,
   })
