@@ -141,3 +141,18 @@ footer a { color: var(--green-dark); }
 .password-wrap input { margin-top: 0 !important; padding-right: 64px; }
 .password-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; font-weight: 500; padding: 4px 10px; font-family: inherit; }
 .password-toggle:hover { color: var(--green-dark); }
+/* Toast notifications */
+#toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 10px; pointer-events: none; align-items: center; }
+.toast { background: var(--text); color: var(--bg); padding: 12px 22px; border-radius: 10px; font-size: 0.95rem; font-weight: 500; box-shadow: 0 8px 24px rgba(31,46,37,0.2); opacity: 0; transform: translateY(10px); transition: opacity 0.25s, transform 0.25s; pointer-events: auto; max-width: 90vw; }
+.toast.toast-visible { opacity: 1; transform: translateY(0); }
+.toast.toast-success { background: var(--green-dark); color: white; }
+.toast.toast-error { background: var(--error); color: white; }
+
+/* Confirm dialog */
+.confirm-modal { max-width: 420px; }
+.confirm-body { padding: 28px; }
+.confirm-title { font-family: 'Fraunces', serif; font-size: 1.25rem; color: var(--text); margin-bottom: 8px; font-weight: 600; }
+.confirm-message { color: var(--text-muted); margin-bottom: 22px; font-size: 0.95rem; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-danger { background: var(--error); color: white; }
+.btn-danger:hover { background: #b04936; }
