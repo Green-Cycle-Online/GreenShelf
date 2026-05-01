@@ -8,6 +8,7 @@ const AREAS_MUSCAT = ['Al Khoud', 'Al Khuwair', 'Al Hail', 'Al Mabela', 'Al Mawa
 const AREAS_OTHER_OMAN = ['Bahla', 'Barka', 'Buraimi', 'Ibri', 'Khasab', 'Liwa', 'Nizwa', 'Rustaq', 'Saham', 'Salalah', 'Sohar', 'Sur', 'Suwaiq']
 const ALL_AREAS = [...AREAS_MUSCAT, ...AREAS_OTHER_OMAN]
 const MAX_PHOTOS = 4
+const PAGE_SIZE = 24
 const REPORT_REASONS = {
   spam: 'Spam or scam',
   inappropriate: 'Inappropriate content',
@@ -33,6 +34,8 @@ let currentUser = null
 let currentProfile = null
 let isAdmin = false
 let currentView = 'browse'
+let currentPage = 1
+let currentFilteredListings = []
 
 // ---- TOASTS & CONFIRM ----
 function showToast(message, type = 'info') {
@@ -1142,6 +1145,8 @@ function renderLoadingSkeleton() {
     </article>
   `).join('')
   document.getElementById('listings-meta').textContent = ''
+  const pag = document.getElementById('pagination')
+  if (pag) pag.innerHTML = ''
 }
 
 async function loadListings() {
@@ -1162,7 +1167,8 @@ async function loadListings() {
   ensureAreaFilter()
   updateSubjectFilterOptions()
   updateAreaFilterOptions()
-  renderListings(allListings)
+  currentPage = 1
+  applyFilters()
   openListingFromHash()
 }
 
@@ -1223,12 +1229,83 @@ function renderCard(l) {
 function renderListings(listings) {
   const grid = document.getElementById('listings-grid')
   const meta = document.getElementById('listings-meta')
-  meta.textContent = listings.length === 1 ? '1 book available' : `${listings.length} books available`
+
+  currentFilteredListings = listings
+  const totalPages = Math.max(1, Math.ceil(listings.length / PAGE_SIZE))
+  if (currentPage > totalPages) currentPage = 1
+
   if (listings.length === 0) {
+    meta.textContent = '0 books available'
     grid.innerHTML = '<div class="empty">No books match your filters. Try clearing them.</div>'
+    renderPagination(1)
     return
   }
-  grid.innerHTML = listings.map(renderCard).join('')
+
+  const start = (currentPage - 1) * PAGE_SIZE
+  const end = Math.min(start + PAGE_SIZE, listings.length)
+  const pageItems = listings.slice(start, end)
+
+  meta.textContent = listings.length === 1
+    ? '1 book available'
+    : totalPages === 1
+      ? `${listings.length} books available`
+      : `${listings.length} books · showing ${start + 1}–${end}`
+
+  grid.innerHTML = pageItems.map(renderCard).join('')
+  renderPagination(totalPages)
+}
+
+function renderPagination(totalPages) {
+  const listingsSection = document.querySelector('.listings')
+  if (!listingsSection) return
+  let pag = document.getElementById('pagination')
+  if (!pag) {
+    pag = document.createElement('div')
+    pag.id = 'pagination'
+    pag.className = 'pagination'
+    listingsSection.appendChild(pag)
+  }
+
+  if (totalPages <= 1) {
+    pag.innerHTML = ''
+    return
+  }
+
+  // Build the list of page numbers, with ellipsis when needed
+  const pages = []
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (currentPage > 3) pages.push('...')
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+      pages.push(i)
+    }
+    if (currentPage < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+  }
+
+  pag.innerHTML = `
+    <button class="pag-btn" ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}" aria-label="Previous page">‹</button>
+    ${pages.map(p => p === '...'
+      ? `<span class="pag-ellipsis">…</span>`
+      : `<button class="pag-btn ${p === currentPage ? 'active' : ''}" data-page="${p}" aria-label="Page ${p}">${p}</button>`
+    ).join('')}
+    <button class="pag-btn" ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}" aria-label="Next page">›</button>
+  `
+
+  pag.querySelectorAll('.pag-btn[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return
+      const p = Number(btn.dataset.page)
+      if (p >= 1 && p <= totalPages && p !== currentPage) {
+        currentPage = p
+        renderListings(currentFilteredListings)
+        const browseSection = document.getElementById('browse')
+        if (browseSection) browseSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    })
+  })
 }
 
 function applyFilters() {
@@ -1245,6 +1322,7 @@ function applyFilters() {
     if (area && l.area !== area) return false
     return true
   })
+  currentPage = 1
   renderListings(filtered)
 }
 
@@ -1503,11 +1581,9 @@ document.addEventListener('keydown', (e) => {
   }
 })
 
-// Render initial nav immediately so Sign in button always shows
 updateNav()
 loadListings()
 
-// Session restore with timeout + auto-clear to prevent stuck states
 ;(async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
