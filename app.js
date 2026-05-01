@@ -1504,10 +1504,21 @@ document.addEventListener('keydown', (e) => {
 })
 
 // Init: explicitly wait for session restoration before rendering nav
+// Render initial nav immediately so Sign in button always shows
+updateNav()
+loadListings()
+
+// Restore session in background (won't block UI)
+// Render initial nav immediately so Sign in button always shows
+updateNav()
+loadListings()
+
+// Restore session in background (won't block UI)
 ;(async () => {
   const { data: { session } } = await supabase.auth.getSession()
-  currentUser = session?.user || null
-  if (currentUser) await loadCurrentUserProfile()
-  updateNav()
-  loadListings()
+  if (session?.user) {
+    currentUser = session.user
+    await loadCurrentUserProfile()
+    updateNav()
+  }
 })()
