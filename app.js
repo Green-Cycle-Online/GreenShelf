@@ -1513,9 +1513,21 @@ loadListings()
 updateNav()
 loadListings()
 
-// Restore session in background (won't block UI)
+// Aggressive session restore: try getSession, then refreshSession as fallback
 ;(async () => {
-  const { data: { session } } = await supabase.auth.getSession()
+  let session = null
+  try {
+    const result = await supabase.auth.getSession()
+    session = result.data?.session
+  } catch (e) { console.error('getSession failed:', e) }
+
+  if (!session) {
+    try {
+      const result = await supabase.auth.refreshSession()
+      session = result.data?.session
+    } catch (e) { console.error('refreshSession failed:', e) }
+  }
+
   if (session?.user) {
     currentUser = session.user
     await loadCurrentUserProfile()
