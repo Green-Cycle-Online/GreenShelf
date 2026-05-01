@@ -2,6 +2,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const SUPABASE_URL = 'https://wvladknkebqiqutboohw.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_J0JrrWBQipfP201_L3A0pw_UGF6R1qL'
+const PHOTO_BUCKET = 'book-photos'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let allListings = []
@@ -144,6 +145,16 @@ function showCreateListingModal() {
         <h2 class="auth-title">List a book</h2>
         <p class="auth-subtitle">Pass it on to another student. No money, no fuss.</p>
         <form id="create-form">
+          <label class="auth-label">Photo (optional)
+            <div class="photo-upload-area" id="photo-upload-area">
+              <input type="file" name="photo" id="photo-input" accept="image/*" style="display: none;">
+              <div class="photo-placeholder" id="photo-placeholder">📸 Click to add a photo</div>
+              <div class="photo-preview hidden" id="photo-preview">
+                <img id="photo-preview-img" alt="Preview">
+                <button type="button" class="photo-remove" id="photo-remove" aria-label="Remove photo">×</button>
+              </div>
+            </div>
+          </label>
           <label class="auth-label">Book title
             <input type="text" name="title" required>
           </label>
@@ -198,6 +209,47 @@ function showCreateListingModal() {
   `
   modal.classList.remove('hidden')
 
+  const photoArea = modal.querySelector('#photo-upload-area')
+  const photoInput = modal.querySelector('#photo-input')
+  const photoPlaceholder = modal.querySelector('#photo-placeholder')
+  const photoPreview = modal.querySelector('#photo-preview')
+  const photoPreviewImg = modal.querySelector('#photo-preview-img')
+  const photoRemove = modal.querySelector('#photo-remove')
+
+  photoArea.addEventListener('click', (e) => {
+    if (e.target === photoRemove || photoRemove.contains(e.target)) return
+    photoInput.click()
+  })
+
+  photoInput.addEventListener('change', (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      alert('Please pick an image file.')
+      photoInput.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image is over 5MB. Try a smaller one.')
+      photoInput.value = ''
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      photoPreviewImg.src = ev.target.result
+      photoPlaceholder.classList.add('hidden')
+      photoPreview.classList.remove('hidden')
+    }
+    reader.readAsDataURL(file)
+  })
+
+  photoRemove.addEventListener('click', (e) => {
+    e.stopPropagation()
+    photoInput.value = ''
+    photoPlaceholder.classList.remove('hidden')
+    photoPreview.classList.add('hidden')
+  })
+
   modal.querySelector('#create-close').addEventListener('click', closeCreateModal)
   modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
   modal.addEventListener('click', (e) => { if (e.target === modal) closeCreateModal() })
@@ -209,6 +261,29 @@ function showCreateListingModal() {
     const errorDiv = modal.querySelector('#create-error')
     errorDiv.textContent = ''
     submitBtn.disabled = true
+
+    let photoUrl = null
+    const file = form.photo.files[0]
+    if (file) {
+      submitBtn.textContent = 'Uploading photo…'
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const fileName = `${currentUser.id}/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .upload(fileName, file)
+      if (uploadError) {
+        console.error(uploadError)
+        errorDiv.textContent = `Couldn't upload photo: ${uploadError.message}`
+        submitBtn.disabled = false
+        submitBtn.textContent = 'Post listing'
+        return
+      }
+      const { data: { publicUrl } } = supabase.storage
+        .from(PHOTO_BUCKET)
+        .getPublicUrl(fileName)
+      photoUrl = publicUrl
+    }
+
     submitBtn.textContent = 'Posting…'
 
     const data = {
@@ -222,6 +297,7 @@ function showCreateListingModal() {
       contact_method: form.contact_method.value,
       contact_value: form.contact_value.value.trim(),
       owner_id: currentUser.id,
+      photo_url: photoUrl,
     }
 
     const { error } = await supabase.from('listings').insert(data)
