@@ -306,18 +306,17 @@ async function loadCurrentUserProfile() {
   isAdmin = !!data.is_admin
 }
 
-supabase.auth.onAuthStateChange(async (event, session) => {
+supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     showSetNewPasswordModal()
     return
   }
   currentUser = session?.user || null
-  await loadCurrentUserProfile()
+  updateNav()
+  loadCurrentUserProfile().then(() => updateNav()).catch(console.error)
   if (!currentUser && currentView !== 'browse' && currentView !== 'about' && currentView !== 'faq') {
     showBrowseView()
-    return
   }
-  updateNav()
 })
 
 // ---- VIEW SWITCHING ----
