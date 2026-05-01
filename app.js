@@ -9,7 +9,7 @@ let allListings = []
 let myListings = []
 let currentUser = null
 let currentProfile = null
-let currentView = 'browse' // 'browse' | 'profile'
+let currentView = 'browse'
 
 // ---- AUTH ----
 function updateNav() {
@@ -58,7 +58,10 @@ function showAuthModal() {
             <input type="email" id="auth-email" required autocomplete="email">
           </label>
           <label class="auth-label">Password
-            <input type="password" id="auth-password" required minlength="6" autocomplete="current-password">
+            <div class="password-wrap">
+              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password">
+              <button type="button" class="password-toggle" id="password-toggle">Show</button>
+            </div>
           </label>
           <div class="auth-error" id="auth-error"></div>
           <button type="submit" class="btn-primary auth-submit" id="auth-submit">Sign in</button>
@@ -68,10 +71,16 @@ function showAuthModal() {
   `
   modal.classList.remove('hidden')
 
+  const pwToggle = modal.querySelector('#password-toggle')
+  const pwInput = modal.querySelector('#auth-password')
+  pwToggle.addEventListener('click', () => {
+    pwInput.type = pwInput.type === 'password' ? 'text' : 'password'
+    pwToggle.textContent = pwInput.type === 'password' ? 'Show' : 'Hide'
+  })
+
   let mode = 'signin'
   const tabs = modal.querySelectorAll('.auth-tab')
   const submitBtn = modal.querySelector('#auth-submit')
-  const passwordInput = modal.querySelector('#auth-password')
   const errorDiv = modal.querySelector('#auth-error')
 
   tabs.forEach(tab => {
@@ -80,7 +89,7 @@ function showAuthModal() {
       tab.classList.add('active')
       mode = tab.dataset.mode
       submitBtn.textContent = mode === 'signin' ? 'Sign in' : 'Create account'
-      passwordInput.autocomplete = mode === 'signin' ? 'current-password' : 'new-password'
+      pwInput.autocomplete = mode === 'signin' ? 'current-password' : 'new-password'
       errorDiv.textContent = ''
     })
   })
@@ -88,7 +97,7 @@ function showAuthModal() {
   modal.querySelector('#auth-form').addEventListener('submit', async (e) => {
     e.preventDefault()
     const email = modal.querySelector('#auth-email').value.trim()
-    const password = modal.querySelector('#auth-password').value
+    const password = pwInput.value
     errorDiv.textContent = ''
     submitBtn.disabled = true
     submitBtn.textContent = mode === 'signin' ? 'Signing in…' : 'Creating account…'
@@ -358,6 +367,9 @@ function showCreateListingModal() {
               </select>
             </label>
           </div>
+          <label class="auth-label" id="custom-subject-wrap" style="display: none;">Specify subject
+            <input type="text" name="custom_subject" placeholder="e.g. Geography, Computer Science">
+          </label>
           <label class="auth-label">School (optional)
             <input type="text" name="school" placeholder="e.g. British School Muscat" value="${escapeHtml((currentProfile && currentProfile.school) || '')}">
           </label>
@@ -394,6 +406,20 @@ function showCreateListingModal() {
     </div>
   `
   modal.classList.remove('hidden')
+
+  const subjectSelect = modal.querySelector('select[name="subject"]')
+  const customSubjectWrap = modal.querySelector('#custom-subject-wrap')
+  const customSubjectInput = customSubjectWrap.querySelector('input[name="custom_subject"]')
+  subjectSelect.addEventListener('change', () => {
+    if (subjectSelect.value === 'Other') {
+      customSubjectWrap.style.display = ''
+      customSubjectInput.required = true
+    } else {
+      customSubjectWrap.style.display = 'none'
+      customSubjectInput.required = false
+      customSubjectInput.value = ''
+    }
+  })
 
   const photoInput = modal.querySelector('#photo-input')
   const photoPlaceholder = modal.querySelector('#photo-placeholder')
@@ -458,9 +484,13 @@ function showCreateListingModal() {
 
     submitBtn.textContent = 'Posting…'
 
+    const finalSubject = (form.subject.value === 'Other' && form.custom_subject && form.custom_subject.value.trim())
+      ? form.custom_subject.value.trim()
+      : form.subject.value
+
     const data = {
       title: form.title.value.trim(),
-      subject: form.subject.value,
+      subject: finalSubject,
       grade_level: form.grade_level.value,
       school: form.school.value.trim() || null,
       condition: form.condition.value,
