@@ -451,7 +451,7 @@ function ensureAboutSection() {
           <div class="about-photo-fallback" style="display:none;">H</div>
         </div>
         <h3>Hitesh</h3>
-        <p>[Add your bio here. A sentence or two about who you are, where you study, and why you helped build GreenShelf.]</p>
+        <p>My name is Hitesh and I really like side quest projects such as GreenShelf. I'm going to be joining University of Warwick soon and I hope GreenShelf helps you to find or give books away :)</p>
       </div>
       <div class="about-person">
         <div class="about-photo">
@@ -459,7 +459,7 @@ function ensureAboutSection() {
           <div class="about-photo-fallback" style="display:none;">A</div>
         </div>
         <h3>Anshul</h3>
-        <p>[Add Anshul's bio here. A sentence or two about him.]</p>
+        <p>My name is Anshul and I really like doing maths (go follow bobodoesmaths on insta). I'll be going to Warwick with Hitesh where we'll keep doing dumb stuff together</p>
       </div>
     </div>
     <div class="about-mission">
