@@ -6,7 +6,10 @@ const PHOTO_BUCKET = 'book-photos'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let allListings = []
+let myListings = []
 let currentUser = null
+let currentProfile = null
+let currentView = 'browse' // 'browse' | 'profile'
 
 // ---- AUTH ----
 function updateNav() {
@@ -14,14 +17,21 @@ function updateNav() {
   if (currentUser) {
     const email = currentUser.email
     const displayEmail = email.length > 22 ? email.slice(0, 20) + '…' : email
+    const viewLink = currentView === 'browse'
+      ? `<a href="#" id="profile-link">My profile</a>`
+      : `<a href="#" id="browse-link">Browse</a>`
     navAuth.innerHTML = `
-      <a href="#browse">Browse</a>
+      ${viewLink}
       <button class="btn-primary" id="new-listing-btn">+ List a book</button>
       <span class="nav-user">${escapeHtml(displayEmail)}</span>
       <button class="btn-secondary" id="signout-btn">Sign out</button>
     `
     document.getElementById('signout-btn').addEventListener('click', signOut)
     document.getElementById('new-listing-btn').addEventListener('click', showCreateListingModal)
+    const profileLink = document.getElementById('profile-link')
+    const browseLink = document.getElementById('browse-link')
+    if (profileLink) profileLink.addEventListener('click', (e) => { e.preventDefault(); showProfileView() })
+    if (browseLink) browseLink.addEventListener('click', (e) => { e.preventDefault(); showBrowseView() })
   } else {
     navAuth.innerHTML = `
       <a href="#browse">Browse</a>
@@ -122,8 +132,183 @@ async function signOut() {
 
 supabase.auth.onAuthStateChange((event, session) => {
   currentUser = session?.user || null
+  if (!currentUser && currentView === 'profile') {
+    showBrowseView()
+    return
+  }
   updateNav()
 })
+
+// ---- VIEW SWITCHING ----
+function showProfileView() {
+  if (!currentUser) return
+  currentView = 'profile'
+  document.querySelector('.hero').classList.add('hidden-section')
+  document.getElementById('browse').classList.add('hidden-section')
+  document.querySelector('.listings').classList.add('hidden-section')
+  ensureProfileSection().classList.remove('hidden-section')
+  updateNav()
+  loadProfile()
+  loadMyListings()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function showBrowseView() {
+  currentView = 'browse'
+  document.querySelector('.hero').classList.remove('hidden-section')
+  document.getElementById('browse').classList.remove('hidden-section')
+  document.querySelector('.listings').classList.remove('hidden-section')
+  const ps = document.getElementById('profile-section')
+  if (ps) ps.classList.add('hidden-section')
+  updateNav()
+  loadListings()
+}
+
+function ensureProfileSection() {
+  let section = document.getElementById('profile-section')
+  if (section) return section
+  section = document.createElement('section')
+  section.id = 'profile-section'
+  section.className = 'profile-section'
+  const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
+  section.innerHTML = `
+    <div class="profile-header">
+      <h1>My profile</h1>
+      <p id="profile-email"></p>
+    </div>
+    <div class="profile-card">
+      <h3>Your details</h3>
+      <form id="profile-form" class="profile-form">
+        <label class="auth-label">Name
+          <input type="text" name="full_name" placeholder="What should we call you?">
+        </label>
+        <div class="profile-row">
+          <label class="auth-label">School (optional)
+            <input type="text" name="school" placeholder="e.g. British School Muscat">
+          </label>
+          <label class="auth-label">Grade (optional)
+            <select name="grade_level">
+              <option value="">Choose…</option>
+              ${grades.map(g => `<option>${g}</option>`).join('')}
+            </select>
+          </label>
+        </div>
+        <div class="auth-error" id="profile-error"></div>
+        <div class="profile-actions">
+          <button type="submit" class="btn-primary" id="profile-save">Save changes</button>
+          <span class="profile-saved" id="profile-saved" style="display: none;">✓ Saved</span>
+        </div>
+      </form>
+    </div>
+    <h2 class="section-title">Your listings</h2>
+    <div class="listings-meta" id="my-listings-meta">Loading…</div>
+    <div class="grid" id="my-listings-grid">
+      <div class="loading">Fetching your listings…</div>
+    </div>
+  `
+  document.querySelector('main').appendChild(section)
+
+  section.querySelector('#profile-form').addEventListener('submit', saveProfile)
+  section.querySelector('#my-listings-grid').addEventListener('click', handleCardClick)
+  return section
+}
+
+async function loadProfile() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', currentUser.id)
+    .single()
+  if (error) {
+    console.error(error)
+    return
+  }
+  currentProfile = data
+  const form = document.getElementById('profile-form')
+  if (form) {
+    form.full_name.value = data.full_name || ''
+    form.school.value = data.school || ''
+    form.grade_level.value = data.grade_level || ''
+  }
+  const emailEl = document.getElementById('profile-email')
+  if (emailEl) emailEl.textContent = currentUser.email
+}
+
+async function saveProfile(e) {
+  e.preventDefault()
+  const form = e.target
+  const errorDiv = document.getElementById('profile-error')
+  const savedDiv = document.getElementById('profile-saved')
+  const btn = document.getElementById('profile-save')
+  errorDiv.textContent = ''
+  savedDiv.style.display = 'none'
+  btn.disabled = true
+  btn.textContent = 'Saving…'
+
+  const updates = {
+    full_name: form.full_name.value.trim() || null,
+    school: form.school.value.trim() || null,
+    grade_level: form.grade_level.value || null,
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', currentUser.id)
+
+  btn.disabled = false
+  btn.textContent = 'Save changes'
+
+  if (error) {
+    errorDiv.textContent = error.message
+    return
+  }
+
+  savedDiv.style.display = 'inline'
+  setTimeout(() => { savedDiv.style.display = 'none' }, 2000)
+}
+
+async function loadMyListings() {
+  const { data, error } = await supabase
+    .from('listings')
+    .select('*')
+    .eq('owner_id', currentUser.id)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error(error)
+    document.getElementById('my-listings-grid').innerHTML =
+      `<div class="empty">Couldn't load your listings.</div>`
+    return
+  }
+  myListings = data || []
+  renderMyListings(myListings)
+}
+
+function renderMyListings(listings) {
+  const grid = document.getElementById('my-listings-grid')
+  const meta = document.getElementById('my-listings-meta')
+  meta.textContent = listings.length === 1 ? '1 listing' : `${listings.length} listings`
+  if (listings.length === 0) {
+    grid.innerHTML = `<div class="empty">You haven't listed any books yet. Click <strong>+ List a book</strong> to share one.</div>`
+    return
+  }
+  grid.innerHTML = listings.map(l => `
+    <article class="card" data-id="${l.id}">
+      <div class="card-image">
+        ${l.photo_url ? `<img src="${escapeHtml(l.photo_url)}" alt="${escapeHtml(l.title)}">` : '📖'}
+      </div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(l.title)}</div>
+        <div class="card-meta">
+          <span class="tag tag-status ${l.status}">${l.status === 'available' ? 'Available' : 'Claimed'}</span>
+          <span class="tag tag-grade">${escapeHtml(l.grade_level)}</span>
+          <span class="tag tag-subject">${escapeHtml(l.subject)}</span>
+        </div>
+        ${l.school ? `<div class="card-school">${escapeHtml(l.school)}</div>` : ''}
+      </div>
+    </article>
+  `).join('')
+}
 
 // ---- CREATE LISTING ----
 function showCreateListingModal() {
@@ -137,6 +322,7 @@ function showCreateListingModal() {
 
   const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
   const subjects = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business', 'Other']
+  const defaultName = (currentProfile && currentProfile.full_name) || ''
 
   modal.innerHTML = `
     <div class="modal create-modal">
@@ -173,7 +359,7 @@ function showCreateListingModal() {
             </label>
           </div>
           <label class="auth-label">School (optional)
-            <input type="text" name="school" placeholder="e.g. British School Muscat">
+            <input type="text" name="school" placeholder="e.g. British School Muscat" value="${escapeHtml((currentProfile && currentProfile.school) || '')}">
           </label>
           <label class="auth-label">Condition
             <select name="condition" required>
@@ -187,7 +373,7 @@ function showCreateListingModal() {
             <textarea name="description" rows="3" placeholder="Anything worth mentioning — highlighting, missing pages, etc."></textarea>
           </label>
           <label class="auth-label">Your name (shown on the listing)
-            <input type="text" name="owner_name" required>
+            <input type="text" name="owner_name" required value="${escapeHtml(defaultName)}">
           </label>
           <div class="form-row">
             <label class="auth-label">Contact via
@@ -209,14 +395,13 @@ function showCreateListingModal() {
   `
   modal.classList.remove('hidden')
 
-  const photoArea = modal.querySelector('#photo-upload-area')
   const photoInput = modal.querySelector('#photo-input')
   const photoPlaceholder = modal.querySelector('#photo-placeholder')
   const photoPreview = modal.querySelector('#photo-preview')
   const photoPreviewImg = modal.querySelector('#photo-preview-img')
   const photoRemove = modal.querySelector('#photo-remove')
 
-  photoArea.addEventListener('click', (e) => {
+  modal.querySelector('#photo-upload-area').addEventListener('click', (e) => {
     if (e.target === photoRemove || photoRemove.contains(e.target)) return
     photoInput.click()
   })
@@ -224,16 +409,8 @@ function showCreateListingModal() {
   photoInput.addEventListener('change', (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      alert('Please pick an image file.')
-      photoInput.value = ''
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image is over 5MB. Try a smaller one.')
-      photoInput.value = ''
-      return
-    }
+    if (!file.type.startsWith('image/')) { alert('Please pick an image file.'); photoInput.value = ''; return }
+    if (file.size > 5 * 1024 * 1024) { alert('Image is over 5MB. Try a smaller one.'); photoInput.value = ''; return }
     const reader = new FileReader()
     reader.onload = (ev) => {
       photoPreviewImg.src = ev.target.result
@@ -268,19 +445,14 @@ function showCreateListingModal() {
       submitBtn.textContent = 'Uploading photo…'
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
       const fileName = `${currentUser.id}/${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from(PHOTO_BUCKET)
-        .upload(fileName, file)
+      const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(fileName, file)
       if (uploadError) {
-        console.error(uploadError)
         errorDiv.textContent = `Couldn't upload photo: ${uploadError.message}`
         submitBtn.disabled = false
         submitBtn.textContent = 'Post listing'
         return
       }
-      const { data: { publicUrl } } = supabase.storage
-        .from(PHOTO_BUCKET)
-        .getPublicUrl(fileName)
+      const { data: { publicUrl } } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(fileName)
       photoUrl = publicUrl
     }
 
@@ -303,7 +475,6 @@ function showCreateListingModal() {
     const { error } = await supabase.from('listings').insert(data)
 
     if (error) {
-      console.error(error)
       errorDiv.textContent = error.message || "Couldn't post your listing. Try again?"
       submitBtn.disabled = false
       submitBtn.textContent = 'Post listing'
@@ -311,8 +482,7 @@ function showCreateListingModal() {
     }
 
     closeCreateModal()
-    await loadListings()
-    window.scrollTo({ top: document.getElementById('browse').offsetTop - 80, behavior: 'smooth' })
+    await refreshCurrentView()
   })
 }
 
@@ -344,12 +514,10 @@ function renderListings(listings) {
   const grid = document.getElementById('listings-grid')
   const meta = document.getElementById('listings-meta')
   meta.textContent = listings.length === 1 ? '1 book available' : `${listings.length} books available`
-
   if (listings.length === 0) {
     grid.innerHTML = '<div class="empty">No books match your filters. Try clearing them.</div>'
     return
   }
-
   grid.innerHTML = listings.map(l => `
     <article class="card" data-id="${l.id}">
       <div class="card-image">
@@ -373,7 +541,6 @@ function applyFilters() {
   const grade = document.getElementById('grade-filter').value
   const subject = document.getElementById('subject-filter').value
   const condition = document.getElementById('condition-filter').value
-
   const filtered = allListings.filter(l => {
     if (search && !l.title.toLowerCase().includes(search) && !l.subject.toLowerCase().includes(search)) return false
     if (grade && l.grade_level !== grade) return false
@@ -389,6 +556,19 @@ function showModal(listing) {
   const contactLink = getContactLink(listing.contact_method, listing.contact_value)
   const contactLabel = contactLabelFor(listing.contact_method)
   const isOwner = currentUser && listing.owner_id === currentUser.id
+  const isClaimed = listing.status === 'claimed'
+
+  let ownerActionsHtml = ''
+  if (isOwner) {
+    const actionId = isClaimed ? 'unclaim-btn' : 'claim-btn'
+    const actionText = isClaimed ? 'Mark as available' : 'Mark as claimed'
+    ownerActionsHtml = `
+      <div class="owner-actions">
+        <button class="btn-secondary action-claim" id="${actionId}">${actionText}</button>
+        <button class="btn-secondary action-delete" id="delete-btn">Delete listing</button>
+      </div>
+    `
+  }
 
   modal.innerHTML = `
     <div class="modal">
@@ -399,6 +579,7 @@ function showModal(listing) {
       <div class="modal-body">
         <h2>${escapeHtml(listing.title)}</h2>
         <div class="modal-tags">
+          ${isClaimed ? `<span class="tag tag-status claimed">Claimed</span>` : ''}
           <span class="tag tag-grade">${escapeHtml(listing.grade_level)}</span>
           <span class="tag tag-subject">${escapeHtml(listing.subject)}</span>
           <span class="tag tag-condition ${listing.condition}">${escapeHtml(listing.condition)}</span>
@@ -412,12 +593,7 @@ function showModal(listing) {
             <a href="${contactLink}" class="contact-link" target="_blank" rel="noopener">${contactLabel} ${escapeHtml(listing.contact_value)}</a>
           </div>
         </div>
-        ${isOwner ? `
-          <div class="owner-actions">
-            <button class="btn-secondary action-claim" id="claim-btn">Mark as claimed</button>
-            <button class="btn-secondary action-delete" id="delete-btn">Delete listing</button>
-          </div>
-        ` : ''}
+        ${ownerActionsHtml}
       </div>
     </div>
   `
@@ -427,7 +603,11 @@ function showModal(listing) {
   modal.addEventListener('click', closeModal)
 
   if (isOwner) {
-    modal.querySelector('#claim-btn').addEventListener('click', () => markAsClaimed(listing.id))
+    if (isClaimed) {
+      modal.querySelector('#unclaim-btn').addEventListener('click', () => markAsAvailable(listing.id))
+    } else {
+      modal.querySelector('#claim-btn').addEventListener('click', () => markAsClaimed(listing.id))
+    }
     modal.querySelector('#delete-btn').addEventListener('click', () => deleteListing(listing.id))
   }
 }
@@ -437,7 +617,14 @@ async function markAsClaimed(id) {
   const { error } = await supabase.from('listings').update({ status: 'claimed' }).eq('id', id)
   if (error) { alert("Couldn't update: " + error.message); return }
   closeModal()
-  await loadListings()
+  await refreshCurrentView()
+}
+
+async function markAsAvailable(id) {
+  const { error } = await supabase.from('listings').update({ status: 'available' }).eq('id', id)
+  if (error) { alert("Couldn't update: " + error.message); return }
+  closeModal()
+  await refreshCurrentView()
 }
 
 async function deleteListing(id) {
@@ -445,7 +632,15 @@ async function deleteListing(id) {
   const { error } = await supabase.from('listings').delete().eq('id', id)
   if (error) { alert("Couldn't delete: " + error.message); return }
   closeModal()
-  await loadListings()
+  await refreshCurrentView()
+}
+
+async function refreshCurrentView() {
+  if (currentView === 'browse') {
+    await loadListings()
+  } else {
+    await loadMyListings()
+  }
 }
 
 function closeModal() {
@@ -472,17 +667,20 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
 
+function handleCardClick(e) {
+  const card = e.target.closest('.card')
+  if (!card) return
+  const list = currentView === 'browse' ? allListings : myListings
+  const listing = list.find(l => l.id === card.dataset.id)
+  if (listing) showModal(listing)
+}
+
 document.getElementById('search').addEventListener('input', applyFilters)
 document.getElementById('grade-filter').addEventListener('change', applyFilters)
 document.getElementById('subject-filter').addEventListener('change', applyFilters)
 document.getElementById('condition-filter').addEventListener('change', applyFilters)
 
-document.getElementById('listings-grid').addEventListener('click', (e) => {
-  const card = e.target.closest('.card')
-  if (!card) return
-  const listing = allListings.find(l => l.id === card.dataset.id)
-  if (listing) showModal(listing)
-})
+document.getElementById('listings-grid').addEventListener('click', handleCardClick)
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
