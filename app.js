@@ -16,7 +16,16 @@ const REPORT_REASONS = {
   other: 'Other',
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    storage: window.localStorage,
+  }
+})
+
+window.supabase = supabase
+
 let allListings = []
 let myListings = []
 let currentUser = null
@@ -542,7 +551,7 @@ async function loadAdminStats() {
       <div class="admin-card">
         <h3>Pending reports (${pendingReports.length})</h3>
         <div class="reports-list" id="reports-list">
-          ${pendingReports.map(r => renderReport(r, all)).join('')}
+          ${pendingReports.map(r => renderReport(r)).join('')}
         </div>
       </div>
     ` : `
@@ -613,13 +622,12 @@ async function loadAdminStats() {
     </div>
   `
 
-  // Wire up report actions
   content.querySelectorAll('[data-report-action]').forEach(btn => {
     btn.addEventListener('click', () => handleReportAction(btn.dataset.reportId, btn.dataset.reportAction, btn.dataset.listingId))
   })
 }
 
-function renderReport(r, allListings) {
+function renderReport(r) {
   const listing = r.listing
   const listingTitle = listing ? listing.title : '(listing deleted)'
   const reasonLabel = REPORT_REASONS[r.reason] || r.reason
@@ -1319,7 +1327,6 @@ function showModal(listing) {
     </div>
   `
 
-  // Show "Report" link to anyone who's not the owner
   let reportRowHtml = ''
   if (!isOwner) {
     reportRowHtml = `
@@ -1496,5 +1503,11 @@ document.addEventListener('keydown', (e) => {
   }
 })
 
-updateNav()
-loadListings()
+// Init: explicitly wait for session restoration before rendering nav
+;(async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  currentUser = session?.user || null
+  if (currentUser) await loadCurrentUserProfile()
+  updateNav()
+  loadListings()
+})()
