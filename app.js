@@ -3,6 +3,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = 'https://wvladknkebqiqutboohw.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_J0JrrWBQipfP201_L3A0pw_UGF6R1qL'
 const PHOTO_BUCKET = 'book-photos'
+const BASE_SUBJECTS = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business']
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let allListings = []
@@ -10,6 +11,51 @@ let myListings = []
 let currentUser = null
 let currentProfile = null
 let currentView = 'browse'
+
+// ---- TOASTS & CONFIRM ----
+function showToast(message, type = 'info') {
+  let container = document.getElementById('toast-container')
+  if (!container) {
+    container = document.createElement('div')
+    container.id = 'toast-container'
+    document.body.appendChild(container)
+  }
+  const toast = document.createElement('div')
+  toast.className = `toast toast-${type}`
+  toast.textContent = message
+  container.appendChild(toast)
+  requestAnimationFrame(() => toast.classList.add('toast-visible'))
+  setTimeout(() => {
+    toast.classList.remove('toast-visible')
+    setTimeout(() => toast.remove(), 300)
+  }, 3200)
+}
+
+function customConfirm({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', danger = false }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div')
+    overlay.className = 'modal-backdrop'
+    overlay.innerHTML = `
+      <div class="modal confirm-modal">
+        <div class="confirm-body">
+          <div class="confirm-title">${escapeHtml(title)}</div>
+          <p class="confirm-message">${escapeHtml(message)}</p>
+          <div class="confirm-actions">
+            <button class="btn-secondary" id="cancel-btn">${escapeHtml(cancelText)}</button>
+            <button class="${danger ? 'btn-danger' : 'btn-primary'}" id="confirm-btn">${escapeHtml(confirmText)}</button>
+          </div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(overlay)
+    const close = (result) => { overlay.remove(); resolve(result) }
+    overlay.querySelector('#cancel-btn').addEventListener('click', () => close(false))
+    overlay.querySelector('#confirm-btn').addEventListener('click', () => close(true))
+    overlay.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false) })
+    setTimeout(() => overlay.querySelector('#confirm-btn').focus(), 50)
+  })
+}
 
 // ---- AUTH ----
 function updateNav() {
@@ -106,9 +152,11 @@ function showAuthModal() {
       if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
+        showToast('Welcome back 🌿', 'success')
       } else {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
+        showToast('Account created. Welcome!', 'success')
       }
       closeAuthModal()
     } catch (err) {
@@ -137,6 +185,7 @@ function friendlyAuthError(msg) {
 
 async function signOut() {
   await supabase.auth.signOut()
+  showToast('Signed out.', 'info')
 }
 
 supabase.auth.onAuthStateChange((event, session) => {
@@ -275,6 +324,7 @@ async function saveProfile(e) {
 
   savedDiv.style.display = 'inline'
   setTimeout(() => { savedDiv.style.display = 'none' }, 2000)
+  currentProfile = { ...currentProfile, ...updates }
 }
 
 async function loadMyListings() {
@@ -330,7 +380,7 @@ function showCreateListingModal() {
   }
 
   const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
-  const subjects = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business', 'Other']
+  const subjects = [...BASE_SUBJECTS, 'Other']
   const defaultName = (currentProfile && currentProfile.full_name) || ''
 
   modal.innerHTML = `
@@ -435,8 +485,8 @@ function showCreateListingModal() {
   photoInput.addEventListener('change', (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { alert('Please pick an image file.'); photoInput.value = ''; return }
-    if (file.size > 5 * 1024 * 1024) { alert('Image is over 5MB. Try a smaller one.'); photoInput.value = ''; return }
+    if (!file.type.startsWith('image/')) { showToast('Please pick an image file.', 'error'); photoInput.value = ''; return }
+    if (file.size > 5 * 1024 * 1024) { showToast('Image is over 5MB. Try a smaller one.', 'error'); photoInput.value = ''; return }
     const reader = new FileReader()
     reader.onload = (ev) => {
       photoPreviewImg.src = ev.target.result
@@ -512,6 +562,7 @@ function showCreateListingModal() {
     }
 
     closeCreateModal()
+    showToast('Posted! Your book is live 🌿', 'success')
     await refreshCurrentView()
   })
 }
@@ -537,7 +588,20 @@ async function loadListings() {
     return
   }
   allListings = data || []
+  updateSubjectFilterOptions()
   renderListings(allListings)
+}
+
+function updateSubjectFilterOptions() {
+  const select = document.getElementById('subject-filter')
+  if (!select) return
+  const fromListings = [...new Set(allListings.map(l => l.subject).filter(Boolean))]
+  const merged = [...new Set([...BASE_SUBJECTS, ...fromListings])].sort()
+  const currentValue = select.value
+  select.innerHTML = `<option value="">All subjects</option>` + merged.map(s => `<option>${escapeHtml(s)}</option>`).join('')
+  if (currentValue && merged.includes(currentValue)) {
+    select.value = currentValue
+  }
 }
 
 function renderListings(listings) {
@@ -643,25 +707,39 @@ function showModal(listing) {
 }
 
 async function markAsClaimed(id) {
-  if (!confirm("Mark this listing as claimed? It'll be removed from the public feed.")) return
+  const ok = await customConfirm({
+    title: 'Mark as claimed?',
+    message: "It'll be removed from the public feed. You can mark it back as available anytime from your profile.",
+    confirmText: 'Mark as claimed',
+  })
+  if (!ok) return
   const { error } = await supabase.from('listings').update({ status: 'claimed' }).eq('id', id)
-  if (error) { alert("Couldn't update: " + error.message); return }
+  if (error) { showToast("Couldn't update: " + error.message, 'error'); return }
   closeModal()
+  showToast('Marked as claimed.', 'success')
   await refreshCurrentView()
 }
 
 async function markAsAvailable(id) {
   const { error } = await supabase.from('listings').update({ status: 'available' }).eq('id', id)
-  if (error) { alert("Couldn't update: " + error.message); return }
+  if (error) { showToast("Couldn't update: " + error.message, 'error'); return }
   closeModal()
+  showToast('Back in the feed.', 'success')
   await refreshCurrentView()
 }
 
 async function deleteListing(id) {
-  if (!confirm("Delete this listing? This can't be undone.")) return
+  const ok = await customConfirm({
+    title: 'Delete this listing?',
+    message: "This can't be undone. The listing will be permanently removed.",
+    confirmText: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
   const { error } = await supabase.from('listings').delete().eq('id', id)
-  if (error) { alert("Couldn't delete: " + error.message); return }
+  if (error) { showToast("Couldn't delete: " + error.message, 'error'); return }
   closeModal()
+  showToast('Listing deleted.', 'success')
   await refreshCurrentView()
 }
 
