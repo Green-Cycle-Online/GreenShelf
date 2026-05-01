@@ -4,6 +4,9 @@ const SUPABASE_URL = 'https://wvladknkebqiqutboohw.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_J0JrrWBQipfP201_L3A0pw_UGF6R1qL'
 const PHOTO_BUCKET = 'book-photos'
 const BASE_SUBJECTS = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business']
+const AREAS_MUSCAT = ['Al Khoud', 'Al Khuwair', 'Al Hail', 'Al Mabela', 'Al Mawaleh', 'Azaiba', 'Bausher', 'Ghubra', 'Madinat Qaboos', 'Mutrah', 'Qurum', 'Ruwi', 'Seeb']
+const AREAS_OTHER_OMAN = ['Bahla', 'Barka', 'Buraimi', 'Ibri', 'Khasab', 'Liwa', 'Nizwa', 'Rustaq', 'Saham', 'Salalah', 'Sohar', 'Sur', 'Suwaiq']
+const ALL_AREAS = [...AREAS_MUSCAT, ...AREAS_OTHER_OMAN]
 const MAX_PHOTOS = 4
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -173,9 +176,12 @@ function showAuthModal() {
           showToast('Welcome back 🌿', 'success')
           closeAuthModal()
         } else if (mode === 'signup') {
-          const { error } = await supabase.auth.signUp({ email, password })
+          const { error } = await supabase.auth.signUp({
+            email, password,
+            options: { emailRedirectTo: window.location.origin }
+          })
           if (error) throw error
-          showToast('Account created. Welcome!', 'success')
+          showToast('Check your inbox to verify your email 📬', 'success')
           closeAuthModal()
         } else if (mode === 'forgot') {
           const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
@@ -264,6 +270,7 @@ function friendlyAuthError(msg) {
   if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.'
   if (/already registered/i.test(msg)) return 'An account with that email already exists. Try signing in.'
   if (/password.*6/i.test(msg)) return 'Password needs to be at least 6 characters.'
+  if (/email not confirmed/i.test(msg)) return 'Check your inbox — you need to verify your email before signing in.'
   return msg
 }
 
@@ -392,7 +399,6 @@ function ensureProfileSection() {
     </div>
   `
   document.querySelector('main').appendChild(section)
-
   section.querySelector('#profile-form').addEventListener('submit', saveProfile)
   section.querySelector('#my-listings-grid').addEventListener('click', handleCardClick)
   section.querySelector('#delete-account-btn').addEventListener('click', deleteAccount)
@@ -450,15 +456,14 @@ function ensureFaqSection() {
       <p>Short answers to the most common ones. If yours isn't here, email us at hello@greencycle.om.</p>
     </div>
     <div class="faq-list">
-      <details class="faq-item"><summary>Is GreenCycle free?</summary><div class="faq-answer">Yes, completely. No fees, no commission, no money changes hands. Listings are free to post and free to claim.</div></details>
-      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click <strong>+ List a book</strong> in the top right, fill in the details (title, subject, grade, condition, and how you'd like to be contacted), and post. Takes about a minute.</div></details>
-      <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click on the listing to see the lister's contact info — usually a WhatsApp number, phone, or email. Reach out directly to arrange a pickup.</div></details>
-      <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. The contact info you put on each listing is visible to anyone browsing — that's by design, so people can reach you. Only share what you're comfortable with.</div></details>
-      <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when you list — pick "Worn" if it's seen better days, and use photos. As a buyer, ask for more photos if anything's unclear. GreenCycle doesn't mediate disputes; it's just a way to connect.</div></details>
-      <details class="faq-item"><summary>Can I list books that aren't textbooks?</summary><div class="faq-answer">GreenCycle is focused on K–12 academic books. Workbooks, readers, and reference books are all welcome if they fit a school grade. For general book swapping, you'd want a different platform.</div></details>
-      <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Once you've handed it over, mark it as <strong>Claimed</strong> from your profile or the listing. It'll be removed from the public feed. You can also un-claim if the deal falls through.</div></details>
-      <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll to the bottom and click <strong>Delete my account</strong>. This removes all your listings and clears your profile. Your email is retained for audit purposes — to fully erase, email us at hello@greencycle.om.</div></details>
-      <details class="faq-item"><summary>I saw a spammy or inappropriate listing — what do I do?</summary><div class="faq-answer">Email us at hello@greencycle.om with the listing title and we'll remove it. Admin moderation is light right now — flag anything that looks off.</div></details>
+      <details class="faq-item"><summary>Is GreenCycle free?</summary><div class="faq-answer">Yes, completely. No fees, no commission, no money changes hands.</div></details>
+      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click <strong>+ List a book</strong>, fill in the details, post.</div></details>
+      <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click on the listing to see the lister's contact info — usually a WhatsApp number, phone, or email. Reach out directly.</div></details>
+      <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. The contact info you put on each listing is visible to anyone browsing — share only what you're comfortable with. We only ask for your <strong>area</strong>, not your full address.</div></details>
+      <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when listing. Use photos. Ask for more if you're unsure.</div></details>
+      <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Mark it as claimed from your profile or the listing. It'll be removed from the public feed. You can also un-claim if needed.</div></details>
+      <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll to the bottom and click <strong>Delete my account</strong>. To fully erase your email, email us at hello@greencycle.om.</div></details>
+      <details class="faq-item"><summary>I saw a spammy listing — what do I do?</summary><div class="faq-answer">Email us at hello@greencycle.om and we'll remove it.</div></details>
     </div>
   `
   document.querySelector('main').appendChild(section)
@@ -568,10 +573,12 @@ function showCreateListingModal(editingListing = null) {
   const isCustomSubject = isEditing && d.subject && !BASE_SUBJECTS.includes(d.subject)
   const subjectValue = isCustomSubject ? 'Other' : (d.subject || '')
   const customSubjectValue = isCustomSubject ? d.subject : ''
+  const isCustomArea = isEditing && d.area && !ALL_AREAS.includes(d.area)
+  const areaValue = isCustomArea ? 'Other' : (d.area || '')
+  const customAreaValue = isCustomArea ? d.area : ''
   const ownerNameValue = d.owner_name || (currentProfile && currentProfile.full_name) || ''
   const schoolValue = d.school || (currentProfile && currentProfile.school) || ''
 
-  // Photo state: array of { url, file }
   let photoSlots = (isEditing && Array.isArray(d.photos)) ? d.photos.map(url => ({ url, file: null })) : []
 
   modal.innerHTML = `
@@ -604,6 +611,22 @@ function showCreateListingModal(editingListing = null) {
           </div>
           <label class="auth-label" id="custom-subject-wrap" style="display: ${isCustomSubject ? '' : 'none'};">Specify subject
             <input type="text" name="custom_subject" placeholder="e.g. Geography, Computer Science" value="${escapeHtml(customSubjectValue)}" ${isCustomSubject ? 'required' : ''}>
+          </label>
+          <label class="auth-label">Pickup area
+            <select name="area" required>
+              <option value="">Choose your area…</option>
+              <optgroup label="Muscat">
+                ${AREAS_MUSCAT.map(a => `<option ${a === areaValue ? 'selected' : ''}>${a}</option>`).join('')}
+              </optgroup>
+              <optgroup label="Outside Muscat">
+                ${AREAS_OTHER_OMAN.map(a => `<option ${a === areaValue ? 'selected' : ''}>${a}</option>`).join('')}
+              </optgroup>
+              <option value="Other" ${areaValue === 'Other' ? 'selected' : ''}>Other</option>
+            </select>
+            <small style="display:block; margin-top:4px; color: var(--text-muted); font-size: 0.85rem;">Just the general area, please — never share your full address.</small>
+          </label>
+          <label class="auth-label" id="custom-area-wrap" style="display: ${isCustomArea ? '' : 'none'};">Specify area
+            <input type="text" name="custom_area" placeholder="Type the area only, not your address" value="${escapeHtml(customAreaValue)}" ${isCustomArea ? 'required' : ''}>
           </label>
           <label class="auth-label">School (optional)
             <input type="text" name="school" placeholder="e.g. British School Muscat" value="${escapeHtml(schoolValue)}">
@@ -692,6 +715,20 @@ function showCreateListingModal(editingListing = null) {
     }
   })
 
+  const areaSelect = modal.querySelector('select[name="area"]')
+  const customAreaWrap = modal.querySelector('#custom-area-wrap')
+  const customAreaInput = customAreaWrap.querySelector('input[name="custom_area"]')
+  areaSelect.addEventListener('change', () => {
+    if (areaSelect.value === 'Other') {
+      customAreaWrap.style.display = ''
+      customAreaInput.required = true
+    } else {
+      customAreaWrap.style.display = 'none'
+      customAreaInput.required = false
+      customAreaInput.value = ''
+    }
+  })
+
   modal.querySelector('#create-close').addEventListener('click', closeCreateModal)
   modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
   modal.addEventListener('click', (e) => { if (e.target === modal) closeCreateModal() })
@@ -704,7 +741,6 @@ function showCreateListingModal(editingListing = null) {
     errorDiv.textContent = ''
     submitBtn.disabled = true
 
-    // Upload any new photos
     const photoUrls = []
     let uploadingShown = false
     for (const slot of photoSlots) {
@@ -731,10 +767,15 @@ function showCreateListingModal(editingListing = null) {
       ? form.custom_subject.value.trim()
       : form.subject.value
 
+    const finalArea = (form.area.value === 'Other' && form.custom_area && form.custom_area.value.trim())
+      ? form.custom_area.value.trim()
+      : form.area.value
+
     const data = {
       title: form.title.value.trim(),
       subject: finalSubject,
       grade_level: form.grade_level.value,
+      area: finalArea,
       school: form.school.value.trim() || null,
       condition: form.condition.value,
       description: form.description.value.trim() || null,
@@ -772,8 +813,10 @@ function closeCreateModal() {
 
 // ---- LISTINGS ----
 async function loadListings() {
+  const sixMonthsAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30 * 6).toISOString()
   const { data, error } = await supabase
     .from('listings').select('*').eq('status', 'available')
+    .gte('created_at', sixMonthsAgo)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -800,6 +843,7 @@ function updateSubjectFilterOptions() {
 function renderCard(l) {
   const firstPhoto = (l.photos && l.photos.length > 0) ? l.photos[0] : null
   const moreCount = (l.photos && l.photos.length > 1) ? l.photos.length - 1 : 0
+  const locationLine = [l.area, l.school].filter(Boolean).join(' · ')
   return `
     <article class="card" data-id="${l.id}">
       <div class="card-image">
@@ -814,7 +858,7 @@ function renderCard(l) {
           <span class="tag tag-subject">${escapeHtml(l.subject)}</span>
           <span class="tag tag-condition ${l.condition}">${escapeHtml(l.condition)}</span>
         </div>
-        ${l.school ? `<div class="card-school">${escapeHtml(l.school)}</div>` : ''}
+        ${locationLine ? `<div class="card-school">${escapeHtml(locationLine)}</div>` : ''}
       </div>
     </article>
   `
@@ -851,7 +895,6 @@ function showModal(listing) {
   const contactLink = getContactLink(listing.contact_method, listing.contact_value)
   const contactLabel = contactLabelFor(listing.contact_method)
   const isOwner = currentUser && listing.owner_id === currentUser.id
-  const canDelete = isOwner || isAdmin
   const isClaimed = listing.status === 'claimed'
   const photos = Array.isArray(listing.photos) ? listing.photos : []
 
@@ -904,6 +947,7 @@ function showModal(listing) {
           <span class="tag tag-subject">${escapeHtml(listing.subject)}</span>
           <span class="tag tag-condition ${listing.condition}">${escapeHtml(listing.condition)}</span>
         </div>
+        ${listing.area ? `<div class="modal-section"><h3>Pickup area</h3><div>${escapeHtml(listing.area)}</div></div>` : ''}
         ${listing.school ? `<div class="modal-section"><h3>School</h3><div>${escapeHtml(listing.school)}</div></div>` : ''}
         ${listing.description ? `<div class="modal-section"><h3>About this book</h3><div>${escapeHtml(listing.description)}</div></div>` : ''}
         <div class="modal-section">
