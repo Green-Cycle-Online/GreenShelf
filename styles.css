@@ -156,3 +156,46 @@ footer a { color: var(--green-dark); }
 .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .btn-danger { background: var(--error); color: white; }
 .btn-danger:hover { background: #b04936; }
+/* Beefier hero */
+.hero-big { padding: 84px 24px 56px; text-align: center; position: relative; overflow: hidden; }
+.hero-big h1 { font-size: clamp(2.4rem, 6vw, 3.8rem); margin-bottom: 18px; }
+.hero-eyebrow { display: inline-block; background: var(--sage-light); color: var(--green-dark); padding: 6px 14px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; margin-bottom: 22px; letter-spacing: 0.02em; }
+.hero-tagline { font-size: 1.15rem; color: var(--text-muted); max-width: 600px; margin: 0 auto 8px; }
+.hero-decoration { position: absolute; font-size: 8rem; opacity: 0.12; pointer-events: none; user-select: none; }
+.hero-decoration.left { left: 4%; top: 18%; transform: rotate(-22deg); }
+.hero-decoration.right { right: 4%; bottom: 12%; transform: rotate(18deg); }
+.hero-cta-row { display: flex; gap: 12px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
+.btn-lg { padding: 12px 26px; font-size: 1rem; }
+
+/* How it works */
+.how { background: white; padding: 72px 24px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.how-content { max-width: 1052px; margin: 0 auto; }
+.how-header { text-align: center; margin-bottom: 44px; }
+.how-header h2 { font-size: 2rem; color: var(--green-dark); margin-bottom: 10px; }
+.how-header p { color: var(--text-muted); font-size: 1.02rem; max-width: 540px; margin: 0 auto; }
+.how-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px; }
+.how-step { text-align: center; padding: 12px; }
+.how-step-icon { font-size: 2.6rem; margin-bottom: 16px; display: inline-block; }
+.how-step h3 { font-family: 'Fraunces', serif; font-size: 1.2rem; color: var(--green-dark); margin-bottom: 10px; }
+.how-step p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+
+/* Section heading wrap for browse */
+.browse-section { padding-top: 60px; }
+.section-heading { max-width: 1052px; margin: 0 auto 28px; padding: 0 24px; text-align: center; }
+.section-heading h2 { font-size: 1.8rem; color: var(--green-dark); margin-bottom: 6px; }
+.section-heading p { color: var(--text-muted); }
+
+/* Mission / closing */
+.mission { padding: 80px 24px 100px; background: linear-gradient(180deg, var(--bg) 0%, var(--sage-light) 100%); }
+.mission-content { max-width: 680px; margin: 0 auto; text-align: center; }
+.mission h2 { font-size: 2rem; color: var(--green-dark); margin-bottom: 18px; }
+.mission p { color: var(--text); font-size: 1.02rem; line-height: 1.75; margin-bottom: 14px; }
+.mission .signature { color: var(--brown); font-style: italic; margin-top: 22px; font-size: 0.95rem; }
+
+@media (max-width: 600px) {
+  .hero-decoration { font-size: 5rem; opacity: 0.1; }
+  .how { padding: 56px 24px; }
+  .how-steps { grid-template-columns: 1fr; gap: 32px; }
+  .browse-section { padding-top: 40px; }
+  .mission { padding: 60px 24px 80px; }
+}
