@@ -122,7 +122,7 @@ function showAuthModal() {
       <div class="modal auth-modal">
         <button class="modal-close" id="auth-close" aria-label="Close">×</button>
         <div class="auth-body">
-          <h2 class="auth-title">${isForgot ? 'Reset your password' : 'Welcome to GreenCycle'}</h2>
+          <h2 class="auth-title">${isForgot ? 'Reset your password' : 'Welcome to GreenShelf'}</h2>
           <p class="auth-subtitle">${isForgot ? "We'll email you a link to set a new password." : 'Sign in or create an account to share books.'}</p>
           ${isForgot ? '' : `
             <div class="auth-tabs">
@@ -422,7 +422,7 @@ function ensureProfileSection() {
     </div>
     <div class="profile-card danger-zone" style="margin-top: 40px;">
       <h3>Danger zone</h3>
-      <p>Removes all your listings and clears your profile data. Your email is retained — to have it fully erased, email us at hello@greencycle.om.</p>
+      <p>Removes all your listings and clears your profile data. Your email is retained — to have it fully erased, email us at hello@GreenShelf.online.</p>
       <button type="button" class="btn-danger" id="delete-account-btn">Delete my account</button>
     </div>
   `
@@ -441,7 +441,7 @@ function ensureAboutSection() {
   section.className = 'about-section'
   section.innerHTML = `
     <div class="about-header">
-      <h1>About GreenCycle</h1>
+      <h1>About GreenShelf</h1>
       <p>Built by two students in Oman who got tired of WhatsApp chaos.</p>
     </div>
     <div class="about-grid">
@@ -451,7 +451,7 @@ function ensureAboutSection() {
           <div class="about-photo-fallback" style="display:none;">H</div>
         </div>
         <h3>Hitesh</h3>
-        <p>[Add your bio here. A sentence or two about who you are, where you study, and why you helped build GreenCycle.]</p>
+        <p>[Add your bio here. A sentence or two about who you are, where you study, and why you helped build GreenShelf.]</p>
       </div>
       <div class="about-person">
         <div class="about-photo">
@@ -465,7 +465,7 @@ function ensureAboutSection() {
     <div class="about-mission">
       <h2>Why we built this</h2>
       <p>At the end of every school year, our friends' parents would post in WhatsApp groups: "Anyone need a Grade 9 math book?" Within minutes, the message would be lost in 200 unrelated messages. Books that could have been passed on quietly ended up in the recycling.</p>
-      <p>We thought: surely there's a calmer way. So we built GreenCycle — a small, free site to make book-sharing simple, searchable, and human. Pass it on, don't bin it.</p>
+      <p>We thought: surely there's a calmer way. So we built GreenShelf — a small, free site to make book-sharing simple, searchable, and human. Pass it on, don't bin it.</p>
     </div>
   `
   document.querySelector('main').appendChild(section)
@@ -481,10 +481,10 @@ function ensureFaqSection() {
   section.innerHTML = `
     <div class="faq-header">
       <h1>Questions you might have</h1>
-      <p>Short answers. If yours isn't here, email hello@greencycle.om.</p>
+      <p>Short answers. If yours isn't here, email hello@GreenShelf.online.</p>
     </div>
     <div class="faq-list">
-      <details class="faq-item"><summary>Is GreenCycle free?</summary><div class="faq-answer">Yes, completely. No fees, no commission.</div></details>
+      <details class="faq-item"><summary>Is GreenShelf free?</summary><div class="faq-answer">Yes, completely. No fees, no commission.</div></details>
       <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click + List a book, fill in details, post.</div></details>
       <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click the listing, see contact info, reach out directly.</div></details>
       <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. We only ask for your area, never full address.</div></details>
@@ -507,7 +507,7 @@ function ensureAdminSection() {
   section.innerHTML = `
     <div class="admin-header">
       <h1>Admin dashboard</h1>
-      <p>Overview of GreenCycle activity. Visible only to admins.</p>
+      <p>Overview of GreenShelf activity. Visible only to admins.</p>
     </div>
     <div id="admin-content"><div class="loading">Loading stats…</div></div>
   `
@@ -759,7 +759,7 @@ async function saveProfile(e) {
 async function deleteAccount() {
   const ok = await customConfirm({
     title: 'Delete your account?',
-    message: 'All your listings will be permanently removed and your profile cleared. Your email is retained — to have it fully erased, email hello@greencycle.om.',
+    message: 'All your listings will be permanently removed and your profile cleared. Your email is retained — to have it fully erased, email hello@GreenShelf.online.',
     confirmText: 'Yes, delete everything',
     danger: true,
   })
@@ -1252,8 +1252,8 @@ function applyFilters() {
 async function shareListing(listing) {
   const url = `${window.location.origin}${window.location.pathname}#listing/${listing.id}`
   const shareData = {
-    title: `${listing.title} — GreenCycle`,
-    text: `Check out this book on GreenCycle: ${listing.title}`,
+    title: `${listing.title} — GreenShelf`,
+    text: `Check out this book on GreenShelf: ${listing.title}`,
     url,
   }
   if (navigator.share) {
