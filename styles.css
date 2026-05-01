@@ -329,3 +329,19 @@ footer a { color: var(--green-dark); }
 /* Admin badge becomes clickable link */
 .admin-badge.admin-link { cursor: pointer; text-decoration: none; transition: background 0.15s; }
 .admin-badge.admin-link:hover { background: #6e5530; }
+/* Report button */
+.report-btn-row { margin-top: 12px; text-align: center; }
+.report-link { background: none; border: none; color: var(--text-muted); font-size: 0.85rem; cursor: pointer; text-decoration: underline; padding: 4px 8px; font-family: inherit; }
+.report-link:hover { color: var(--error); }
+
+/* Reports section in admin */
+.reports-list { display: flex; flex-direction: column; gap: 12px; }
+.report-row { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+.report-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.report-listing-title { font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-meta { color: var(--text-muted); font-size: 0.85rem; }
+.report-reason-chip { display: inline-block; background: #fbe9e4; color: var(--error); font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; font-weight: 500; margin-right: 6px; }
+.report-notes { color: var(--text); font-size: 0.9rem; margin-top: 4px; font-style: italic; }
+.report-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.report-actions button { padding: 6px 12px; font-size: 0.85rem; }
+.no-reports { padding: 20px; text-align: center; color: var(--text-muted); }
