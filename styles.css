@@ -300,3 +300,32 @@ footer a { color: var(--green-dark); }
 /* Share button color */
 .action-share { color: var(--green-dark); border-color: var(--sage-light); }
 .action-share:hover { background: var(--sage-light); border-color: var(--sage); }
+/* Admin dashboard */
+.admin-section { padding: 60px 24px 80px; max-width: 1100px; margin: 0 auto; }
+.admin-header { margin-bottom: 32px; }
+.admin-header h1 { font-size: 2.4rem; color: var(--green-dark); margin-bottom: 6px; }
+.admin-header p { color: var(--text-muted); }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+.stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; box-shadow: var(--shadow); }
+.stat-num { font-family: 'Fraunces', serif; font-size: 2.4rem; font-weight: 700; color: var(--green-dark); line-height: 1; margin-bottom: 6px; }
+.stat-label { color: var(--text-muted); font-size: 0.9rem; }
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.admin-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; box-shadow: var(--shadow); }
+.admin-card h3 { font-family: 'Fraunces', serif; font-size: 1.15rem; color: var(--green-dark); margin-bottom: 16px; }
+.bar-row { display: grid; grid-template-columns: 130px 1fr 38px; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.9rem; }
+.bar-label { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { background: var(--bg); border-radius: 999px; height: 8px; overflow: hidden; }
+.bar-fill { background: var(--sage); height: 100%; border-radius: 999px; transition: width 0.4s; }
+.bar-count { color: var(--text-muted); text-align: right; font-variant-numeric: tabular-nums; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.admin-table th, .admin-table td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+.admin-table th { color: var(--text-muted); font-weight: 500; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-status-chip { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; font-weight: 500; }
+.admin-status-chip.available { background: var(--sage-light); color: var(--green-dark); }
+.admin-status-chip.claimed { background: #f0e8d6; color: var(--brown); }
+.muted { color: var(--text-muted); font-size: 0.85rem; }
+
+/* Admin badge becomes clickable link */
+.admin-badge.admin-link { cursor: pointer; text-decoration: none; transition: background 0.15s; }
+.admin-badge.admin-link:hover { background: #6e5530; }
