@@ -275,3 +275,28 @@ footer a { color: var(--green-dark); }
 
 /* Admin badge */
 .admin-badge { background: var(--brown); color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; }
+/* 5-column filter grid */
+.filter-grid { grid-template-columns: 2fr 1fr 1fr 1fr 1fr !important; }
+@media (max-width: 800px) {
+  .filter-grid { grid-template-columns: 1fr 1fr !important; }
+  .filter-grid input { grid-column: 1 / -1; }
+}
+
+/* Loading skeletons */
+@keyframes shimmer {
+  0% { background-position: -800px 0; }
+  100% { background-position: 800px 0; }
+}
+.skeleton { background: linear-gradient(90deg, #ebe6dc 0%, #f5f1e8 50%, #ebe6dc 100%); background-size: 800px 100%; animation: shimmer 1.4s infinite linear; border-radius: 4px; }
+.skeleton-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+.skeleton-card .skeleton-image { aspect-ratio: 4/3; border-radius: 0; }
+.skeleton-card .skeleton-body { padding: 16px; }
+.skeleton-line { height: 14px; margin-bottom: 10px; border-radius: 4px; }
+.skeleton-line.title { height: 18px; width: 80%; }
+.skeleton-line.short { width: 50%; }
+.skeleton-meta { display: flex; gap: 6px; margin-top: 14px; }
+.skeleton-tag { height: 20px; width: 56px; border-radius: 999px; }
+
+/* Share button color */
+.action-share { color: var(--green-dark); border-color: var(--sage-light); }
+.action-share:hover { background: var(--sage-light); border-color: var(--sage); }
