@@ -1513,8 +1513,8 @@ loadListings()
     const { data: { session } } = await supabase.auth.getSession()
     if (session?.user) {
       currentUser = session.user
-      await loadCurrentUserProfile()
       updateNav()
+      loadCurrentUserProfile().then(() => updateNav()).catch(console.error)
     }
   } catch (e) {
     console.error('getSession failed:', e)
