@@ -199,3 +199,9 @@ footer a { color: var(--green-dark); }
   .browse-section { padding-top: 40px; }
   .mission { padding: 60px 24px 80px; }
 }
+.auth-forgot { font-size: 0.85rem; text-align: right; margin-top: -8px; margin-bottom: 14px; }
+.auth-forgot a { color: var(--green-dark); text-decoration: none; cursor: pointer; }
+.auth-forgot a:hover { text-decoration: underline; }
+.auth-back { text-align: center; margin-top: 14px; font-size: 0.9rem; }
+.auth-back a { color: var(--text-muted); cursor: pointer; }
+.auth-back a:hover { color: var(--green-dark); }
