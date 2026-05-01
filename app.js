@@ -4,12 +4,14 @@ const SUPABASE_URL = 'https://wvladknkebqiqutboohw.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_J0JrrWBQipfP201_L3A0pw_UGF6R1qL'
 const PHOTO_BUCKET = 'book-photos'
 const BASE_SUBJECTS = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business']
+const MAX_PHOTOS = 4
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let allListings = []
 let myListings = []
 let currentUser = null
 let currentProfile = null
+let isAdmin = false
 let currentView = 'browse'
 
 // ---- TOASTS & CONFIRM ----
@@ -70,6 +72,7 @@ function updateNav() {
       ${viewLink}
       <button class="btn-primary" id="new-listing-btn">+ List a book</button>
       <span class="nav-user">${escapeHtml(displayEmail)}</span>
+      ${isAdmin ? '<span class="admin-badge">ADMIN</span>' : ''}
       <button class="btn-secondary" id="signout-btn">Sign out</button>
     `
     document.getElementById('signout-btn').addEventListener('click', signOut)
@@ -269,13 +272,22 @@ async function signOut() {
   showToast('Signed out.', 'info')
 }
 
-supabase.auth.onAuthStateChange((event, session) => {
+async function loadCurrentUserProfile() {
+  if (!currentUser) { currentProfile = null; isAdmin = false; return }
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single()
+  if (error) { console.error(error); return }
+  currentProfile = data
+  isAdmin = !!data.is_admin
+}
+
+supabase.auth.onAuthStateChange(async (event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     showSetNewPasswordModal()
     return
   }
   currentUser = session?.user || null
-  if (!currentUser && currentView === 'profile') {
+  await loadCurrentUserProfile()
+  if (!currentUser && currentView !== 'browse' && currentView !== 'about' && currentView !== 'faq') {
     showBrowseView()
     return
   }
@@ -283,18 +295,32 @@ supabase.auth.onAuthStateChange((event, session) => {
 })
 
 // ---- VIEW SWITCHING ----
+function hideAllSections() {
+  ['.hero', '.how', '.browse-section', '.mission'].forEach(sel => {
+    const el = document.querySelector(sel)
+    if (el) el.classList.add('hidden-section')
+  })
+  ;['profile-section', 'about-section', 'faq-section'].forEach(id => {
+    const el = document.getElementById(id)
+    if (el) el.classList.add('hidden-section')
+  })
+}
+
+function showBrowseView() {
+  currentView = 'browse'
+  hideAllSections()
+  ;['.hero', '.how', '.browse-section', '.mission'].forEach(sel => {
+    const el = document.querySelector(sel)
+    if (el) el.classList.remove('hidden-section')
+  })
+  updateNav()
+  loadListings()
+}
+
 function showProfileView() {
   if (!currentUser) return
   currentView = 'profile'
-  document.querySelector('.hero').classList.add('hidden-section')
-  document.getElementById('browse').classList.add('hidden-section')
-  document.querySelector('.listings').classList.add('hidden-section')
-  const how = document.querySelector('.how')
-  const browseSection = document.querySelector('.browse-section')
-  const mission = document.querySelector('.mission')
-  if (how) how.classList.add('hidden-section')
-  if (browseSection) browseSection.classList.add('hidden-section')
-  if (mission) mission.classList.add('hidden-section')
+  hideAllSections()
   ensureProfileSection().classList.remove('hidden-section')
   updateNav()
   loadProfile()
@@ -302,21 +328,20 @@ function showProfileView() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-function showBrowseView() {
-  currentView = 'browse'
-  document.querySelector('.hero').classList.remove('hidden-section')
-  document.getElementById('browse').classList.remove('hidden-section')
-  document.querySelector('.listings').classList.remove('hidden-section')
-  const how = document.querySelector('.how')
-  const browseSection = document.querySelector('.browse-section')
-  const mission = document.querySelector('.mission')
-  if (how) how.classList.remove('hidden-section')
-  if (browseSection) browseSection.classList.remove('hidden-section')
-  if (mission) mission.classList.remove('hidden-section')
-  const ps = document.getElementById('profile-section')
-  if (ps) ps.classList.add('hidden-section')
+function showAboutView() {
+  currentView = 'about'
+  hideAllSections()
+  ensureAboutSection().classList.remove('hidden-section')
   updateNav()
-  loadListings()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function showFaqView() {
+  currentView = 'faq'
+  hideAllSections()
+  ensureFaqSection().classList.remove('hidden-section')
+  updateNav()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function ensureProfileSection() {
@@ -360,27 +385,94 @@ function ensureProfileSection() {
     <div class="grid" id="my-listings-grid">
       <div class="loading">Fetching your listings…</div>
     </div>
+    <div class="profile-card danger-zone" style="margin-top: 40px;">
+      <h3>Danger zone</h3>
+      <p>Removes all your listings and clears your profile data. Your email is retained — to have it fully erased, email us at hello@greencycle.om.</p>
+      <button type="button" class="btn-danger" id="delete-account-btn">Delete my account</button>
+    </div>
   `
   document.querySelector('main').appendChild(section)
 
   section.querySelector('#profile-form').addEventListener('submit', saveProfile)
   section.querySelector('#my-listings-grid').addEventListener('click', handleCardClick)
+  section.querySelector('#delete-account-btn').addEventListener('click', deleteAccount)
+  return section
+}
+
+function ensureAboutSection() {
+  let section = document.getElementById('about-section')
+  if (section) return section
+  section = document.createElement('section')
+  section.id = 'about-section'
+  section.className = 'about-section'
+  section.innerHTML = `
+    <div class="about-header">
+      <h1>About GreenCycle</h1>
+      <p>Built by two students in Oman who got tired of WhatsApp chaos.</p>
+    </div>
+    <div class="about-grid">
+      <div class="about-person">
+        <div class="about-photo">
+          <img src="hitesh.jpg" alt="Hitesh" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <div class="about-photo-fallback" style="display:none;">H</div>
+        </div>
+        <h3>Hitesh</h3>
+        <p>[Add your bio here. A sentence or two about who you are, where you study, and why you helped build GreenCycle.]</p>
+      </div>
+      <div class="about-person">
+        <div class="about-photo">
+          <img src="anshul.jpg" alt="Anshul" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <div class="about-photo-fallback" style="display:none;">A</div>
+        </div>
+        <h3>Anshul</h3>
+        <p>[Add Anshul's bio here. A sentence or two about him.]</p>
+      </div>
+    </div>
+    <div class="about-mission">
+      <h2>Why we built this</h2>
+      <p>At the end of every school year, our friends' parents would post in WhatsApp groups: "Anyone need a Grade 9 math book?" Within minutes, the message would be lost in 200 unrelated messages. Books that could have been passed on quietly ended up in the recycling.</p>
+      <p>We thought: surely there's a calmer way. So we built GreenCycle — a small, free site to make book-sharing simple, searchable, and human. Pass it on, don't bin it.</p>
+    </div>
+  `
+  document.querySelector('main').appendChild(section)
+  return section
+}
+
+function ensureFaqSection() {
+  let section = document.getElementById('faq-section')
+  if (section) return section
+  section = document.createElement('section')
+  section.id = 'faq-section'
+  section.className = 'faq-section'
+  section.innerHTML = `
+    <div class="faq-header">
+      <h1>Questions you might have</h1>
+      <p>Short answers to the most common ones. If yours isn't here, email us at hello@greencycle.om.</p>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item"><summary>Is GreenCycle free?</summary><div class="faq-answer">Yes, completely. No fees, no commission, no money changes hands. Listings are free to post and free to claim.</div></details>
+      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click <strong>+ List a book</strong> in the top right, fill in the details (title, subject, grade, condition, and how you'd like to be contacted), and post. Takes about a minute.</div></details>
+      <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click on the listing to see the lister's contact info — usually a WhatsApp number, phone, or email. Reach out directly to arrange a pickup.</div></details>
+      <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. The contact info you put on each listing is visible to anyone browsing — that's by design, so people can reach you. Only share what you're comfortable with.</div></details>
+      <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when you list — pick "Worn" if it's seen better days, and use photos. As a buyer, ask for more photos if anything's unclear. GreenCycle doesn't mediate disputes; it's just a way to connect.</div></details>
+      <details class="faq-item"><summary>Can I list books that aren't textbooks?</summary><div class="faq-answer">GreenCycle is focused on K–12 academic books. Workbooks, readers, and reference books are all welcome if they fit a school grade. For general book swapping, you'd want a different platform.</div></details>
+      <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Once you've handed it over, mark it as <strong>Claimed</strong> from your profile or the listing. It'll be removed from the public feed. You can also un-claim if the deal falls through.</div></details>
+      <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll to the bottom and click <strong>Delete my account</strong>. This removes all your listings and clears your profile. Your email is retained for audit purposes — to fully erase, email us at hello@greencycle.om.</div></details>
+      <details class="faq-item"><summary>I saw a spammy or inappropriate listing — what do I do?</summary><div class="faq-answer">Email us at hello@greencycle.om with the listing title and we'll remove it. Admin moderation is light right now — flag anything that looks off.</div></details>
+    </div>
+  `
+  document.querySelector('main').appendChild(section)
   return section
 }
 
 async function loadProfile() {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', currentUser.id)
-    .single()
-  if (error) { console.error(error); return }
-  currentProfile = data
+  await loadCurrentUserProfile()
+  if (!currentProfile) return
   const form = document.getElementById('profile-form')
   if (form) {
-    form.full_name.value = data.full_name || ''
-    form.school.value = data.school || ''
-    form.grade_level.value = data.grade_level || ''
+    form.full_name.value = currentProfile.full_name || ''
+    form.school.value = currentProfile.school || ''
+    form.grade_level.value = currentProfile.grade_level || ''
   }
   const emailEl = document.getElementById('profile-email')
   if (emailEl) emailEl.textContent = currentUser.email
@@ -413,11 +505,31 @@ async function saveProfile(e) {
   currentProfile = { ...currentProfile, ...updates }
 }
 
+async function deleteAccount() {
+  const ok = await customConfirm({
+    title: 'Delete your account?',
+    message: 'All your listings will be permanently removed and your profile cleared. Your email is retained — to have it fully erased, email hello@greencycle.om.',
+    confirmText: 'Yes, delete everything',
+    danger: true,
+  })
+  if (!ok) return
+
+  const { error: e1 } = await supabase.from('listings').delete().eq('owner_id', currentUser.id)
+  if (e1) { showToast("Couldn't delete listings: " + e1.message, 'error'); return }
+
+  const { error: e2 } = await supabase.from('profiles').update({
+    full_name: null, school: null, grade_level: null,
+  }).eq('id', currentUser.id)
+  if (e2) { showToast("Couldn't clear profile: " + e2.message, 'error'); return }
+
+  await supabase.auth.signOut()
+  showToast("Account data deleted. We'll miss you 🌿", 'success')
+  showBrowseView()
+}
+
 async function loadMyListings() {
   const { data, error } = await supabase
-    .from('listings')
-    .select('*')
-    .eq('owner_id', currentUser.id)
+    .from('listings').select('*').eq('owner_id', currentUser.id)
     .order('created_at', { ascending: false })
   if (error) {
     console.error(error)
@@ -436,22 +548,7 @@ function renderMyListings(listings) {
     grid.innerHTML = `<div class="empty">You haven't listed any books yet. Click <strong>+ List a book</strong> to share one.</div>`
     return
   }
-  grid.innerHTML = listings.map(l => `
-    <article class="card" data-id="${l.id}">
-      <div class="card-image">
-        ${l.photo_url ? `<img src="${escapeHtml(l.photo_url)}" alt="${escapeHtml(l.title)}">` : '📖'}
-      </div>
-      <div class="card-body">
-        <div class="card-title">${escapeHtml(l.title)}</div>
-        <div class="card-meta">
-          <span class="tag tag-status ${l.status}">${l.status === 'available' ? 'Available' : 'Claimed'}</span>
-          <span class="tag tag-grade">${escapeHtml(l.grade_level)}</span>
-          <span class="tag tag-subject">${escapeHtml(l.subject)}</span>
-        </div>
-        ${l.school ? `<div class="card-school">${escapeHtml(l.school)}</div>` : ''}
-      </div>
-    </article>
-  `).join('')
+  grid.innerHTML = listings.map(renderCard).join('')
 }
 
 // ---- CREATE / EDIT LISTING ----
@@ -467,15 +564,15 @@ function showCreateListingModal(editingListing = null) {
 
   const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
   const subjects = [...BASE_SUBJECTS, 'Other']
-
   const d = isEditing ? editingListing : {}
   const isCustomSubject = isEditing && d.subject && !BASE_SUBJECTS.includes(d.subject)
   const subjectValue = isCustomSubject ? 'Other' : (d.subject || '')
   const customSubjectValue = isCustomSubject ? d.subject : ''
   const ownerNameValue = d.owner_name || (currentProfile && currentProfile.full_name) || ''
   const schoolValue = d.school || (currentProfile && currentProfile.school) || ''
-  let existingPhotoUrl = isEditing ? (d.photo_url || null) : null
-  let removeExistingPhoto = false
+
+  // Photo state: array of { url, file }
+  let photoSlots = (isEditing && Array.isArray(d.photos)) ? d.photos.map(url => ({ url, file: null })) : []
 
   modal.innerHTML = `
     <div class="modal create-modal">
@@ -484,15 +581,9 @@ function showCreateListingModal(editingListing = null) {
         <h2 class="auth-title">${isEditing ? 'Edit listing' : 'List a book'}</h2>
         <p class="auth-subtitle">${isEditing ? 'Update the details below.' : 'Pass it on to another student. No money, no fuss.'}</p>
         <form id="create-form">
-          <label class="auth-label">Photo (optional)
-            <div class="photo-upload-area" id="photo-upload-area">
-              <input type="file" name="photo" id="photo-input" accept="image/*" style="display: none;">
-              <div class="photo-placeholder ${existingPhotoUrl ? 'hidden' : ''}" id="photo-placeholder">📸 Click to add a photo</div>
-              <div class="photo-preview ${existingPhotoUrl ? '' : 'hidden'}" id="photo-preview">
-                <img id="photo-preview-img" alt="Preview" src="${existingPhotoUrl ? escapeHtml(existingPhotoUrl) : ''}">
-                <button type="button" class="photo-remove" id="photo-remove" aria-label="Remove photo">×</button>
-              </div>
-            </div>
+          <label class="auth-label">Photos (optional, up to ${MAX_PHOTOS})
+            <div class="photos-grid" id="photos-grid"></div>
+            <input type="file" id="photos-input" accept="image/*" style="display: none;">
           </label>
           <label class="auth-label">Book title
             <input type="text" name="title" required value="${escapeHtml(d.title || '')}">
@@ -551,6 +642,42 @@ function showCreateListingModal(editingListing = null) {
   `
   modal.classList.remove('hidden')
 
+  function renderPhotosGrid() {
+    const grid = document.getElementById('photos-grid')
+    let html = photoSlots.map((slot, i) => {
+      const src = slot.url || (slot.file ? URL.createObjectURL(slot.file) : '')
+      return `
+        <div class="photo-slot">
+          <img src="${escapeHtml(src)}" alt="">
+          <button type="button" class="photo-remove" data-index="${i}" aria-label="Remove">×</button>
+        </div>
+      `
+    }).join('')
+    if (photoSlots.length < MAX_PHOTOS) {
+      html += `<div class="photo-slot empty" id="add-photo-slot"><span>+ Add photo</span></div>`
+    }
+    grid.innerHTML = html
+    grid.querySelectorAll('.photo-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        photoSlots.splice(Number(btn.dataset.index), 1)
+        renderPhotosGrid()
+      })
+    })
+    const addSlot = grid.querySelector('#add-photo-slot')
+    if (addSlot) addSlot.addEventListener('click', () => document.getElementById('photos-input').click())
+  }
+  renderPhotosGrid()
+
+  document.getElementById('photos-input').addEventListener('change', (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { showToast('Please pick an image.', 'error'); e.target.value = ''; return }
+    if (file.size > 5 * 1024 * 1024) { showToast('Image is over 5MB.', 'error'); e.target.value = ''; return }
+    photoSlots.push({ url: null, file })
+    e.target.value = ''
+    renderPhotosGrid()
+  })
+
   const subjectSelect = modal.querySelector('select[name="subject"]')
   const customSubjectWrap = modal.querySelector('#custom-subject-wrap')
   const customSubjectInput = customSubjectWrap.querySelector('input[name="custom_subject"]')
@@ -565,43 +692,6 @@ function showCreateListingModal(editingListing = null) {
     }
   })
 
-  const photoInput = modal.querySelector('#photo-input')
-  const photoPlaceholder = modal.querySelector('#photo-placeholder')
-  const photoPreview = modal.querySelector('#photo-preview')
-  const photoPreviewImg = modal.querySelector('#photo-preview-img')
-  const photoRemove = modal.querySelector('#photo-remove')
-
-  modal.querySelector('#photo-upload-area').addEventListener('click', (e) => {
-    if (e.target === photoRemove || photoRemove.contains(e.target)) return
-    photoInput.click()
-  })
-
-  photoInput.addEventListener('change', (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) { showToast('Please pick an image file.', 'error'); photoInput.value = ''; return }
-    if (file.size > 5 * 1024 * 1024) { showToast('Image is over 5MB. Try a smaller one.', 'error'); photoInput.value = ''; return }
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      photoPreviewImg.src = ev.target.result
-      photoPlaceholder.classList.add('hidden')
-      photoPreview.classList.remove('hidden')
-      removeExistingPhoto = false
-    }
-    reader.readAsDataURL(file)
-  })
-
-  photoRemove.addEventListener('click', (e) => {
-    e.stopPropagation()
-    photoInput.value = ''
-    if (existingPhotoUrl) {
-      removeExistingPhoto = true
-      existingPhotoUrl = null
-    }
-    photoPlaceholder.classList.remove('hidden')
-    photoPreview.classList.add('hidden')
-  })
-
   modal.querySelector('#create-close').addEventListener('click', closeCreateModal)
   modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
   modal.addEventListener('click', (e) => { if (e.target === modal) closeCreateModal() })
@@ -614,21 +704,25 @@ function showCreateListingModal(editingListing = null) {
     errorDiv.textContent = ''
     submitBtn.disabled = true
 
-    let photoUrl = isEditing ? (removeExistingPhoto ? null : existingPhotoUrl) : null
-    const file = form.photo.files[0]
-    if (file) {
-      submitBtn.textContent = 'Uploading photo…'
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-      const fileName = `${currentUser.id}/${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(fileName, file)
-      if (uploadError) {
-        errorDiv.textContent = `Couldn't upload photo: ${uploadError.message}`
-        submitBtn.disabled = false
-        submitBtn.textContent = isEditing ? 'Save changes' : 'Post listing'
-        return
+    // Upload any new photos
+    const photoUrls = []
+    let uploadingShown = false
+    for (const slot of photoSlots) {
+      if (slot.url && !slot.file) { photoUrls.push(slot.url); continue }
+      if (slot.file) {
+        if (!uploadingShown) { submitBtn.textContent = 'Uploading photos…'; uploadingShown = true }
+        const ext = (slot.file.name.split('.').pop() || 'jpg').toLowerCase()
+        const fileName = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2,7)}.${ext}`
+        const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(fileName, slot.file)
+        if (uploadError) {
+          errorDiv.textContent = `Couldn't upload photo: ${uploadError.message}`
+          submitBtn.disabled = false
+          submitBtn.textContent = isEditing ? 'Save changes' : 'Post listing'
+          return
+        }
+        const { data: { publicUrl } } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(fileName)
+        photoUrls.push(publicUrl)
       }
-      const { data: { publicUrl } } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(fileName)
-      photoUrl = publicUrl
     }
 
     submitBtn.textContent = isEditing ? 'Saving…' : 'Posting…'
@@ -647,7 +741,7 @@ function showCreateListingModal(editingListing = null) {
       owner_name: form.owner_name.value.trim(),
       contact_method: form.contact_method.value,
       contact_value: form.contact_value.value.trim(),
-      photo_url: photoUrl,
+      photos: photoUrls.length > 0 ? photoUrls : null,
     }
 
     let result
@@ -679,14 +773,12 @@ function closeCreateModal() {
 // ---- LISTINGS ----
 async function loadListings() {
   const { data, error } = await supabase
-    .from('listings')
-    .select('*')
-    .eq('status', 'available')
+    .from('listings').select('*').eq('status', 'available')
     .order('created_at', { ascending: false })
 
   if (error) {
     console.error('Supabase error:', error)
-    document.getElementById('listings-grid').innerHTML = `<div class="empty">Couldn't load listings. Open the browser console for details.</div>`
+    document.getElementById('listings-grid').innerHTML = `<div class="empty">Couldn't load listings. Check the console.</div>`
     document.getElementById('listings-meta').textContent = 'Error loading'
     return
   }
@@ -705,6 +797,29 @@ function updateSubjectFilterOptions() {
   if (currentValue && merged.includes(currentValue)) select.value = currentValue
 }
 
+function renderCard(l) {
+  const firstPhoto = (l.photos && l.photos.length > 0) ? l.photos[0] : null
+  const moreCount = (l.photos && l.photos.length > 1) ? l.photos.length - 1 : 0
+  return `
+    <article class="card" data-id="${l.id}">
+      <div class="card-image">
+        ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}">` : '📖'}
+        ${moreCount > 0 ? `<div class="photo-count">+${moreCount}</div>` : ''}
+      </div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(l.title)}</div>
+        <div class="card-meta">
+          ${l.status === 'claimed' ? `<span class="tag tag-status claimed">Claimed</span>` : ''}
+          <span class="tag tag-grade">${escapeHtml(l.grade_level)}</span>
+          <span class="tag tag-subject">${escapeHtml(l.subject)}</span>
+          <span class="tag tag-condition ${l.condition}">${escapeHtml(l.condition)}</span>
+        </div>
+        ${l.school ? `<div class="card-school">${escapeHtml(l.school)}</div>` : ''}
+      </div>
+    </article>
+  `
+}
+
 function renderListings(listings) {
   const grid = document.getElementById('listings-grid')
   const meta = document.getElementById('listings-meta')
@@ -713,22 +828,7 @@ function renderListings(listings) {
     grid.innerHTML = '<div class="empty">No books match your filters. Try clearing them.</div>'
     return
   }
-  grid.innerHTML = listings.map(l => `
-    <article class="card" data-id="${l.id}">
-      <div class="card-image">
-        ${l.photo_url ? `<img src="${escapeHtml(l.photo_url)}" alt="${escapeHtml(l.title)}">` : '📖'}
-      </div>
-      <div class="card-body">
-        <div class="card-title">${escapeHtml(l.title)}</div>
-        <div class="card-meta">
-          <span class="tag tag-grade">${escapeHtml(l.grade_level)}</span>
-          <span class="tag tag-subject">${escapeHtml(l.subject)}</span>
-          <span class="tag tag-condition ${l.condition}">${escapeHtml(l.condition)}</span>
-        </div>
-        ${l.school ? `<div class="card-school">${escapeHtml(l.school)}</div>` : ''}
-      </div>
-    </article>
-  `).join('')
+  grid.innerHTML = listings.map(renderCard).join('')
 }
 
 function applyFilters() {
@@ -751,17 +851,43 @@ function showModal(listing) {
   const contactLink = getContactLink(listing.contact_method, listing.contact_value)
   const contactLabel = contactLabelFor(listing.contact_method)
   const isOwner = currentUser && listing.owner_id === currentUser.id
+  const canDelete = isOwner || isAdmin
   const isClaimed = listing.status === 'claimed'
+  const photos = Array.isArray(listing.photos) ? listing.photos : []
 
-  let ownerActionsHtml = ''
+  let photoBlockHtml
+  if (photos.length === 0) {
+    photoBlockHtml = `<div class="modal-image">📖</div>`
+  } else {
+    photoBlockHtml = `
+      <div class="photo-carousel" data-index="0">
+        <img src="${escapeHtml(photos[0])}" alt="${escapeHtml(listing.title)}" id="carousel-img">
+        ${photos.length > 1 ? `
+          <button class="carousel-nav prev" id="carousel-prev" aria-label="Previous">‹</button>
+          <button class="carousel-nav next" id="carousel-next" aria-label="Next">›</button>
+          <div class="carousel-dots">
+            ${photos.map((_, i) => `<span class="carousel-dot ${i === 0 ? 'active' : ''}" data-i="${i}"></span>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `
+  }
+
+  let actionsHtml = ''
   if (isOwner) {
     const claimId = isClaimed ? 'unclaim-btn' : 'claim-btn'
     const claimText = isClaimed ? 'Mark available' : 'Mark claimed'
-    ownerActionsHtml = `
+    actionsHtml = `
       <div class="owner-actions">
         <button class="btn-secondary" id="edit-btn">Edit</button>
         <button class="btn-secondary action-claim" id="${claimId}">${claimText}</button>
         <button class="btn-secondary action-delete" id="delete-btn">Delete</button>
+      </div>
+    `
+  } else if (isAdmin) {
+    actionsHtml = `
+      <div class="owner-actions">
+        <button class="btn-secondary action-delete" id="delete-btn">Delete (admin)</button>
       </div>
     `
   }
@@ -769,9 +895,7 @@ function showModal(listing) {
   modal.innerHTML = `
     <div class="modal">
       <button class="modal-close" aria-label="Close">×</button>
-      <div class="modal-image">
-        ${listing.photo_url ? `<img src="${escapeHtml(listing.photo_url)}" alt="${escapeHtml(listing.title)}">` : '📖'}
-      </div>
+      ${photoBlockHtml}
       <div class="modal-body">
         <h2>${escapeHtml(listing.title)}</h2>
         <div class="modal-tags">
@@ -789,7 +913,7 @@ function showModal(listing) {
             <a href="${contactLink}" class="contact-link" target="_blank" rel="noopener">${contactLabel} ${escapeHtml(listing.contact_value)}</a>
           </div>
         </div>
-        ${ownerActionsHtml}
+        ${actionsHtml}
       </div>
     </div>
   `
@@ -798,17 +922,30 @@ function showModal(listing) {
   modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
   modal.addEventListener('click', closeModal)
 
+  if (photos.length > 1) {
+    let idx = 0
+    const img = modal.querySelector('#carousel-img')
+    const dots = modal.querySelectorAll('.carousel-dot')
+    function setIdx(i) {
+      idx = (i + photos.length) % photos.length
+      img.src = photos[idx]
+      dots.forEach((d, j) => d.classList.toggle('active', j === idx))
+    }
+    modal.querySelector('#carousel-prev').addEventListener('click', (e) => { e.stopPropagation(); setIdx(idx - 1) })
+    modal.querySelector('#carousel-next').addEventListener('click', (e) => { e.stopPropagation(); setIdx(idx + 1) })
+    dots.forEach((dot, i) => dot.addEventListener('click', (e) => { e.stopPropagation(); setIdx(i) }))
+  }
+
   if (isOwner) {
-    modal.querySelector('#edit-btn').addEventListener('click', () => {
-      closeModal()
-      showCreateListingModal(listing)
-    })
+    modal.querySelector('#edit-btn').addEventListener('click', () => { closeModal(); showCreateListingModal(listing) })
     if (isClaimed) {
       modal.querySelector('#unclaim-btn').addEventListener('click', () => markAsAvailable(listing.id))
     } else {
       modal.querySelector('#claim-btn').addEventListener('click', () => markAsClaimed(listing.id))
     }
-    modal.querySelector('#delete-btn').addEventListener('click', () => deleteListing(listing.id))
+    modal.querySelector('#delete-btn').addEventListener('click', () => deleteListing(listing.id, false))
+  } else if (isAdmin) {
+    modal.querySelector('#delete-btn').addEventListener('click', () => deleteListing(listing.id, true))
   }
 }
 
@@ -834,10 +971,12 @@ async function markAsAvailable(id) {
   await refreshCurrentView()
 }
 
-async function deleteListing(id) {
+async function deleteListing(id, asAdmin = false) {
   const ok = await customConfirm({
-    title: 'Delete this listing?',
-    message: "This can't be undone. The listing will be permanently removed.",
+    title: asAdmin ? 'Delete this listing as admin?' : 'Delete this listing?',
+    message: asAdmin
+      ? "You're deleting someone else's listing. This can't be undone."
+      : "This can't be undone. The listing will be permanently removed.",
     confirmText: 'Delete',
     danger: true,
   })
@@ -845,13 +984,13 @@ async function deleteListing(id) {
   const { error } = await supabase.from('listings').delete().eq('id', id)
   if (error) { showToast("Couldn't delete: " + error.message, 'error'); return }
   closeModal()
-  showToast('Listing deleted.', 'success')
+  showToast(asAdmin ? 'Listing removed.' : 'Listing deleted.', 'success')
   await refreshCurrentView()
 }
 
 async function refreshCurrentView() {
   if (currentView === 'browse') await loadListings()
-  else await loadMyListings()
+  else if (currentView === 'profile') await loadMyListings()
 }
 
 function closeModal() {
@@ -890,8 +1029,11 @@ document.getElementById('search').addEventListener('input', applyFilters)
 document.getElementById('grade-filter').addEventListener('change', applyFilters)
 document.getElementById('subject-filter').addEventListener('change', applyFilters)
 document.getElementById('condition-filter').addEventListener('change', applyFilters)
-
 document.getElementById('listings-grid').addEventListener('click', handleCardClick)
+
+document.getElementById('logo-link').addEventListener('click', () => showBrowseView())
+document.getElementById('footer-about').addEventListener('click', (e) => { e.preventDefault(); showAboutView() })
+document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
