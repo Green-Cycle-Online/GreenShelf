@@ -21,39 +21,89 @@
   </header>
 
   <main>
-    <section class="hero">
-      <h1>Pass your school books on, <em>not into the bin.</em></h1>
-      <p>A free, friendly way for students and parents in Oman to share textbooks at the end of the year. Find what you need, give what you don't.</p>
-    </section>
-
-    <section class="filters" id="browse">
-      <div class="filter-grid">
-        <input type="search" id="search" placeholder="Search by title or subject…">
-        <select id="grade-filter">
-          <option value="">All grades</option>
-          <option>Grade 1</option><option>Grade 2</option><option>Grade 3</option>
-          <option>Grade 4</option><option>Grade 5</option><option>Grade 6</option>
-          <option>Grade 7</option><option>Grade 8</option><option>Grade 9</option>
-          <option>Grade 10</option><option>Grade 11</option><option>Grade 12</option>
-        </select>
-        <select id="subject-filter">
-          <option value="">All subjects</option>
-          <option>Math</option><option>Science</option><option>English</option>
-          <option>Arabic</option><option>Social Studies</option><option>Business</option>
-        </select>
-        <select id="condition-filter">
-          <option value="">All conditions</option>
-          <option value="new">New</option>
-          <option value="good">Good</option>
-          <option value="worn">Worn</option>
-        </select>
+    <section class="hero hero-big">
+      <span class="hero-decoration left" aria-hidden="true">🌿</span>
+      <span class="hero-decoration right" aria-hidden="true">🍃</span>
+      <span class="hero-eyebrow">For students &amp; parents in Oman</span>
+      <h1>Pass your school books on,<br><em>not into the bin.</em></h1>
+      <p class="hero-tagline">A free, friendly way to share textbooks at the end of the year. Find what you need, give what you don't.</p>
+      <div class="hero-cta-row">
+        <a href="#browse" class="btn-primary btn-lg">Browse books</a>
+        <a href="#how" class="btn-secondary btn-lg">How it works</a>
       </div>
     </section>
 
-    <section class="listings">
-      <div class="listings-meta" id="listings-meta">Loading…</div>
-      <div class="grid" id="listings-grid">
-        <div class="loading">Fetching listings…</div>
+    <section class="how" id="how">
+      <div class="how-content">
+        <div class="how-header">
+          <h2>Three steps. No money. No fuss.</h2>
+          <p>Built around how families actually swap books — without the WhatsApp chaos.</p>
+        </div>
+        <div class="how-steps">
+          <div class="how-step">
+            <div class="how-step-icon">🔍</div>
+            <h3>1. Find a book</h3>
+            <p>Filter by grade, subject, or condition. Find the exact textbook you need from another family in Oman.</p>
+          </div>
+          <div class="how-step">
+            <div class="how-step-icon">✉️</div>
+            <h3>2. Reach out</h3>
+            <p>Message them on WhatsApp, call, or email — directly. No app inboxes, no middleman.</p>
+          </div>
+          <div class="how-step">
+            <div class="how-step-icon">🤝</div>
+            <h3>3. Pick it up</h3>
+            <p>Arrange a quick handover. The book gets a second life, and your shelf gets a little space back.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="browse-section">
+      <div class="section-heading">
+        <h2>Browse the books</h2>
+        <p>Free for everyone. No accounts needed to look around.</p>
+      </div>
+
+      <section class="filters" id="browse">
+        <div class="filter-grid">
+          <input type="search" id="search" placeholder="Search by title or subject…">
+          <select id="grade-filter">
+            <option value="">All grades</option>
+            <option>Grade 1</option><option>Grade 2</option><option>Grade 3</option>
+            <option>Grade 4</option><option>Grade 5</option><option>Grade 6</option>
+            <option>Grade 7</option><option>Grade 8</option><option>Grade 9</option>
+            <option>Grade 10</option><option>Grade 11</option><option>Grade 12</option>
+          </select>
+          <select id="subject-filter">
+            <option value="">All subjects</option>
+            <option>Math</option><option>Science</option><option>English</option>
+            <option>Arabic</option><option>Social Studies</option><option>Business</option>
+          </select>
+          <select id="condition-filter">
+            <option value="">All conditions</option>
+            <option value="new">New</option>
+            <option value="good">Good</option>
+            <option value="worn">Worn</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="listings">
+        <div class="listings-meta" id="listings-meta">Loading…</div>
+        <div class="grid" id="listings-grid">
+          <div class="loading">Fetching listings…</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="mission">
+      <div class="mission-content">
+        <h2>Why GreenCycle?</h2>
+        <p>At the end of every school year, perfectly good textbooks pile up in homes across Oman. Most end up in the recycling — or worse. Meanwhile, a family two streets over needs that exact book.</p>
+        <p>WhatsApp groups try to fix this, but they get messy fast. Hundreds of messages, no way to search, books lost in the scroll.</p>
+        <p>GreenCycle is the calm version. Browse, filter, find. Give freely. A small thing for your community, and one fewer book in landfill.</p>
+        <p class="signature">— Made with 🌿 in Oman</p>
       </div>
     </section>
   </main>
