@@ -1510,6 +1510,8 @@ loadListings()
 // Session restore with timeout + auto-clear to prevent stuck states
 ;(async () => {
   let session = null
+
+  // Try the normal way first
   try {
     const result = await Promise.race([
       supabase.auth.getSession(),
@@ -1517,7 +1519,30 @@ loadListings()
     ])
     session = result.data?.session
   } catch (e) {
-    console.error('Session restore failed, clearing bad tokens:', e)
+    console.error('getSession failed:', e)
+  }
+
+  // If that didn't work, manually restore from localStorage
+  if (!session) {
+    try {
+      const tokenKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+      if (tokenKey) {
+        const stored = JSON.parse(localStorage.getItem(tokenKey))
+        if (stored?.access_token && stored?.refresh_token) {
+          const result = await supabase.auth.setSession({
+            access_token: stored.access_token,
+            refresh_token: stored.refresh_token,
+          })
+          session = result.data?.session
+        }
+      }
+    } catch (e) {
+      console.error('Manual setSession failed:', e)
+    }
+  }
+
+  // Still no session? Clear bad tokens so sign-in works next time
+  if (!session) {
     Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k))
   }
 
