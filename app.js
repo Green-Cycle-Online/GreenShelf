@@ -15,10 +15,12 @@ function updateNav() {
     const displayEmail = email.length > 22 ? email.slice(0, 20) + '…' : email
     navAuth.innerHTML = `
       <a href="#browse">Browse</a>
+      <button class="btn-primary" id="new-listing-btn">+ List a book</button>
       <span class="nav-user">${escapeHtml(displayEmail)}</span>
       <button class="btn-secondary" id="signout-btn">Sign out</button>
     `
     document.getElementById('signout-btn').addEventListener('click', signOut)
+    document.getElementById('new-listing-btn').addEventListener('click', showCreateListingModal)
   } else {
     navAuth.innerHTML = `
       <a href="#browse">Browse</a>
@@ -41,12 +43,10 @@ function showAuthModal() {
           <button type="button" class="auth-tab" data-mode="signup">Create account</button>
         </div>
         <form id="auth-form">
-          <label class="auth-label">
-            Email
+          <label class="auth-label">Email
             <input type="email" id="auth-email" required autocomplete="email">
           </label>
-          <label class="auth-label">
-            Password
+          <label class="auth-label">Password
             <input type="password" id="auth-password" required minlength="6" autocomplete="current-password">
           </label>
           <div class="auth-error" id="auth-error"></div>
@@ -124,6 +124,127 @@ supabase.auth.onAuthStateChange((event, session) => {
   updateNav()
 })
 
+// ---- CREATE LISTING ----
+function showCreateListingModal() {
+  let modal = document.getElementById('create-modal')
+  if (!modal) {
+    modal = document.createElement('div')
+    modal.id = 'create-modal'
+    modal.className = 'modal-backdrop hidden'
+    document.body.appendChild(modal)
+  }
+
+  const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
+  const subjects = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business', 'Other']
+
+  modal.innerHTML = `
+    <div class="modal create-modal">
+      <button class="modal-close" id="create-close" aria-label="Close">×</button>
+      <div class="auth-body">
+        <h2 class="auth-title">List a book</h2>
+        <p class="auth-subtitle">Pass it on to another student. No money, no fuss.</p>
+        <form id="create-form">
+          <label class="auth-label">Book title
+            <input type="text" name="title" required>
+          </label>
+          <div class="form-row">
+            <label class="auth-label">Subject
+              <select name="subject" required>
+                <option value="">Choose…</option>
+                ${subjects.map(s => `<option>${s}</option>`).join('')}
+              </select>
+            </label>
+            <label class="auth-label">Grade
+              <select name="grade_level" required>
+                <option value="">Choose…</option>
+                ${grades.map(g => `<option>${g}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <label class="auth-label">School (optional)
+            <input type="text" name="school" placeholder="e.g. British School Muscat">
+          </label>
+          <label class="auth-label">Condition
+            <select name="condition" required>
+              <option value="">Choose…</option>
+              <option value="new">New</option>
+              <option value="good">Good</option>
+              <option value="worn">Worn</option>
+            </select>
+          </label>
+          <label class="auth-label">About this book (optional)
+            <textarea name="description" rows="3" placeholder="Anything worth mentioning — highlighting, missing pages, etc."></textarea>
+          </label>
+          <label class="auth-label">Your name (shown on the listing)
+            <input type="text" name="owner_name" required>
+          </label>
+          <div class="form-row">
+            <label class="auth-label">Contact via
+              <select name="contact_method" required>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="phone">Phone</option>
+                <option value="email">Email</option>
+              </select>
+            </label>
+            <label class="auth-label">Contact details
+              <input type="text" name="contact_value" required placeholder="96891234567">
+            </label>
+          </div>
+          <div class="auth-error" id="create-error"></div>
+          <button type="submit" class="btn-primary auth-submit" id="create-submit">Post listing</button>
+        </form>
+      </div>
+    </div>
+  `
+  modal.classList.remove('hidden')
+
+  modal.querySelector('#create-close').addEventListener('click', closeCreateModal)
+  modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeCreateModal() })
+
+  modal.querySelector('#create-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const form = e.target
+    const submitBtn = modal.querySelector('#create-submit')
+    const errorDiv = modal.querySelector('#create-error')
+    errorDiv.textContent = ''
+    submitBtn.disabled = true
+    submitBtn.textContent = 'Posting…'
+
+    const data = {
+      title: form.title.value.trim(),
+      subject: form.subject.value,
+      grade_level: form.grade_level.value,
+      school: form.school.value.trim() || null,
+      condition: form.condition.value,
+      description: form.description.value.trim() || null,
+      owner_name: form.owner_name.value.trim(),
+      contact_method: form.contact_method.value,
+      contact_value: form.contact_value.value.trim(),
+      owner_id: currentUser.id,
+    }
+
+    const { error } = await supabase.from('listings').insert(data)
+
+    if (error) {
+      console.error(error)
+      errorDiv.textContent = error.message || "Couldn't post your listing. Try again?"
+      submitBtn.disabled = false
+      submitBtn.textContent = 'Post listing'
+      return
+    }
+
+    closeCreateModal()
+    await loadListings()
+    window.scrollTo({ top: document.getElementById('browse').offsetTop - 80, behavior: 'smooth' })
+  })
+}
+
+function closeCreateModal() {
+  const modal = document.getElementById('create-modal')
+  if (modal) modal.classList.add('hidden')
+}
+
 // ---- LISTINGS ----
 async function loadListings() {
   const { data, error } = await supabase
@@ -191,9 +312,109 @@ function showModal(listing) {
   const modal = document.getElementById('modal')
   const contactLink = getContactLink(listing.contact_method, listing.contact_value)
   const contactLabel = contactLabelFor(listing.contact_method)
+  const isOwner = currentUser && listing.owner_id === currentUser.id
 
   modal.innerHTML = `
     <div class="modal">
       <button class="modal-close" aria-label="Close">×</button>
       <div class="modal-image">
         ${listing.photo_url ? `<img src="${escapeHtml(listing.photo_url)}" alt="${escapeHtml(listing.title)}">` : '📖'}
+      </div>
+      <div class="modal-body">
+        <h2>${escapeHtml(listing.title)}</h2>
+        <div class="modal-tags">
+          <span class="tag tag-grade">${escapeHtml(listing.grade_level)}</span>
+          <span class="tag tag-subject">${escapeHtml(listing.subject)}</span>
+          <span class="tag tag-condition ${listing.condition}">${escapeHtml(listing.condition)}</span>
+        </div>
+        ${listing.school ? `<div class="modal-section"><h3>School</h3><div>${escapeHtml(listing.school)}</div></div>` : ''}
+        ${listing.description ? `<div class="modal-section"><h3>About this book</h3><div>${escapeHtml(listing.description)}</div></div>` : ''}
+        <div class="modal-section">
+          <h3>Get in touch</h3>
+          <div class="contact-card">
+            <div class="contact-name">${escapeHtml(listing.owner_name)}</div>
+            <a href="${contactLink}" class="contact-link" target="_blank" rel="noopener">${contactLabel} ${escapeHtml(listing.contact_value)}</a>
+          </div>
+        </div>
+        ${isOwner ? `
+          <div class="owner-actions">
+            <button class="btn-secondary action-claim" id="claim-btn">Mark as claimed</button>
+            <button class="btn-secondary action-delete" id="delete-btn">Delete listing</button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `
+  modal.classList.remove('hidden')
+  modal.querySelector('.modal-close').addEventListener('click', closeModal)
+  modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+  modal.addEventListener('click', closeModal)
+
+  if (isOwner) {
+    modal.querySelector('#claim-btn').addEventListener('click', () => markAsClaimed(listing.id))
+    modal.querySelector('#delete-btn').addEventListener('click', () => deleteListing(listing.id))
+  }
+}
+
+async function markAsClaimed(id) {
+  if (!confirm("Mark this listing as claimed? It'll be removed from the public feed.")) return
+  const { error } = await supabase.from('listings').update({ status: 'claimed' }).eq('id', id)
+  if (error) { alert("Couldn't update: " + error.message); return }
+  closeModal()
+  await loadListings()
+}
+
+async function deleteListing(id) {
+  if (!confirm("Delete this listing? This can't be undone.")) return
+  const { error } = await supabase.from('listings').delete().eq('id', id)
+  if (error) { alert("Couldn't delete: " + error.message); return }
+  closeModal()
+  await loadListings()
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden')
+}
+
+function getContactLink(method, value) {
+  const digits = String(value).replace(/\D/g, '')
+  if (method === 'whatsapp') return `https://wa.me/${digits}`
+  if (method === 'phone') return `tel:+${digits}`
+  if (method === 'email') return `mailto:${value}`
+  return '#'
+}
+
+function contactLabelFor(method) {
+  if (method === 'whatsapp') return 'WhatsApp:'
+  if (method === 'phone') return 'Call:'
+  if (method === 'email') return 'Email:'
+  return ''
+}
+
+function escapeHtml(s) {
+  if (s == null) return ''
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+}
+
+document.getElementById('search').addEventListener('input', applyFilters)
+document.getElementById('grade-filter').addEventListener('change', applyFilters)
+document.getElementById('subject-filter').addEventListener('change', applyFilters)
+document.getElementById('condition-filter').addEventListener('change', applyFilters)
+
+document.getElementById('listings-grid').addEventListener('click', (e) => {
+  const card = e.target.closest('.card')
+  if (!card) return
+  const listing = allListings.find(l => l.id === card.dataset.id)
+  if (listing) showModal(listing)
+})
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeModal()
+    closeAuthModal()
+    closeCreateModal()
+  }
+})
+
+updateNav()
+loadListings()
