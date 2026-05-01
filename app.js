@@ -73,7 +73,7 @@ function updateNav() {
       <button class="btn-secondary" id="signout-btn">Sign out</button>
     `
     document.getElementById('signout-btn').addEventListener('click', signOut)
-    document.getElementById('new-listing-btn').addEventListener('click', showCreateListingModal)
+    document.getElementById('new-listing-btn').addEventListener('click', () => showCreateListingModal())
     const profileLink = document.getElementById('profile-link')
     const browseLink = document.getElementById('browse-link')
     if (profileLink) profileLink.addEventListener('click', (e) => { e.preventDefault(); showProfileView() })
@@ -89,7 +89,7 @@ function updateNav() {
 
 function showAuthModal() {
   const modal = document.getElementById('auth-modal')
-  let mode = 'signin' // 'signin' | 'signup' | 'forgot'
+  let mode = 'signin'
 
   function render() {
     const isForgot = mode === 'forgot'
@@ -145,10 +145,7 @@ function showAuthModal() {
     }
 
     modal.querySelectorAll('.auth-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        mode = tab.dataset.mode
-        render()
-      })
+      tab.addEventListener('click', () => { mode = tab.dataset.mode; render() })
     })
 
     const forgotLink = modal.querySelector('#forgot-link')
@@ -178,9 +175,7 @@ function showAuthModal() {
           showToast('Account created. Welcome!', 'success')
           closeAuthModal()
         } else if (mode === 'forgot') {
-          const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin,
-          })
+          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
           if (error) throw error
           showToast('Check your inbox for a reset link.', 'success')
           closeAuthModal()
@@ -379,10 +374,7 @@ async function loadProfile() {
     .select('*')
     .eq('id', currentUser.id)
     .single()
-  if (error) {
-    console.error(error)
-    return
-  }
+  if (error) { console.error(error); return }
   currentProfile = data
   const form = document.getElementById('profile-form')
   if (form) {
@@ -411,19 +403,11 @@ async function saveProfile(e) {
     grade_level: form.grade_level.value || null,
   }
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', currentUser.id)
-
+  const { error } = await supabase.from('profiles').update(updates).eq('id', currentUser.id)
   btn.disabled = false
   btn.textContent = 'Save changes'
 
-  if (error) {
-    errorDiv.textContent = error.message
-    return
-  }
-
+  if (error) { errorDiv.textContent = error.message; return }
   savedDiv.style.display = 'inline'
   setTimeout(() => { savedDiv.style.display = 'none' }, 2000)
   currentProfile = { ...currentProfile, ...updates }
@@ -437,8 +421,7 @@ async function loadMyListings() {
     .order('created_at', { ascending: false })
   if (error) {
     console.error(error)
-    document.getElementById('my-listings-grid').innerHTML =
-      `<div class="empty">Couldn't load your listings.</div>`
+    document.getElementById('my-listings-grid').innerHTML = `<div class="empty">Couldn't load your listings.</div>`
     return
   }
   myListings = data || []
@@ -471,8 +454,9 @@ function renderMyListings(listings) {
   `).join('')
 }
 
-// ---- CREATE LISTING ----
-function showCreateListingModal() {
+// ---- CREATE / EDIT LISTING ----
+function showCreateListingModal(editingListing = null) {
+  const isEditing = !!editingListing
   let modal = document.getElementById('create-modal')
   if (!modal) {
     modal = document.createElement('div')
@@ -483,76 +467,84 @@ function showCreateListingModal() {
 
   const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
   const subjects = [...BASE_SUBJECTS, 'Other']
-  const defaultName = (currentProfile && currentProfile.full_name) || ''
+
+  const d = isEditing ? editingListing : {}
+  const isCustomSubject = isEditing && d.subject && !BASE_SUBJECTS.includes(d.subject)
+  const subjectValue = isCustomSubject ? 'Other' : (d.subject || '')
+  const customSubjectValue = isCustomSubject ? d.subject : ''
+  const ownerNameValue = d.owner_name || (currentProfile && currentProfile.full_name) || ''
+  const schoolValue = d.school || (currentProfile && currentProfile.school) || ''
+  let existingPhotoUrl = isEditing ? (d.photo_url || null) : null
+  let removeExistingPhoto = false
 
   modal.innerHTML = `
     <div class="modal create-modal">
       <button class="modal-close" id="create-close" aria-label="Close">×</button>
       <div class="auth-body">
-        <h2 class="auth-title">List a book</h2>
-        <p class="auth-subtitle">Pass it on to another student. No money, no fuss.</p>
+        <h2 class="auth-title">${isEditing ? 'Edit listing' : 'List a book'}</h2>
+        <p class="auth-subtitle">${isEditing ? 'Update the details below.' : 'Pass it on to another student. No money, no fuss.'}</p>
         <form id="create-form">
           <label class="auth-label">Photo (optional)
             <div class="photo-upload-area" id="photo-upload-area">
               <input type="file" name="photo" id="photo-input" accept="image/*" style="display: none;">
-              <div class="photo-placeholder" id="photo-placeholder">📸 Click to add a photo</div>
-              <div class="photo-preview hidden" id="photo-preview">
-                <img id="photo-preview-img" alt="Preview">
+              <div class="photo-placeholder ${existingPhotoUrl ? 'hidden' : ''}" id="photo-placeholder">📸 Click to add a photo</div>
+              <div class="photo-preview ${existingPhotoUrl ? '' : 'hidden'}" id="photo-preview">
+                <img id="photo-preview-img" alt="Preview" src="${existingPhotoUrl ? escapeHtml(existingPhotoUrl) : ''}">
                 <button type="button" class="photo-remove" id="photo-remove" aria-label="Remove photo">×</button>
               </div>
             </div>
           </label>
           <label class="auth-label">Book title
-            <input type="text" name="title" required>
+            <input type="text" name="title" required value="${escapeHtml(d.title || '')}">
           </label>
           <div class="form-row">
             <label class="auth-label">Subject
               <select name="subject" required>
                 <option value="">Choose…</option>
-                ${subjects.map(s => `<option>${s}</option>`).join('')}
+                ${subjects.map(s => `<option ${s === subjectValue ? 'selected' : ''}>${s}</option>`).join('')}
               </select>
             </label>
             <label class="auth-label">Grade
               <select name="grade_level" required>
                 <option value="">Choose…</option>
-                ${grades.map(g => `<option>${g}</option>`).join('')}
+                ${grades.map(g => `<option ${g === d.grade_level ? 'selected' : ''}>${g}</option>`).join('')}
               </select>
             </label>
           </div>
-          <label class="auth-label" id="custom-subject-wrap" style="display: none;">Specify subject
-            <input type="text" name="custom_subject" placeholder="e.g. Geography, Computer Science">
+          <label class="auth-label" id="custom-subject-wrap" style="display: ${isCustomSubject ? '' : 'none'};">Specify subject
+            <input type="text" name="custom_subject" placeholder="e.g. Geography, Computer Science" value="${escapeHtml(customSubjectValue)}" ${isCustomSubject ? 'required' : ''}>
           </label>
           <label class="auth-label">School (optional)
-            <input type="text" name="school" placeholder="e.g. British School Muscat" value="${escapeHtml((currentProfile && currentProfile.school) || '')}">
+            <input type="text" name="school" placeholder="e.g. British School Muscat" value="${escapeHtml(schoolValue)}">
           </label>
           <label class="auth-label">Condition
             <select name="condition" required>
               <option value="">Choose…</option>
-              <option value="new">New</option>
-              <option value="good">Good</option>
-              <option value="worn">Worn</option>
+              <option value="new" ${d.condition === 'new' ? 'selected' : ''}>New</option>
+              <option value="good" ${d.condition === 'good' ? 'selected' : ''}>Good</option>
+              <option value="worn" ${d.condition === 'worn' ? 'selected' : ''}>Worn</option>
             </select>
           </label>
           <label class="auth-label">About this book (optional)
-            <textarea name="description" rows="3" placeholder="Anything worth mentioning — highlighting, missing pages, etc."></textarea>
+            <textarea name="description" rows="3" placeholder="Anything worth mentioning — highlighting, missing pages, etc.">${escapeHtml(d.description || '')}</textarea>
           </label>
           <label class="auth-label">Your name (shown on the listing)
-            <input type="text" name="owner_name" required value="${escapeHtml(defaultName)}">
+            <input type="text" name="owner_name" required value="${escapeHtml(ownerNameValue)}">
           </label>
           <div class="form-row">
             <label class="auth-label">Contact via
               <select name="contact_method" required>
-                <option value="whatsapp">WhatsApp</option>
-                <option value="phone">Phone</option>
-                <option value="email">Email</option>
+                <option value="whatsapp" ${d.contact_method === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
+                <option value="phone" ${d.contact_method === 'phone' ? 'selected' : ''}>Phone</option>
+                <option value="email" ${d.contact_method === 'email' ? 'selected' : ''}>Email</option>
               </select>
             </label>
             <label class="auth-label">Contact details
-              <input type="text" name="contact_value" required placeholder="96891234567">
+              <input type="text" name="contact_value" required placeholder="96891234567" value="${escapeHtml(d.contact_value || '')}">
             </label>
           </div>
           <div class="auth-error" id="create-error"></div>
-          <button type="submit" class="btn-primary auth-submit" id="create-submit">Post listing</button>
+          <button type="submit" class="btn-primary auth-submit" id="create-submit">${isEditing ? 'Save changes' : 'Post listing'}</button>
         </form>
       </div>
     </div>
@@ -594,6 +586,7 @@ function showCreateListingModal() {
       photoPreviewImg.src = ev.target.result
       photoPlaceholder.classList.add('hidden')
       photoPreview.classList.remove('hidden')
+      removeExistingPhoto = false
     }
     reader.readAsDataURL(file)
   })
@@ -601,6 +594,10 @@ function showCreateListingModal() {
   photoRemove.addEventListener('click', (e) => {
     e.stopPropagation()
     photoInput.value = ''
+    if (existingPhotoUrl) {
+      removeExistingPhoto = true
+      existingPhotoUrl = null
+    }
     photoPlaceholder.classList.remove('hidden')
     photoPreview.classList.add('hidden')
   })
@@ -617,7 +614,7 @@ function showCreateListingModal() {
     errorDiv.textContent = ''
     submitBtn.disabled = true
 
-    let photoUrl = null
+    let photoUrl = isEditing ? (removeExistingPhoto ? null : existingPhotoUrl) : null
     const file = form.photo.files[0]
     if (file) {
       submitBtn.textContent = 'Uploading photo…'
@@ -627,14 +624,14 @@ function showCreateListingModal() {
       if (uploadError) {
         errorDiv.textContent = `Couldn't upload photo: ${uploadError.message}`
         submitBtn.disabled = false
-        submitBtn.textContent = 'Post listing'
+        submitBtn.textContent = isEditing ? 'Save changes' : 'Post listing'
         return
       }
       const { data: { publicUrl } } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(fileName)
       photoUrl = publicUrl
     }
 
-    submitBtn.textContent = 'Posting…'
+    submitBtn.textContent = isEditing ? 'Saving…' : 'Posting…'
 
     const finalSubject = (form.subject.value === 'Other' && form.custom_subject && form.custom_subject.value.trim())
       ? form.custom_subject.value.trim()
@@ -650,21 +647,26 @@ function showCreateListingModal() {
       owner_name: form.owner_name.value.trim(),
       contact_method: form.contact_method.value,
       contact_value: form.contact_value.value.trim(),
-      owner_id: currentUser.id,
       photo_url: photoUrl,
     }
 
-    const { error } = await supabase.from('listings').insert(data)
+    let result
+    if (isEditing) {
+      result = await supabase.from('listings').update(data).eq('id', editingListing.id)
+    } else {
+      data.owner_id = currentUser.id
+      result = await supabase.from('listings').insert(data)
+    }
 
-    if (error) {
-      errorDiv.textContent = error.message || "Couldn't post your listing. Try again?"
+    if (result.error) {
+      errorDiv.textContent = result.error.message || "Something went wrong. Try again?"
       submitBtn.disabled = false
-      submitBtn.textContent = 'Post listing'
+      submitBtn.textContent = isEditing ? 'Save changes' : 'Post listing'
       return
     }
 
     closeCreateModal()
-    showToast('Posted! Your book is live 🌿', 'success')
+    showToast(isEditing ? 'Listing updated.' : 'Posted! Your book is live 🌿', 'success')
     await refreshCurrentView()
   })
 }
@@ -684,8 +686,7 @@ async function loadListings() {
 
   if (error) {
     console.error('Supabase error:', error)
-    document.getElementById('listings-grid').innerHTML =
-      `<div class="empty">Couldn't load listings. Open the browser console for details.</div>`
+    document.getElementById('listings-grid').innerHTML = `<div class="empty">Couldn't load listings. Open the browser console for details.</div>`
     document.getElementById('listings-meta').textContent = 'Error loading'
     return
   }
@@ -701,9 +702,7 @@ function updateSubjectFilterOptions() {
   const merged = [...new Set([...BASE_SUBJECTS, ...fromListings])].sort()
   const currentValue = select.value
   select.innerHTML = `<option value="">All subjects</option>` + merged.map(s => `<option>${escapeHtml(s)}</option>`).join('')
-  if (currentValue && merged.includes(currentValue)) {
-    select.value = currentValue
-  }
+  if (currentValue && merged.includes(currentValue)) select.value = currentValue
 }
 
 function renderListings(listings) {
@@ -756,12 +755,13 @@ function showModal(listing) {
 
   let ownerActionsHtml = ''
   if (isOwner) {
-    const actionId = isClaimed ? 'unclaim-btn' : 'claim-btn'
-    const actionText = isClaimed ? 'Mark as available' : 'Mark as claimed'
+    const claimId = isClaimed ? 'unclaim-btn' : 'claim-btn'
+    const claimText = isClaimed ? 'Mark available' : 'Mark claimed'
     ownerActionsHtml = `
       <div class="owner-actions">
-        <button class="btn-secondary action-claim" id="${actionId}">${actionText}</button>
-        <button class="btn-secondary action-delete" id="delete-btn">Delete listing</button>
+        <button class="btn-secondary" id="edit-btn">Edit</button>
+        <button class="btn-secondary action-claim" id="${claimId}">${claimText}</button>
+        <button class="btn-secondary action-delete" id="delete-btn">Delete</button>
       </div>
     `
   }
@@ -799,6 +799,10 @@ function showModal(listing) {
   modal.addEventListener('click', closeModal)
 
   if (isOwner) {
+    modal.querySelector('#edit-btn').addEventListener('click', () => {
+      closeModal()
+      showCreateListingModal(listing)
+    })
     if (isClaimed) {
       modal.querySelector('#unclaim-btn').addEventListener('click', () => markAsAvailable(listing.id))
     } else {
@@ -846,11 +850,8 @@ async function deleteListing(id) {
 }
 
 async function refreshCurrentView() {
-  if (currentView === 'browse') {
-    await loadListings()
-  } else {
-    await loadMyListings()
-  }
+  if (currentView === 'browse') await loadListings()
+  else await loadMyListings()
 }
 
 function closeModal() {
