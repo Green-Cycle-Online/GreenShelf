@@ -1,12 +1,17 @@
 {
+  "id": "/",
   "name": "GreenShelf",
   "short_name": "GreenShelf",
   "description": "Free book sharing for students and parents in Oman.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f5f1e8",
   "theme_color": "#2d5016",
   "orientation": "portrait",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "books", "social"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -19,6 +24,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Browse free books on GreenShelf"
+    },
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Browse free books on GreenShelf"
     }
   ]
 }
