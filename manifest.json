@@ -36,7 +36,7 @@
     },
     {
       "src": "/screenshot-desktop.png",
-      "sizes": "2556×1490",
+      "sizes": "2556x1490",
       "type": "image/png",
       "form_factor": "wide",
       "label": "Browse free books on GreenShelf"
