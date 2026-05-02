@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "online.greenshelf.twa",
+        "sha256_cert_fingerprints": ["DC:17:6D:39:E5:0A:C7:F0:6C:EA:57:45:53:90:BC:81:F5:56:F7:D7:FE:82:AA:2A:17:C1:3A:A3:88:78:7F:8C"]
+      }
+    }]
