@@ -332,11 +332,10 @@ function resumePendingListingIfAny() {
   }, 250)
 }
 // ---- VIEW SWITCHING ----
+// In narrative mode every <section class="ch"> is a chapter. Hide them all when
+// switching to profile/about/faq/admin, show them again on browse.
 function hideAllSections() {
-  ['.hero', '.how', '.browse-section', '.mission'].forEach(sel => {
-    const el = document.querySelector(sel)
-    if (el) el.classList.add('hidden-section')
-  })
+  document.querySelectorAll('main.narrative .ch').forEach(el => el.classList.add('hidden-section'))
   ;['profile-section', 'about-section', 'faq-section', 'admin-section'].forEach(id => {
     const el = document.getElementById(id)
     if (el) el.classList.add('hidden-section')
@@ -345,10 +344,7 @@ function hideAllSections() {
 function showBrowseView() {
   currentView = 'browse'
   hideAllSections()
-  ;['.hero', '.how', '.browse-section', '.mission'].forEach(sel => {
-    const el = document.querySelector(sel)
-    if (el) el.classList.remove('hidden-section')
-  })
+  document.querySelectorAll('main.narrative .ch').forEach(el => el.classList.remove('hidden-section'))
   updateNav()
   loadListings()
 }
@@ -1507,57 +1503,38 @@ document.getElementById('footer-about').addEventListener('click', (e) => { e.pre
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
 const heroListBtn = document.getElementById('hero-list-btn')
 if (heroListBtn) heroListBtn.addEventListener('click', () => showCreateListingModal())
-// ---- CRAFT PASS: scroll reveals, header shadow, live stats ----
+// ---- NARRATIVE SCROLL: line reveals, reading progress, header state ----
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-// Scroll reveal observer
+
+// Line-by-line reveal as chapters come into view.
+// Re-arms when chapter leaves so each visit feels fresh.
 if ('IntersectionObserver' in window && !reduceMotion) {
-  const revealObs = new IntersectionObserver((entries) => {
+  const lineObs = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-view')
-        // also flag parent if it's a how-step inside how-steps
-        const stepsContainer = entry.target.closest('.how-steps')
-        if (stepsContainer) stepsContainer.classList.add('in-view-children')
-        revealObs.unobserve(entry.target)
-      }
+      if (entry.isIntersecting) entry.target.classList.add('in-view')
+      else entry.target.classList.remove('in-view')
     })
-  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' })
-  // Apply only to elements OUTSIDE the hero (hero uses its own animation)
-  document.querySelectorAll('.reveal').forEach((el) => {
-    if (!el.closest('.hero-big')) revealObs.observe(el)
-  })
+  }, { threshold: 0.4, rootMargin: '0px 0px -10% 0px' })
+  document.querySelectorAll('.p-line, .step-text, .step-numeral').forEach((el) => lineObs.observe(el))
 }
-// Header scroll shadow + scroll-progress bar + subtle hero parallax
+
+// Reading-progress bar + header scrolled state
 const headerEl = document.querySelector('header')
-let progressBar = document.querySelector('.scroll-progress')
-if (!progressBar) {
-  progressBar = document.createElement('div')
-  progressBar.className = 'scroll-progress'
-  document.body.appendChild(progressBar)
-}
-const heroEl = document.querySelector('.hero-editorial')
-if (headerEl || progressBar || heroEl) {
-  const onScroll = () => {
-    const y = window.scrollY
-    if (headerEl) {
-      if (y > 8) headerEl.classList.add('scrolled')
-      else headerEl.classList.remove('scrolled')
-    }
-    if (progressBar) {
-      const docH = document.documentElement.scrollHeight - window.innerHeight
-      const pct = docH > 0 ? Math.min(100, (y / docH) * 100) : 0
-      progressBar.style.width = pct + '%'
-    }
-    if (heroEl && !reduceMotion) {
-      // parallax: only while hero is in view
-      const heroH = heroEl.offsetHeight
-      const t = Math.max(0, Math.min(1, y / heroH))
-      heroEl.style.setProperty('--scroll-y', t.toFixed(3))
-    }
+const progressEl = document.querySelector('.reading-progress')
+const onScroll = () => {
+  const y = window.scrollY
+  if (headerEl) {
+    if (y > 8) headerEl.classList.add('scrolled')
+    else headerEl.classList.remove('scrolled')
   }
-  window.addEventListener('scroll', onScroll, { passive: true })
-  onScroll()
+  if (progressEl) {
+    const docH = document.documentElement.scrollHeight - window.innerHeight
+    const pct = docH > 0 ? Math.min(100, (y / docH) * 100) : 0
+    progressEl.style.width = pct + '%'
+  }
 }
+window.addEventListener('scroll', onScroll, { passive: true })
+onScroll()
 // Animated count-up
 function animateCount(el, target, duration = 1400) {
   if (!el) return
