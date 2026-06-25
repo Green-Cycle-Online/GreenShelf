@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GreenShelf — Pass on your school books</title>
   <meta name="description" content="A free, friendly way for students, parents, and schools in Oman to share textbooks at the end of the year.">
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#2d5016">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="GreenShelf">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2d5016">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="GreenShelf">
   <!-- Sharing previews (Open Graph + Twitter) -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="GreenShelf — School books, passed on">
@@ -34,7 +34,12 @@
 <body>
   <header>
     <nav>
-      <div class="logo" id="logo-link">🌿 GreenShelf</div>
+      <div class="logo" id="logo-link">
+        <svg class="logo-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M21 3c-4.5 0-9 1.5-12 5C6 11 4.5 15 4.5 19.5c0 .8.7 1.5 1.5 1.5h.5c0-4 1.5-7.5 4-10 .3-.3.7-.3 1 0 .3.3.3.7 0 1-2.2 2.2-3.5 5.2-3.5 9h.5c4.5 0 8.5-1.5 11.5-4.5C23 14 24 9 24 4.5 24 3.7 23.3 3 22.5 3H21z" fill="currentColor"/>
+        </svg>
+        <span>GreenShelf</span>
+      </div>
       <div class="nav-links" id="nav-auth">
         <a href="#browse">Browse</a>
       </div>
@@ -43,15 +48,20 @@
 
   <main>
     <section class="hero hero-big">
-      <span class="hero-decoration left" aria-hidden="true">🌿</span>
-      <span class="hero-decoration right" aria-hidden="true">🍃</span>
+      <svg class="hero-leaf hero-leaf-left" viewBox="0 0 200 200" aria-hidden="true">
+        <path d="M180 20c0 60-40 120-100 140-30 10-60 10-70 0 0-50 30-100 70-130C120 10 150 0 180 20z" fill="currentColor"/>
+      </svg>
+      <svg class="hero-leaf hero-leaf-right" viewBox="0 0 200 200" aria-hidden="true">
+        <path d="M20 180c0-60 40-120 100-140 30-10 60-10 70 0 0 50-30 100-70 130-40 30-70 40-100 10z" fill="currentColor"/>
+      </svg>
       <span class="hero-eyebrow">For students, parents &amp; schools in Oman</span>
       <h1>Pass your school books on,<br><em>not into the bin.</em></h1>
       <p class="hero-tagline">A free, friendly way to share textbooks at the end of the year. Find what you need, give what you don't.</p>
       <div class="hero-cta-row">
-        <a href="#browse" class="btn-primary btn-lg">Browse books</a>
-        <a href="#how" class="btn-secondary btn-lg">How it works</a>
+        <button class="btn-primary btn-lg" id="hero-list-btn">+ List a book</button>
+        <a href="#browse" class="btn-secondary btn-lg">Browse books</a>
       </div>
+      <p class="hero-microcopy">Takes under a minute. No fees. No middleman.</p>
     </section>
 
     <section class="how" id="how">
@@ -62,18 +72,18 @@
         </div>
         <div class="how-steps">
           <div class="how-step">
-            <div class="how-step-icon">🔍</div>
-            <h3>1. Find a book</h3>
+            <div class="how-step-num">1</div>
+            <h3>Find a book</h3>
             <p>Filter by grade, subject, or condition. Find the exact textbook you need from another family in Oman.</p>
           </div>
           <div class="how-step">
-            <div class="how-step-icon">✉️</div>
-            <h3>2. Reach out</h3>
+            <div class="how-step-num">2</div>
+            <h3>Reach out</h3>
             <p>Message them on WhatsApp, call, or email them directly. No app inboxes, no middleman.</p>
           </div>
           <div class="how-step">
-            <div class="how-step-icon">🤝</div>
-            <h3>3. Pick it up</h3>
+            <div class="how-step-num">3</div>
+            <h3>Pick it up</h3>
             <p>Arrange a quick handover. The book gets a second life, and your shelf gets a little space back.</p>
           </div>
         </div>
@@ -122,7 +132,7 @@
         <p>At the end of every school year, perfectly good textbooks pile up in homes across Oman. Most end up in the recycling, or worse. Meanwhile, a family two streets over needs that exact book.</p>
         <p>WhatsApp groups try to fix this, but they get messy fast. Hundreds of messages, no way to search, books lost in the scroll.</p>
         <p>GreenShelf is the calm version. Browse, filter, find. Give freely. A small thing for your community, and one fewer book in landfill.</p>
-        <p class="signature">— Made with 🌿 in Oman</p>
+        <p class="signature">— Made with care in Oman</p>
       </div>
     </section>
   </main>
@@ -139,7 +149,7 @@
       <a href="https://instagram.com/greenshelf.om" target="_blank" rel="noopener">Instagram</a>
       <a href="mailto:greenshelf1320@gmail.com">Contact</a>
     </div>
-    <p>Made with 🌿 in Oman · © 2026 GreenShelf</p>
+    <p>Made with care in Oman · © 2026 GreenShelf</p>
   </footer>
 
   <script type="module" src="app.js"></script>

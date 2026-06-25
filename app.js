@@ -109,24 +109,33 @@ function updateNav() {
   } else {
     navAuth.innerHTML = `
       <a href="#browse">Browse</a>
+      <button class="btn-secondary" id="nav-list-btn">+ List a book</button>
       <button class="btn-primary" id="signin-btn">Sign in</button>
     `
     document.getElementById('signin-btn').addEventListener('click', showAuthModal)
+    document.getElementById('nav-list-btn').addEventListener('click', () => showCreateListingModal())
   }
 }
 
-function showAuthModal() {
+function showAuthModal(opts = {}) {
   const modal = document.getElementById('auth-modal')
-  let mode = 'signin'
+  const pending = !!opts.pendingListing
+  let mode = pending ? 'signup' : 'signin'
 
   function render() {
     const isForgot = mode === 'forgot'
+    const title = isForgot ? 'Reset your password' : (pending ? 'Almost there 🌿' : 'Welcome to GreenShelf')
+    const subtitle = isForgot
+      ? "We'll email you a link to set a new password."
+      : (pending
+          ? "Create a quick account to publish your listing — we've saved everything you typed."
+          : 'Sign in or create an account to share books.')
     modal.innerHTML = `
       <div class="modal auth-modal">
         <button class="modal-close" id="auth-close" aria-label="Close">×</button>
         <div class="auth-body">
-          <h2 class="auth-title">${isForgot ? 'Reset your password' : 'Welcome to GreenShelf'}</h2>
-          <p class="auth-subtitle">${isForgot ? "We'll email you a link to set a new password." : 'Sign in or create an account to share books.'}</p>
+          <h2 class="auth-title">${title}</h2>
+          <p class="auth-subtitle">${subtitle}</p>
           ${isForgot ? '' : `
             <div class="auth-tabs">
               <button type="button" class="auth-tab ${mode === 'signin' ? 'active' : ''}" data-mode="signin">Sign in</button>
@@ -198,12 +207,19 @@ function showAuthModal() {
           showToast('Welcome back 🌿', 'success')
           closeAuthModal()
         } else if (mode === 'signup') {
-          const { error } = await supabase.auth.signUp({
+          const { data, error } = await supabase.auth.signUp({
             email, password,
             options: { emailRedirectTo: window.location.origin }
           })
           if (error) throw error
-          showToast('Check your inbox to verify your email 📬', 'success')
+          if (data?.session) {
+            showToast('Welcome to GreenShelf 🌿', 'success')
+          } else {
+            showToast(pending
+              ? "Check your inbox to verify — we've saved your listing for when you come back."
+              : 'Check your inbox to verify your email 📬',
+              'success')
+          }
           closeAuthModal()
         } else if (mode === 'forgot') {
           const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
@@ -314,13 +330,35 @@ supabase.auth.onAuthStateChange((event, session) => {
     showSetNewPasswordModal()
     return
   }
+  const wasUnauth = !currentUser
   currentUser = session?.user || null
   updateNav()
-  loadCurrentUserProfile().then(() => updateNav()).catch(console.error)
+  loadCurrentUserProfile().then(() => {
+    updateNav()
+    if (currentUser && wasUnauth) resumePendingListingIfAny()
+  }).catch(console.error)
   if (!currentUser && currentView !== 'browse' && currentView !== 'about' && currentView !== 'faq') {
     showBrowseView()
   }
 })
+
+function resumePendingListingIfAny() {
+  let draft = null
+  try {
+    const raw = localStorage.getItem('gs_pending_listing')
+    if (raw) draft = JSON.parse(raw)
+  } catch (_) {}
+  if (!draft) return
+  localStorage.removeItem('gs_pending_listing')
+  // Give the auth modal a beat to close
+  setTimeout(() => {
+    const hadFiles = !!draft._guestHadFiles
+    delete draft._guestHadFiles
+    showCreateListingModal(null, draft)
+    if (hadFiles) showToast("You'll need to re-add your photos — sorry!", 'info')
+    else showToast("Welcome 🌿 Your listing is ready — click Post to publish.", 'success')
+  }, 250)
+}
 
 // ---- VIEW SWITCHING ----
 function hideAllSections() {
@@ -454,7 +492,7 @@ function ensureAboutSection() {
           <div class="about-photo-fallback" style="display:none;">H</div>
         </div>
         <h3>Hitesh Gurnani</h3>
-        <p> My name is Hitesh and I really like side quest projects such as GreenShelf. I'm going to be joining University of Warwick soon and I hope GreenShelf helps you to find or give books away :) </p>
+        <p>My name is Hitesh and I really like side-quest projects like GreenShelf. Building stuff that makes everyday life in Oman a little easier is the goal — and I hope this helps you find or give a book away :)</p>
       </div>
       <div class="about-person">
         <div class="about-photo">
@@ -462,7 +500,7 @@ function ensureAboutSection() {
           <div class="about-photo-fallback" style="display:none;">A</div>
         </div>
         <h3>Anshul Date</h3>
-        <p> My name is Anshul and I really like doing maths (go follow bobodoesmaths on insta). I'll be going to Warwick with Hitesh where we'll keep doing dumb stuff together </p>
+        <p>My name is Anshul and I really like doing maths (go follow bobodoesmaths on insta). I'm building GreenShelf with Hitesh because passing your books on shouldn't be this hard.</p>
       </div>
     </div>
     <div class="about-mission">
@@ -489,7 +527,7 @@ function ensureFaqSection() {
     <div class="faq-list">
       <details class="faq-item"><summary>Is GreenShelf free?</summary><div class="faq-answer">Yes, completely. No fees, no commission.</div></details>
       <details class="faq-item"><summary>Is GreenShelf safe?</summary><div class="faq-answer">Safety matters, especially because many of our users are students. Every user creates a profile with a real first name. Listings show your neighborhood — never your exact address. Anyone can report a listing or user behaving badly, and we review reports within 24 hours. For in-person handovers, we recommend meeting in public places during daytime, and that anyone under 18 is accompanied by a parent.</div></details>
-      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Create an account, click + List a book, fill in details, post.</div></details>
+      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Click <strong>+ List a book</strong> anywhere on the site. Fill in the title, grade, subject, condition and how people can reach you. If you don't have an account yet, we'll have you create one in 20 seconds at the end — your draft is saved.</div></details>
       <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click the listing, see contact info, reach out directly.</div></details>
       <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. We only ask for your area, never full address. Read our <a href="/privacy.html">Privacy Policy</a> for details.</div></details>
       <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when listing. Use photos.</div></details>
@@ -800,15 +838,16 @@ function renderMyListings(listings) {
   const meta = document.getElementById('my-listings-meta')
   meta.textContent = listings.length === 1 ? '1 listing' : `${listings.length} listings`
   if (listings.length === 0) {
-    grid.innerHTML = `<div class="empty">You haven't listed any books yet. Click <strong>+ List a book</strong> to share one.</div>`
+    grid.innerHTML = `<div class="empty">You haven't listed any books yet. Click <strong>+ List a book</strong> at the top to share one.</div>`
     return
   }
   grid.innerHTML = listings.map(renderCard).join('')
 }
 
 // ---- CREATE / EDIT LISTING ----
-function showCreateListingModal(editingListing = null) {
+function showCreateListingModal(editingListing = null, prefillDraft = null) {
   const isEditing = !!editingListing
+  const isGuest = !currentUser && !isEditing
   let modal = document.getElementById('create-modal')
   if (!modal) {
     modal = document.createElement('div')
@@ -819,7 +858,7 @@ function showCreateListingModal(editingListing = null) {
 
   const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
   const subjects = [...BASE_SUBJECTS, 'Other']
-  const d = isEditing ? editingListing : {}
+  const d = isEditing ? editingListing : (prefillDraft || {})
   const isCustomSubject = isEditing && d.subject && !BASE_SUBJECTS.includes(d.subject)
   const subjectValue = isCustomSubject ? 'Other' : (d.subject || '')
   const customSubjectValue = isCustomSubject ? d.subject : ''
@@ -836,7 +875,7 @@ function showCreateListingModal(editingListing = null) {
       <button class="modal-close" id="create-close" aria-label="Close">×</button>
       <div class="auth-body">
         <h2 class="auth-title">${isEditing ? 'Edit listing' : 'List a book'}</h2>
-        <p class="auth-subtitle">${isEditing ? 'Update the details below.' : 'Pass it on to another student. No money, no fuss.'}</p>
+        <p class="auth-subtitle">${isEditing ? 'Update the details below.' : (isGuest ? "Fill this in, then we'll have you create a quick account to publish." : 'Pass it on to another student. No money, no fuss.')}</p>
         <form id="create-form">
           <label class="auth-label">Photos (optional, up to ${MAX_PHOTOS})
             <div class="photos-grid" id="photos-grid"></div>
@@ -908,7 +947,7 @@ function showCreateListingModal(editingListing = null) {
             </label>
           </div>
           <div class="auth-error" id="create-error"></div>
-          <button type="submit" class="btn-primary auth-submit" id="create-submit">${isEditing ? 'Save changes' : 'Post listing'}</button>
+          <button type="submit" class="btn-primary auth-submit" id="create-submit">${isEditing ? 'Save changes' : (isGuest ? 'Continue → Create account' : 'Post listing')}</button>
         </form>
       </div>
     </div>
@@ -989,6 +1028,40 @@ function showCreateListingModal(editingListing = null) {
     const submitBtn = modal.querySelector('#create-submit')
     const errorDiv = modal.querySelector('#create-error')
     errorDiv.textContent = ''
+
+    const finalSubject = (form.subject.value === 'Other' && form.custom_subject && form.custom_subject.value.trim())
+      ? form.custom_subject.value.trim()
+      : form.subject.value
+
+    const finalArea = (form.area.value === 'Other' && form.custom_area && form.custom_area.value.trim())
+      ? form.custom_area.value.trim()
+      : form.area.value
+
+    // ---- GUEST PATH: save draft, prompt signup, auto-publish after auth ----
+    if (isGuest) {
+      // photos can't survive the redirect/storage round-trip easily, so we keep them in-memory
+      // only if they're already-uploaded URLs. Files require auth to upload, so skip those.
+      const photoUrlsSurvive = photoSlots.filter(s => s.url && !s.file).map(s => s.url)
+      const draft = {
+        title: form.title.value.trim(),
+        subject: finalSubject,
+        grade_level: form.grade_level.value,
+        area: finalArea,
+        school: form.school.value.trim() || null,
+        condition: form.condition.value,
+        description: form.description.value.trim() || null,
+        owner_name: form.owner_name.value.trim(),
+        contact_method: form.contact_method.value,
+        contact_value: form.contact_value.value.trim(),
+        photos: photoUrlsSurvive.length ? photoUrlsSurvive : null,
+        _guestHadFiles: photoSlots.some(s => s.file),
+      }
+      try { localStorage.setItem('gs_pending_listing', JSON.stringify(draft)) } catch (_) {}
+      closeCreateModal()
+      showAuthModal({ pendingListing: true })
+      return
+    }
+
     submitBtn.disabled = true
 
     const photoUrls = []
@@ -1012,14 +1085,6 @@ function showCreateListingModal(editingListing = null) {
     }
 
     submitBtn.textContent = isEditing ? 'Saving…' : 'Posting…'
-
-    const finalSubject = (form.subject.value === 'Other' && form.custom_subject && form.custom_subject.value.trim())
-      ? form.custom_subject.value.trim()
-      : form.subject.value
-
-    const finalArea = (form.area.value === 'Other' && form.custom_area && form.custom_area.value.trim())
-      ? form.custom_area.value.trim()
-      : form.area.value
 
     const data = {
       title: form.title.value.trim(),
@@ -1573,6 +1638,9 @@ document.getElementById('listings-grid').addEventListener('click', handleCardCli
 document.getElementById('logo-link').addEventListener('click', () => showBrowseView())
 document.getElementById('footer-about').addEventListener('click', (e) => { e.preventDefault(); showAboutView() })
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
+
+const heroListBtn = document.getElementById('hero-list-btn')
+if (heroListBtn) heroListBtn.addEventListener('click', () => showCreateListingModal())
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
