@@ -1642,6 +1642,84 @@ document.getElementById('footer-faq').addEventListener('click', (e) => { e.preve
 const heroListBtn = document.getElementById('hero-list-btn')
 if (heroListBtn) heroListBtn.addEventListener('click', () => showCreateListingModal())
 
+// ---- CRAFT PASS: scroll reveals, header shadow, live stats ----
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// Scroll reveal observer
+if ('IntersectionObserver' in window && !reduceMotion) {
+  const revealObs = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view')
+        // also flag parent if it's a how-step inside how-steps
+        const stepsContainer = entry.target.closest('.how-steps')
+        if (stepsContainer) stepsContainer.classList.add('in-view-children')
+        revealObs.unobserve(entry.target)
+      }
+    })
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' })
+  // Apply only to elements OUTSIDE the hero (hero uses its own animation)
+  document.querySelectorAll('.reveal').forEach((el) => {
+    if (!el.closest('.hero-big')) revealObs.observe(el)
+  })
+}
+
+// Header scroll shadow
+const headerEl = document.querySelector('header')
+if (headerEl) {
+  const onScroll = () => {
+    if (window.scrollY > 8) headerEl.classList.add('scrolled')
+    else headerEl.classList.remove('scrolled')
+  }
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+}
+
+// Animated count-up
+function animateCount(el, target, duration = 1400) {
+  if (!el) return
+  if (reduceMotion) { el.textContent = target.toLocaleString(); return }
+  const start = performance.now()
+  const initial = 0
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / duration)
+    const eased = 1 - Math.pow(1 - t, 3)
+    const val = Math.round(initial + (target - initial) * eased)
+    el.textContent = val.toLocaleString()
+    if (t < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
+// Pull real counts from Supabase, then animate
+async function loadHeroStats() {
+  const elBooks = document.getElementById('stat-books')
+  const elSchools = document.getElementById('stat-schools')
+  const elAreas = document.getElementById('stat-areas')
+  if (!elBooks || !elSchools || !elAreas) return
+  try {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('school, area')
+      .eq('status', 'available')
+    if (error) throw error
+    const rows = data || []
+    const books = rows.length
+    const schools = new Set(rows.map(r => (r.school || '').trim().toLowerCase()).filter(Boolean)).size
+    const areas = new Set(rows.map(r => (r.area || '').trim().toLowerCase()).filter(Boolean)).size
+    // tiny floor so the strip never reads "0 0 0" in early days
+    setTimeout(() => animateCount(elBooks, Math.max(books, 1)), 200)
+    setTimeout(() => animateCount(elSchools, Math.max(schools, 1)), 350)
+    setTimeout(() => animateCount(elAreas, Math.max(areas, 1)), 500)
+  } catch (err) {
+    console.warn('hero stats:', err.message)
+    elBooks.textContent = '—'
+    elSchools.textContent = '—'
+    elAreas.textContent = '—'
+  }
+}
+loadHeroStats()
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeModal()
