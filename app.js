@@ -332,11 +332,10 @@ function resumePendingListingIfAny() {
   }, 250)
 }
 // ---- VIEW SWITCHING ----
+// In narrative mode every <section class="ch"> is a chapter. Hide them all when
+// switching to profile/about/faq/admin, show them again on browse.
 function hideAllSections() {
-  ['.hero', '.how', '.browse-section', '.mission'].forEach(sel => {
-    const el = document.querySelector(sel)
-    if (el) el.classList.add('hidden-section')
-  })
+  document.querySelectorAll('main.narrative .ch').forEach(el => el.classList.add('hidden-section'))
   ;['profile-section', 'about-section', 'faq-section', 'admin-section'].forEach(id => {
     const el = document.getElementById(id)
     if (el) el.classList.add('hidden-section')
@@ -345,10 +344,7 @@ function hideAllSections() {
 function showBrowseView() {
   currentView = 'browse'
   hideAllSections()
-  ;['.hero', '.how', '.browse-section', '.mission'].forEach(sel => {
-    const el = document.querySelector(sel)
-    if (el) el.classList.remove('hidden-section')
-  })
+  document.querySelectorAll('main.narrative .ch').forEach(el => el.classList.remove('hidden-section'))
   updateNav()
   loadListings()
 }
@@ -1507,57 +1503,76 @@ document.getElementById('footer-about').addEventListener('click', (e) => { e.pre
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
 const heroListBtn = document.getElementById('hero-list-btn')
 if (heroListBtn) heroListBtn.addEventListener('click', () => showCreateListingModal())
-// ---- CRAFT PASS: scroll reveals, header shadow, live stats ----
+// ---- APPLE-STYLE SCROLL SCRUB ----
+// Each [data-scrub] section sets --p (0..1) as you scroll through it.
+// Discrete state (1/2/3) is also written to data-state for non-interpolating swaps.
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-// Scroll reveal observer
-if ('IntersectionObserver' in window && !reduceMotion) {
-  const revealObs = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-view')
-        // also flag parent if it's a how-step inside how-steps
-        const stepsContainer = entry.target.closest('.how-steps')
-        if (stepsContainer) stepsContainer.classList.add('in-view-children')
-        revealObs.unobserve(entry.target)
+const scrubSections = Array.from(document.querySelectorAll('[data-scrub]'))
+const headerEl = document.querySelector('header')
+const progressEl = document.querySelector('.reading-progress')
+
+// Counter animation state — animates as section is visible
+const counterEl = document.querySelector('.big-counter-num')
+const counterTarget = counterEl ? Number(counterEl.dataset.target || 0) : 0
+let counterShown = 0
+
+let ticking = false
+function update() {
+  ticking = false
+  const y = window.scrollY
+  const winH = window.innerHeight
+
+  // Header + reading progress
+  if (headerEl) {
+    if (y > 8) headerEl.classList.add('scrolled')
+    else headerEl.classList.remove('scrolled')
+  }
+  if (progressEl) {
+    const docH = document.documentElement.scrollHeight - winH
+    const pct = docH > 0 ? Math.min(100, (y / docH) * 100) : 0
+    progressEl.style.width = pct + '%'
+  }
+
+  // Per-section scrub progress
+  scrubSections.forEach((sec) => {
+    const r = sec.getBoundingClientRect()
+    const sectionH = sec.offsetHeight - winH
+    const scrolled = -r.top
+    const p = sectionH > 0 ? Math.max(0, Math.min(1, scrolled / sectionH)) : 0
+    sec.style.setProperty('--p', p.toFixed(4))
+
+    // Discrete state: split into 3 equal thirds (states 1/2/3)
+    const state = p < 0.33 ? 1 : p < 0.66 ? 2 : 3
+    if (sec.getAttribute('data-state') !== String(state)) {
+      sec.setAttribute('data-state', String(state))
+    }
+
+    // Counter animation tied to first scrub section's progress
+    if (counterEl && sec === scrubSections[0]) {
+      const visible = r.top < winH && r.bottom > 0
+      if (visible) {
+        const targetNow = Math.round(counterTarget * Math.min(1, p * 1.4))
+        if (targetNow !== counterShown) {
+          counterShown = targetNow
+          counterEl.textContent = counterShown.toLocaleString()
+        }
       }
-    })
-  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' })
-  // Apply only to elements OUTSIDE the hero (hero uses its own animation)
-  document.querySelectorAll('.reveal').forEach((el) => {
-    if (!el.closest('.hero-big')) revealObs.observe(el)
+    }
   })
 }
-// Header scroll shadow + scroll-progress bar + subtle hero parallax
-const headerEl = document.querySelector('header')
-let progressBar = document.querySelector('.scroll-progress')
-if (!progressBar) {
-  progressBar = document.createElement('div')
-  progressBar.className = 'scroll-progress'
-  document.body.appendChild(progressBar)
-}
-const heroEl = document.querySelector('.hero-editorial')
-if (headerEl || progressBar || heroEl) {
-  const onScroll = () => {
-    const y = window.scrollY
-    if (headerEl) {
-      if (y > 8) headerEl.classList.add('scrolled')
-      else headerEl.classList.remove('scrolled')
-    }
-    if (progressBar) {
-      const docH = document.documentElement.scrollHeight - window.innerHeight
-      const pct = docH > 0 ? Math.min(100, (y / docH) * 100) : 0
-      progressBar.style.width = pct + '%'
-    }
-    if (heroEl && !reduceMotion) {
-      // parallax: only while hero is in view
-      const heroH = heroEl.offsetHeight
-      const t = Math.max(0, Math.min(1, y / heroH))
-      heroEl.style.setProperty('--scroll-y', t.toFixed(3))
-    }
+
+function onScroll() {
+  if (!ticking) {
+    requestAnimationFrame(update)
+    ticking = true
   }
-  window.addEventListener('scroll', onScroll, { passive: true })
-  onScroll()
 }
+window.addEventListener('scroll', onScroll, { passive: true })
+window.addEventListener('resize', onScroll, { passive: true })
+update()
+
+// Initialize state-1 on scrub sections so initial paint isn't blank
+scrubSections.forEach((sec) => sec.setAttribute('data-state', '1'))
 // Animated count-up
 function animateCount(el, target, duration = 1400) {
   if (!el) return
