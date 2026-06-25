@@ -1691,65 +1691,8 @@ function animateCount(el, target, duration = 1400) {
   requestAnimationFrame(step)
 }
 
-// Pull real counts + recent titles from Supabase, animate stats, build marquee
-async function loadHeroStats() {
-  const elBooks = document.getElementById('stat-books')
-  const elSchools = document.getElementById('stat-schools')
-  const elAreas = document.getElementById('stat-areas')
-  const elPillCount = document.getElementById('hero-pill-count')
-  const marquee = document.getElementById('marquee-track')
-
-  if (!elBooks || !elSchools || !elAreas) return
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('title, school, area, subject, grade_level, created_at')
-      .eq('status', 'available')
-      .order('created_at', { ascending: false })
-    if (error) throw error
-    const rows = data || []
-    const books = rows.length
-    const schools = new Set(rows.map(r => (r.school || '').trim().toLowerCase()).filter(Boolean)).size
-    const areas = new Set(rows.map(r => (r.area || '').trim().toLowerCase()).filter(Boolean)).size
-
-    // Pill: live count
-    if (elPillCount) {
-      elPillCount.textContent = books > 0
-        ? `${books} book${books === 1 ? '' : 's'} available right now`
-        : 'a growing community'
-    }
-
-    // Stats animation
-    setTimeout(() => animateCount(elBooks, Math.max(books, 1)), 200)
-    setTimeout(() => animateCount(elSchools, Math.max(schools, 1)), 350)
-    setTimeout(() => animateCount(elAreas, Math.max(areas, 1)), 500)
-
-    // Marquee — duplicate items so loop is seamless
-    if (marquee) {
-      const items = rows.slice(0, 18)
-      if (items.length === 0) {
-        marquee.innerHTML = `<span class="marquee-item muted">No listings yet — be the first to add one →</span>`
-        marquee.style.animation = 'none'
-        marquee.style.justifyContent = 'center'
-        marquee.style.width = '100%'
-      } else {
-        const render = (l) => {
-          const tag = l.grade_level ? `<span class="marquee-tag">${escapeHtml(l.grade_level)}</span>` : ''
-          return `<span class="marquee-item">${tag}<span>${escapeHtml(l.title)}</span></span>`
-        }
-        // double the content for a smooth -50% transform loop
-        marquee.innerHTML = items.map(render).join('') + items.map(render).join('')
-      }
-    }
-  } catch (err) {
-    console.warn('hero stats:', err.message)
-    elBooks.textContent = '—'
-    elSchools.textContent = '—'
-    elAreas.textContent = '—'
-    if (marquee) marquee.innerHTML = `<span class="marquee-item muted">Listings will appear here.</span>`
-  }
-}
-loadHeroStats()
+// Stats/marquee removed from hero — value props are static now.
+// (Will re-enable a live "X books listed" callout once listings grow.)
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
