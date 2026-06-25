@@ -28,7 +28,6 @@ h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; letter-s
 header { background: rgba(250,246,239,0.85); backdrop-filter: saturate(180%) blur(10px); -webkit-backdrop-filter: saturate(180%) blur(10px); border-bottom: 1px solid var(--border-soft); position: sticky; top: 0; z-index: 10; }
 nav { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; max-width: 1100px; margin: 0 auto; }
 .logo { font-family: 'Fraunces', serif; font-size: 1.35rem; font-weight: 700; color: var(--green-dark); display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.logo-mark { color: var(--sage); flex-shrink: 0; }
 .nav-links { display: flex; gap: 14px; align-items: center; }
 .nav-links a { color: var(--text); text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.15s var(--ease); }
 .nav-links a:hover { color: var(--green-dark); }
@@ -176,9 +175,6 @@ footer a { color: var(--green-dark); }
 .hero-big h1 { font-size: clamp(2.4rem, 6vw, 3.8rem); margin-bottom: 20px; line-height: 1.1; }
 .hero-eyebrow { display: inline-block; background: var(--sage-light); color: var(--green-dark); padding: 7px 16px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; margin-bottom: 24px; letter-spacing: 0.04em; text-transform: uppercase; }
 .hero-tagline { font-size: 1.15rem; color: var(--text-muted); max-width: 600px; margin: 0 auto 8px; line-height: 1.55; }
-.hero-leaf { position: absolute; width: 220px; height: 220px; color: var(--sage); opacity: 0.08; pointer-events: none; user-select: none; }
-.hero-leaf-left { left: -40px; top: 20%; transform: rotate(-15deg); }
-.hero-leaf-right { right: -40px; bottom: 10%; transform: rotate(165deg); }
 .hero-cta-row { display: flex; gap: 12px; justify-content: center; margin-top: 32px; flex-wrap: wrap; }
 .hero-microcopy { margin-top: 16px; color: var(--text-muted); font-size: 0.9rem; }
 .btn-lg { padding: 13px 28px; font-size: 1rem; border-radius: 11px; }
@@ -209,9 +205,6 @@ footer a { color: var(--green-dark); }
 .mission .signature { color: var(--brown); font-style: italic; margin-top: 24px; font-size: 0.95rem; }
 
 @media (max-width: 600px) {
-  .hero-leaf { width: 140px; height: 140px; opacity: 0.06; }
-  .hero-leaf-left { left: -60px; }
-  .hero-leaf-right { right: -60px; }
   .hero-big { padding: 72px 22px 48px; }
   .how { padding: 64px 22px; }
   .how-steps { grid-template-columns: 1fr; gap: 28px; }
