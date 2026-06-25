@@ -12,6 +12,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="GreenShelf">
+  <!-- Sharing previews (Open Graph + Twitter) -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="GreenShelf — School books, passed on">
   <meta property="og:description" content="A free, friendly way for students, parents, and schools in Oman to share textbooks at the end of the year.">
@@ -26,13 +27,10 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,0,700;9..144,0,800;9..144,1,400;9..144,1,500;9..144,1,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-  <div class="reading-progress" aria-hidden="true"></div>
-
   <header>
     <nav>
       <div class="logo" id="logo-link">🌿 GreenShelf</div>
@@ -41,114 +39,107 @@
       </div>
     </nav>
   </header>
-
-  <main class="narrative">
-
-    <!-- ───────── HERO ───────── -->
-    <section class="ch ch-hero" data-ch="0">
-      <div class="ch-inner">
-        <span class="ch-marker"><span class="ch-marker-dot"></span> A field-note from Muscat</span>
-        <h1 class="hero-title">
-          <span class="line line-1">Books deserve</span>
-          <span class="line line-2"><em>a second</em></span>
-          <span class="line line-3">life.</span>
+  <main>
+    <section class="hero hero-editorial">
+      <div class="hero-bg-grain" aria-hidden="true"></div>
+      <div class="hero-bg-orb hero-bg-orb-1" aria-hidden="true"></div>
+      <div class="hero-bg-orb hero-bg-orb-2" aria-hidden="true"></div>
+      <div class="hero-container">
+        <span class="hero-eyebrow-pill">
+          <span class="dot-pulse"></span>
+          For students, parents &amp; schools in Oman
+        </span>
+        <h1 class="hero-headline-xl">
+          <span class="hl-line">
+            <span class="hl-word" style="--d:0.05s">Pass</span>
+            <span class="hl-word" style="--d:0.12s">your</span>
+            <span class="hl-word" style="--d:0.19s">school</span>
+            <span class="hl-word" style="--d:0.26s">books</span>
+            <span class="hl-word" style="--d:0.33s">on,</span>
+          </span>
+          <span class="hl-line">
+            <em>
+              <span class="hl-word" style="--d:0.46s">not</span>
+              <span class="hl-word" style="--d:0.53s">into</span>
+              <span class="hl-word" style="--d:0.60s">the</span>
+              <span class="hl-word" style="--d:0.67s">bin.</span>
+            </em>
+          </span>
         </h1>
-        <p class="hero-sub">A calm, free, local place to pass school textbooks on at the end of the year — instead of binning them.</p>
-        <div class="hero-actions">
-          <button class="btn-quiet btn-quiet-primary" id="hero-list-btn">List a book →</button>
-          <a href="#browse" class="btn-quiet">Browse what's there</a>
+        <p class="hero-sub" style="--d:0.85s">A free, calm way for students, parents and schools across Oman to share textbooks at the end of the year. Find what you need. Give what you don't.</p>
+        <div class="hero-cta-row" style="--d:1s">
+          <button class="btn-primary btn-xl btn-glow" id="hero-list-btn">
+            <span class="btn-glow-bg"></span>
+            <span class="btn-glow-text">List a book →</span>
+          </button>
+          <a href="#browse" class="btn-secondary btn-xl">Browse what's there</a>
         </div>
+        <p class="hero-microcopy" style="--d:1.1s">Under a minute · No fees · Direct contact, no middleman</p>
       </div>
-      <div class="scroll-cue" aria-hidden="true">
-        <span>Scroll</span>
-        <span class="scroll-cue-line"></span>
-      </div>
-    </section>
-
-    <!-- ───────── SCRUB SECTION 1 · THE PROBLEM ───────── -->
-    <!-- Three viewport heights tall; inner content stays pinned and scrubs through three states -->
-    <section class="ch scrub" data-ch="1" data-scrub style="--scrub-h: 300">
-      <div class="scrub-pin">
-        <div class="scrub-stage">
-          <!-- Big shifting counter -->
-          <div class="big-counter" aria-hidden="true">
-            <span class="big-counter-num" data-target="2400">0</span>
-            <span class="big-counter-unit">textbooks</span>
-          </div>
-          <!-- Three text states stacked, switching with scroll -->
-          <div class="scrub-lines">
-            <p class="scrub-line scrub-line-1">Every June in Oman,<br><em>perfectly good textbooks</em><br>pile up in homes.</p>
-            <p class="scrub-line scrub-line-2">Most go to the recycling.<br><em>Some go to the bin.</em><br>Almost none are passed on.</p>
-            <p class="scrub-line scrub-line-3">Two streets away,<br>a family is searching<br>for the <em>exact same book</em>.</p>
-          </div>
-          <!-- Tiny progress dots showing where we are in the scrub -->
-          <div class="scrub-dots" aria-hidden="true">
-            <span class="scrub-dot"></span>
-            <span class="scrub-dot"></span>
-            <span class="scrub-dot"></span>
+      <div class="hero-values-strip" style="--d:1.25s">
+        <div class="hero-value">
+          <span class="hero-value-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+          </span>
+          <div>
+            <span class="hero-value-label">Always free</span>
+            <span class="hero-value-sub">No fees, no commission</span>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- ───────── STATEMENT · THE PROMISE ───────── -->
-    <section class="ch ch-statement" data-ch="2">
-      <div class="ch-statement-inner">
-        <span class="ch-marker">— A small bet on community</span>
-        <h2 class="statement">
-          GreenShelf is <em>the bridge.</em>
-        </h2>
-        <p class="statement-sub">No fees. No commission. No WhatsApp chaos.<br>Just a calm place to pass a book on.</p>
-      </div>
-    </section>
-
-    <!-- ───────── SCRUB SECTION 2 · THREE STEPS (apple-style 01→02→03) ───────── -->
-    <section class="ch scrub scrub-steps" data-ch="3" data-scrub style="--scrub-h: 400" id="how">
-      <div class="scrub-pin">
-        <div class="scrub-stage steps-stage">
-          <!-- Giant pinned numeral that morphs 01 → 02 → 03 -->
-          <div class="step-big-num" aria-hidden="true">
-            <span class="sn sn-1">01</span>
-            <span class="sn sn-2">02</span>
-            <span class="sn sn-3">03</span>
+        <div class="hero-value">
+          <span class="hero-value-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="11" r="3"/><path d="M12 22s-7-7-7-12a7 7 0 1 1 14 0c0 5-7 12-7 12z"/></svg>
+          </span>
+          <div>
+            <span class="hero-value-label">Local to Oman</span>
+            <span class="hero-value-sub">Built in Muscat</span>
           </div>
-          <!-- Text content that swaps -->
-          <div class="step-stage-text">
-            <div class="sst sst-1">
-              <span class="ch-marker">— Step one</span>
-              <h3>Find a book.</h3>
-              <p>Filter by grade, subject, condition. Find the exact textbook your child needs next year, listed by another family in Oman.</p>
-            </div>
-            <div class="sst sst-2">
-              <span class="ch-marker">— Step two</span>
-              <h3>Reach out.</h3>
-              <p>Message them on WhatsApp, call, or email — directly. No app inboxes, no go-between, no anonymized chat.</p>
-            </div>
-            <div class="sst sst-3">
-              <span class="ch-marker">— Step three</span>
-              <h3>Pick it up.</h3>
-              <p>Arrange a quick handover in a public place. The book gets a second life, your shelf gets a little space back.</p>
-            </div>
-          </div>
-          <!-- Step progress dots -->
-          <div class="step-dots" aria-hidden="true">
-            <span class="step-dot">01</span>
-            <span class="step-dot">02</span>
-            <span class="step-dot">03</span>
+        </div>
+        <div class="hero-value">
+          <span class="hero-value-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9 18l-5-5"/></svg>
+          </span>
+          <div>
+            <span class="hero-value-label">No middleman</span>
+            <span class="hero-value-sub">Direct WhatsApp or email</span>
           </div>
         </div>
       </div>
     </section>
-
-    <!-- ───────── BROWSE (functional) ───────── -->
-    <section class="ch ch-browse" data-ch="4">
-      <div class="browse-header">
-        <span class="ch-marker">— The books, right now</span>
-        <h2>What's been passed on this week.</h2>
+    <section class="how" id="how">
+      <div class="how-content">
+        <div class="how-header reveal">
+          <h2>Three steps. No money. No fuss.</h2>
+          <p>Built around how families actually swap books — without the WhatsApp chaos.</p>
+        </div>
+        <div class="how-steps">
+          <svg class="how-connector" viewBox="0 0 1000 20" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M 80 10 Q 250 -10 500 10 T 920 10" stroke="var(--sage)" stroke-width="2" stroke-dasharray="4 6" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="how-step" style="--d:0s">
+            <div class="how-step-num">1</div>
+            <h3>Find a book</h3>
+            <p>Filter by grade, subject, or condition. Find the exact textbook you need from another family in Oman.</p>
+          </div>
+          <div class="how-step" style="--d:0.15s">
+            <div class="how-step-num">2</div>
+            <h3>Reach out</h3>
+            <p>Message them on WhatsApp, call, or email them directly. No app inboxes, no middleman.</p>
+          </div>
+          <div class="how-step" style="--d:0.3s">
+            <div class="how-step-num">3</div>
+            <h3>Pick it up</h3>
+            <p>Arrange a quick handover. The book gets a second life, and your shelf gets a little space back.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="browse-section">
+      <div class="section-heading reveal">
+        <h2>Browse the books</h2>
         <p>Free for everyone. No accounts needed to look around.</p>
       </div>
-
-      <section class="filters" id="browse">
+      <section class="filters reveal" id="browse">
         <div class="filter-grid">
           <input type="search" id="search" placeholder="Search by title or subject…">
           <select id="grade-filter">
@@ -169,7 +160,6 @@
           </select>
         </div>
       </section>
-
       <section class="listings">
         <div class="listings-meta" id="listings-meta">Loading…</div>
         <div class="grid" id="listings-grid">
@@ -177,25 +167,22 @@
         </div>
       </section>
     </section>
-
-    <!-- ───────── SIGNOFF ───────── -->
-    <section class="ch ch-end" data-ch="5">
-      <div class="ch-end-inner">
-        <span class="ch-marker">— Built in Muscat</span>
-        <p class="end-quote">Made by two students who grew up here, mailing books across Muscat in the back of their parents' cars.<br><em>Now you can too.</em></p>
-        <div class="end-signoff">
-          <span>Hitesh Gurnani · Anshul Date</span>
-          <span class="end-dot">·</span>
-          <span>Oman · 2026</span>
+    <section class="manifesto">
+      <div class="manifesto-inner reveal">
+        <span class="manifesto-eyebrow">A small bet on community</span>
+        <blockquote class="manifesto-quote">
+          <span class="manifesto-quote-mark" aria-hidden="true">"</span>
+          Every June, perfectly good textbooks pile up in homes across Oman. Two streets away, a family is searching for the exact book your child just outgrew. <em>GreenShelf is the bridge.</em>
+        </blockquote>
+        <p class="manifesto-sub">No fees. No commission. No accounts to look. Just a calm place to pass a book on.</p>
+        <div class="manifesto-signoff">
+          <span class="manifesto-signature">Built in Muscat by Hitesh &amp; Anshul</span>
         </div>
       </div>
     </section>
-
   </main>
-
   <div id="modal" class="modal-backdrop hidden"></div>
   <div id="auth-modal" class="modal-backdrop hidden"></div>
-
   <footer>
     <div class="footer-links">
       <a href="#" id="footer-about">About</a>
@@ -207,7 +194,6 @@
     </div>
     <p>Made with care in Oman · © 2026 GreenShelf</p>
   </footer>
-
   <script type="module" src="app.js"></script>
 </body>
 </html>
