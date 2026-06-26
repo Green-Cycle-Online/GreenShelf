@@ -29,6 +29,7 @@ let myListings = []
 let currentUser = null
 let currentProfile = null
 let isAdmin = false
+let siteSettings = { show_live_counter: false }
 let currentView = 'browse'
 let currentPage = 1
 let currentFilteredListings = []
@@ -548,6 +549,18 @@ async function loadAdminStats() {
     recent: all.slice(0, 10),
   }
   content.innerHTML = `
+    <div class="admin-card">
+      <h3>Site settings</h3>
+      <label class="admin-setting">
+        <span>
+          <span class="admin-setting-title">Live counter on homepage</span>
+          <span class="admin-setting-desc">Shows "${stats.available} books shared so far" in the hero.</span>
+        </span>
+        <button type="button" class="switch ${siteSettings.show_live_counter ? 'is-on' : ''}" id="toggle-live-counter" role="switch" aria-checked="${siteSettings.show_live_counter}" aria-label="Toggle live counter">
+          <span class="switch-thumb"></span>
+        </button>
+      </label>
+    </div>
     ${pendingReports.length > 0 ? `
       <div class="admin-card">
         <h3>Pending reports (${pendingReports.length})</h3>
@@ -621,6 +634,18 @@ async function loadAdminStats() {
   `
   content.querySelectorAll('[data-report-action]').forEach(btn => {
     btn.addEventListener('click', () => handleReportAction(btn.dataset.reportId, btn.dataset.reportAction, btn.dataset.listingId))
+  })
+  const counterToggle = content.querySelector('#toggle-live-counter')
+  if (counterToggle) counterToggle.addEventListener('click', async () => {
+    const next = !siteSettings.show_live_counter
+    counterToggle.disabled = true
+    const ok = await setLiveCounter(next)
+    counterToggle.disabled = false
+    if (ok) {
+      counterToggle.classList.toggle('is-on', next)
+      counterToggle.setAttribute('aria-checked', String(next))
+      showToast(next ? 'Live counter enabled.' : 'Live counter hidden.', 'success')
+    }
   })
 }
 function renderReport(r) {
@@ -1142,6 +1167,7 @@ async function loadListings() {
   ensureAreaFilter()
   updateSubjectFilterOptions()
   updateAreaFilterOptions()
+  updateHeroStat()
   currentPage = 1
   applyFilters()
   openListingFromHash()
@@ -1173,14 +1199,14 @@ function updateAreaFilterOptions() {
   select.innerHTML = `<option value="">All areas</option>` + merged.map(a => `<option>${escapeHtml(a)}</option>`).join('')
   if (currentValue && merged.includes(currentValue)) select.value = currentValue
 }
-function renderCard(l) {
+function renderCard(l, i = 0) {
   const firstPhoto = (l.photos && l.photos.length > 0) ? l.photos[0] : null
   const moreCount = (l.photos && l.photos.length > 1) ? l.photos.length - 1 : 0
   const isNew = l.created_at && (Date.now() - new Date(l.created_at).getTime() < 7 * 24 * 60 * 60 * 1000)
   const claimed = l.status === 'claimed'
   const pinSvg = `<svg class="card-location-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`
   return `
-    <article class="card${claimed ? ' is-claimed' : ''}" data-id="${escapeHtml(l.id)}">
+    <article class="card${claimed ? ' is-claimed' : ''}" data-id="${escapeHtml(l.id)}" style="--i:${i}">
       <div class="card-image">
         ${isNew && !claimed ? `<div class="card-new-badge">New</div>` : ''}
         ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}" loading="lazy">` : '📖'}
@@ -1310,7 +1336,7 @@ function updateSearchClearBtn() {
   else btn.setAttribute('hidden', '')
 }
 function renderPagination(totalPages) {
-  const listingsSection = document.querySelector('.listings')
+  const listingsSection = document.querySelector('.browse')
   if (!listingsSection) return
   let pag = document.getElementById('pagination')
   if (!pag) {
@@ -1618,8 +1644,81 @@ function animateCount(el, target, duration = 1400) {
   }
   requestAnimationFrame(step)
 }
-// Stats/marquee removed from hero — value props are static now.
-// (Will re-enable a live "X books listed" callout once listings grow.)
+// ---- THEME TOGGLE ----
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme)
+  try { localStorage.setItem('gs-theme', theme) } catch (e) {}
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', theme === 'dark' ? '#161208' : '#2d5016')
+}
+const themeToggle = document.getElementById('theme-toggle')
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+    setTheme(current === 'dark' ? 'light' : 'dark')
+  })
+}
+
+// ---- SCROLL REVEAL ----
+function registerReveal(root = document) {
+  const els = root.querySelectorAll('.reveal:not(.is-visible)')
+  if (!els.length) return
+  if (reduceMotion || !('IntersectionObserver' in window)) {
+    els.forEach(el => el.classList.add('is-visible'))
+    return
+  }
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible')
+        obs.unobserve(entry.target)
+      }
+    })
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' })
+  els.forEach(el => io.observe(el))
+}
+registerReveal()
+
+// ---- STICKY HEADER STATE ----
+const headerEl = document.querySelector('header')
+if (headerEl) {
+  const onScroll = () => headerEl.classList.toggle('is-scrolled', window.scrollY > 8)
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+}
+
+// ---- LIVE HERO STAT ----
+function updateHeroStat() {
+  const stat = document.getElementById('hero-stat')
+  const num = document.getElementById('hero-stat-num')
+  if (!stat || !num) return
+  const count = allListings.length
+  if (!siteSettings.show_live_counter || count <= 0) { stat.hidden = true; return }
+  stat.hidden = false
+  animateCount(num, count)
+}
+async function loadSiteSettings() {
+  try {
+    const { data, error } = await supabase.from('site_settings').select('key, value')
+    if (error) return
+    ;(data || []).forEach(row => {
+      if (row.key === 'show_live_counter') siteSettings.show_live_counter = row.value === true || row.value === 'true'
+    })
+  } catch (e) { /* table may not exist yet — keep defaults */ }
+  updateHeroStat()
+}
+async function setLiveCounter(enabled) {
+  const { error } = await supabase.from('site_settings')
+    .upsert({ key: 'show_live_counter', value: enabled }, { onConflict: 'key' })
+  if (error) {
+    showToast("Couldn't save — is the site_settings table set up? " + error.message, 'error')
+    return false
+  }
+  siteSettings.show_live_counter = enabled
+  updateHeroStat()
+  return true
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeModal()
@@ -1629,6 +1728,7 @@ document.addEventListener('keydown', (e) => {
 })
 updateNav()
 loadListings()
+loadSiteSettings()
 ;(async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
