@@ -30,6 +30,7 @@ let currentUser = null
 let currentProfile = null
 let isAdmin = false
 let siteSettings = { show_live_counter: false }
+const BOOK_ICON_SVG = `<svg class="ph-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v13"/><path d="M3 18a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>`
 let currentView = 'browse'
 let currentPage = 1
 let currentFilteredListings = []
@@ -1207,9 +1208,9 @@ function renderCard(l, i = 0) {
   const pinSvg = `<svg class="card-location-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`
   return `
     <article class="card${claimed ? ' is-claimed' : ''}" data-id="${escapeHtml(l.id)}" style="--i:${i}">
-      <div class="card-image">
+      <div class="card-image${firstPhoto ? '' : ' no-photo'}">
         ${isNew && !claimed ? `<div class="card-new-badge">New</div>` : ''}
-        ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}" loading="lazy">` : '📖'}
+        ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}" loading="lazy">` : BOOK_ICON_SVG}
         ${moreCount > 0 ? `<div class="photo-count">+${moreCount}</div>` : ''}
       </div>
       <div class="card-body">
@@ -1447,7 +1448,7 @@ function showModal(listing) {
   const photos = Array.isArray(listing.photos) ? listing.photos : []
   let photoBlockHtml
   if (photos.length === 0) {
-    photoBlockHtml = `<div class="modal-image">📖</div>`
+    photoBlockHtml = `<div class="modal-image no-photo">${BOOK_ICON_SVG}</div>`
   } else {
     photoBlockHtml = `
       <div class="photo-carousel" data-index="0">
@@ -1623,6 +1624,22 @@ if (searchClearBtn) searchClearBtn.addEventListener('click', () => {
   const input = document.getElementById('search')
   if (input) { input.value = ''; input.focus(); applyFilters(); updateSearchClearBtn() }
 })
+const popularRow = document.getElementById('popular-row')
+if (popularRow) popularRow.addEventListener('click', (e) => {
+  const chip = e.target.closest('.popular-chip')
+  if (!chip) return
+  if (chip.dataset.grade) { const s = document.getElementById('grade-filter'); if (s) s.value = chip.dataset.grade }
+  if (chip.dataset.condition) { const s = document.getElementById('condition-filter'); if (s) s.value = chip.dataset.condition }
+  if (chip.dataset.subject) {
+    const s = document.getElementById('subject-filter')
+    const has = s && [...s.options].some(o => o.value === chip.dataset.subject)
+    if (has) s.value = chip.dataset.subject
+    else { const si = document.getElementById('search'); if (si) si.value = chip.dataset.subject }
+  }
+  applyFilters()
+  updateSearchClearBtn()
+  document.getElementById('browse')?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+})
 document.getElementById('logo-link').addEventListener('click', () => showBrowseView())
 document.getElementById('footer-about').addEventListener('click', (e) => { e.preventDefault(); showAboutView() })
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
@@ -1718,6 +1735,91 @@ async function setLiveCounter(enabled) {
   updateHeroStat()
   return true
 }
+
+// ---- HERO PARALLAX + FLOAT ----
+function initHeroMotion() {
+  const visual = document.getElementById('hero-visual')
+  if (!visual || reduceMotion) return
+  const hero = visual.closest('.hero')
+  const cards = [...visual.querySelectorAll('.float-card')]
+  if (!cards.length) return
+  const rots = [-7, 5, -2]
+  const cfg = cards.map((el, i) => ({
+    el,
+    depth: parseFloat(el.dataset.depth) || 18,
+    rot: rots[i] ?? 0,
+    phase: i * 1.4,
+    amp: 6 + i * 3,
+  }))
+  visual.classList.add('is-interactive')
+  let tmx = 0, tmy = 0, mx = 0, my = 0, visible = true
+  hero.addEventListener('pointermove', (e) => {
+    const r = visual.getBoundingClientRect()
+    tmx = (e.clientX - r.left) / r.width - 0.5
+    tmy = (e.clientY - r.top) / r.height - 0.5
+  })
+  hero.addEventListener('pointerleave', () => { tmx = 0; tmy = 0 })
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([en]) => { visible = en.isIntersecting }, { threshold: 0 }).observe(hero)
+  }
+  const start = performance.now()
+  function frame(now) {
+    if (visible) {
+      mx += (tmx - mx) * 0.07
+      my += (tmy - my) * 0.07
+      const t = (now - start) / 1000
+      for (const c of cfg) {
+        const fy = Math.sin(t * 0.85 + c.phase) * c.amp
+        const px = mx * c.depth
+        const py = my * c.depth + fy
+        c.el.style.transform = `translate3d(${px.toFixed(2)}px, ${py.toFixed(2)}px, 0) rotate(${c.rot}deg)`
+      }
+    }
+    requestAnimationFrame(frame)
+  }
+  requestAnimationFrame(frame)
+}
+
+// ---- MAGNETIC BUTTONS ----
+function initMagnetic() {
+  if (reduceMotion) return
+  document.querySelectorAll('[data-magnetic]').forEach((el) => {
+    el.addEventListener('pointermove', (e) => {
+      const r = el.getBoundingClientRect()
+      const x = (e.clientX - r.left - r.width / 2) * 0.25
+      const y = (e.clientY - r.top - r.height / 2) * 0.35
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`
+    })
+    el.addEventListener('pointerleave', () => { el.style.transform = '' })
+  })
+}
+
+// ---- CARD 3D TILT ----
+function initCardTilt() {
+  const grid = document.getElementById('listings-grid')
+  if (!grid || reduceMotion) return
+  grid.addEventListener('pointermove', (e) => {
+    const card = e.target.closest('.card')
+    if (!card) return
+    const img = card.querySelector('.card-image')
+    if (!img) return
+    const r = img.getBoundingClientRect()
+    const px = (e.clientX - r.left) / r.width - 0.5
+    const py = (e.clientY - r.top) / r.height - 0.5
+    img.style.setProperty('--ry', (px * 7).toFixed(2) + 'deg')
+    img.style.setProperty('--rx', (py * -6).toFixed(2) + 'deg')
+  })
+  grid.addEventListener('pointerout', (e) => {
+    const card = e.target.closest('.card')
+    if (!card || (e.relatedTarget && card.contains(e.relatedTarget))) return
+    const img = card.querySelector('.card-image')
+    if (img) { img.style.removeProperty('--rx'); img.style.removeProperty('--ry') }
+  })
+}
+
+initHeroMotion()
+initMagnetic()
+initCardTilt()
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
