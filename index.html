@@ -116,6 +116,35 @@
       </div>
     </section>
 
+    <!-- ───────── IMPACT (the quiet environmental math) ───────── -->
+    <section class="impact" id="impact">
+      <div class="impact-bg" aria-hidden="true"><span class="impact-orb"></span></div>
+      <div class="impact-head reveal">
+        <span class="eyebrow">The quiet math of a shared book</span>
+        <h2>A textbook doesn't have to die at the end of term.</h2>
+        <p>Every book kept in circulation is one less printed — saving paper, carbon, and money for a family down the road.</p>
+      </div>
+      <div class="impact-grid">
+        <div class="impact-tile reveal" style="--i:0">
+          <div class="impact-num"><span class="impact-val" id="impact-books">0</span></div>
+          <div class="impact-label">Books passed on</div>
+        </div>
+        <div class="impact-tile reveal" style="--i:1">
+          <div class="impact-num"><span class="impact-val" id="impact-co2">0</span><span class="impact-unit">kg</span></div>
+          <div class="impact-label">CO₂ avoided</div>
+        </div>
+        <div class="impact-tile reveal" style="--i:2">
+          <div class="impact-num"><span class="impact-val" id="impact-paper">0</span><span class="impact-unit">kg</span></div>
+          <div class="impact-label">Paper saved</div>
+        </div>
+        <div class="impact-tile reveal" style="--i:3">
+          <div class="impact-num"><span class="impact-val" id="impact-omr">0</span><span class="impact-unit">OMR</span></div>
+          <div class="impact-label">Kept in families' pockets</div>
+        </div>
+      </div>
+      <p class="impact-note reveal">Estimated from books listed on GreenShelf — roughly 1.2&nbsp;kg of paper and 2.5&nbsp;kg of CO₂e per textbook produced.</p>
+    </section>
+
     <!-- ───────── BROWSE (the actual product, immediately) ───────── -->
     <section class="browse" id="browse">
       <div class="browse-head reveal">
@@ -192,6 +221,32 @@
       </ol>
     </section>
 
+    <!-- ───────── SDG ALIGNMENT (the global-goals frame) ───────── -->
+    <section class="sdg" id="sdg">
+      <div class="sdg-head reveal">
+        <span class="eyebrow">Aligned with the UN Global Goals</span>
+        <h2>A small idea, pointed at big goals.</h2>
+        <p>GreenShelf is a local act of reuse that ladders up to three of the United Nations Sustainable Development Goals.</p>
+      </div>
+      <div class="sdg-grid">
+        <div class="sdg-card sdg-4 reveal" style="--i:0">
+          <span class="sdg-num">04</span>
+          <h3>Quality Education</h3>
+          <p>Lowering the cost of textbooks so the next student is never priced out of the books they need to learn.</p>
+        </div>
+        <div class="sdg-card sdg-12 reveal" style="--i:1">
+          <span class="sdg-num">12</span>
+          <h3>Responsible Consumption</h3>
+          <p>Reuse over re-buy, by default — keeping good books in circulation instead of in a landfill.</p>
+        </div>
+        <div class="sdg-card sdg-13 reveal" style="--i:2">
+          <span class="sdg-num">13</span>
+          <h3>Climate Action</h3>
+          <p>Every reused book quietly avoids the carbon of printing, binding, and shipping a brand-new one.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- ───────── WHY (compact, brief story) ───────── -->
     <section class="why">
       <div class="why-inner reveal">
@@ -203,21 +258,54 @@
       </div>
     </section>
 
+    <!-- ───────── CLOSING CTA ───────── -->
+    <section class="cta-band" id="cta">
+      <div class="cta-bg" aria-hidden="true"><span class="cta-orb a"></span><span class="cta-orb b"></span></div>
+      <div class="cta-inner reveal">
+        <h2>Sitting on a shelf of last year's books?</h2>
+        <p>It takes two minutes to list one. Somewhere in Oman, a family is looking for exactly that book right now.</p>
+        <div class="cta-actions">
+          <button class="btn btn-primary" id="cta-list-btn" data-magnetic>List a book</button>
+          <a href="#browse" class="btn btn-secondary">Browse the shelf →</a>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <div id="modal" class="modal-backdrop hidden"></div>
   <div id="auth-modal" class="modal-backdrop hidden"></div>
 
   <footer>
-    <div class="footer-links">
-      <a href="#" id="footer-about">About</a>
-      <a href="#" id="footer-faq">FAQ</a>
-      <a href="/privacy.html">Privacy</a>
-      <a href="/terms.html">Terms</a>
-      <a href="https://instagram.com/greenshelf.om" target="_blank" rel="noopener">Instagram</a>
-      <a href="mailto:greenshelf1320@gmail.com">Contact</a>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <svg class="logo-leaf" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" fill="currentColor" fill-opacity="0.14"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
+          <span>GreenShelf</span>
+        </div>
+        <p class="footer-mission">A free book exchange for Oman. Pass your school books on — keep them out of the bin and in a student's hands.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Explore</h4>
+        <a href="#browse">Browse books</a>
+        <a href="#" id="footer-about">About</a>
+        <a href="#" id="footer-faq">FAQ</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+      </div>
+      <div class="footer-col">
+        <h4>Connect</h4>
+        <a href="https://instagram.com/greenshelf.om" target="_blank" rel="noopener">Instagram</a>
+        <a href="mailto:greenshelf1320@gmail.com">Email us</a>
+      </div>
     </div>
-    <p>Made with care in Oman · © 2026 GreenShelf</p>
+    <div class="footer-base">
+      <p>Made with care in Oman · © 2026 GreenShelf</p>
+      <p class="footer-sdg-note">In support of UN SDGs 4 · 12 · 13</p>
+    </div>
   </footer>
 
   <script type="module" src="app.js"></script>

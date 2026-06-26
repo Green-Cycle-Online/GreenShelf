@@ -335,7 +335,7 @@ function resumePendingListingIfAny() {
 }
 // ---- VIEW SWITCHING ----
 // Home view = hero + browse + how + why. Hide all of those when switching to profile/about/faq/admin.
-const HOME_SECTIONS = ['.hero', '.browse', '.how', '.why']
+const HOME_SECTIONS = ['.hero', '.impact', '.browse', '.how', '.sdg', '.why', '.cta-band']
 function hideAllSections() {
   HOME_SECTIONS.forEach(sel => {
     const el = document.querySelector(sel)
@@ -1169,6 +1169,7 @@ async function loadListings() {
   updateSubjectFilterOptions()
   updateAreaFilterOptions()
   updateHeroStat()
+  refreshImpactFallback()
   currentPage = 1
   applyFilters()
   openListingFromHash()
@@ -1645,21 +1646,26 @@ document.getElementById('footer-about').addEventListener('click', (e) => { e.pre
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
 const heroListBtn = document.getElementById('hero-list-btn')
 if (heroListBtn) heroListBtn.addEventListener('click', () => showCreateListingModal())
+const ctaListBtn = document.getElementById('cta-list-btn')
+if (ctaListBtn) ctaListBtn.addEventListener('click', () => showCreateListingModal())
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 // Animated count-up
 function animateCount(el, target, duration = 1400) {
   if (!el) return
   if (reduceMotion) { el.textContent = target.toLocaleString(); return }
   const start = performance.now()
-  const initial = 0
+  let done = false
   const step = (now) => {
+    if (done) return
     const t = Math.min(1, (now - start) / duration)
     const eased = 1 - Math.pow(1 - t, 3)
-    const val = Math.round(initial + (target - initial) * eased)
-    el.textContent = val.toLocaleString()
+    el.textContent = Math.round(target * eased).toLocaleString()
     if (t < 1) requestAnimationFrame(step)
+    else done = true
   }
   requestAnimationFrame(step)
+  // Safety net: if rAF is throttled or the tab never paints, guarantee the final value lands.
+  setTimeout(() => { if (!done) { done = true; el.textContent = target.toLocaleString() } }, duration + 400)
 }
 // ---- THEME TOGGLE ----
 function setTheme(theme) {
@@ -1734,6 +1740,60 @@ async function setLiveCounter(enabled) {
   siteSettings.show_live_counter = enabled
   updateHeroStat()
   return true
+}
+
+// ---- IMPACT COUNTERS ----
+// Environmental estimates per textbook kept in circulation.
+const IMPACT_CO2_PER_BOOK = 2.5   // kg CO2e to produce one textbook
+const IMPACT_PAPER_PER_BOOK = 1.2 // kg paper per textbook
+const IMPACT_OMR_PER_BOOK = 12    // typical retail price saved, OMR
+let impactTargets = null
+let impactBaseTotal = 0
+function setImpact(total) {
+  if (!total || total <= 0) return
+  impactTargets = {
+    books: total,
+    co2: Math.round(total * IMPACT_CO2_PER_BOOK),
+    paper: Math.round(total * IMPACT_PAPER_PER_BOOK),
+    omr: Math.round(total * IMPACT_OMR_PER_BOOK),
+  }
+  initImpactCounters()
+}
+async function loadImpact() {
+  try {
+    const { count, error } = await supabase.from('listings').select('id', { count: 'exact' }).limit(1)
+    if (!error && count) { impactBaseTotal = count; setImpact(count) }
+  } catch (e) { /* fall back from loadListings */ }
+}
+// Called from loadListings once live data is in, in case the count query failed.
+function refreshImpactFallback() {
+  if (impactTargets) return
+  setImpact(Math.max(impactBaseTotal, allListings.length))
+}
+let impactCountersStarted = false
+let impactCountersWired = false
+function initImpactCounters() {
+  const section = document.getElementById('impact')
+  if (!section || !impactTargets || impactCountersWired) return
+  impactCountersWired = true
+  let onScroll = null
+  const run = () => {
+    if (impactCountersStarted) return
+    impactCountersStarted = true
+    if (onScroll) window.removeEventListener('scroll', onScroll)
+    animateCount(document.getElementById('impact-books'), impactTargets.books)
+    animateCount(document.getElementById('impact-co2'), impactTargets.co2)
+    animateCount(document.getElementById('impact-paper'), impactTargets.paper)
+    animateCount(document.getElementById('impact-omr'), impactTargets.omr)
+  }
+  if (reduceMotion) { run(); return }
+  const inView = () => {
+    const r = section.getBoundingClientRect()
+    return r.top < window.innerHeight * 0.85 && r.bottom > 0
+  }
+  if (inView()) { run(); return }
+  onScroll = () => { if (inView()) run() }
+  window.addEventListener('scroll', onScroll, { passive: true })
 }
 
 // ---- HERO PARALLAX + FLOAT ----
@@ -1831,6 +1891,7 @@ document.addEventListener('keydown', (e) => {
 updateNav()
 loadListings()
 loadSiteSettings()
+loadImpact()
 ;(async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
