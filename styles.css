@@ -1026,10 +1026,10 @@ nav {
 .impact-head p { color: var(--ink-soft); font-size: 1.02rem; line-height: 1.6; max-width: 560px; margin: 0 auto; }
 .impact-grid {
   position: relative; z-index: 1;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
-  max-width: 1080px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px;
+  max-width: 620px; margin: 0 auto;
 }
-@media (max-width: 720px) { .impact-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .impact-grid { grid-template-columns: 1fr; max-width: 360px; } }
 .impact-tile {
   background: var(--surface); border: 1px solid var(--hairline);
   border-radius: var(--r-lg); padding: 32px 22px; text-align: center;

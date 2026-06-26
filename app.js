@@ -1746,16 +1746,13 @@ async function setLiveCounter(enabled) {
 // Environmental estimates per textbook kept in circulation.
 const IMPACT_CO2_PER_BOOK = 2.5   // kg CO2e to produce one textbook
 const IMPACT_PAPER_PER_BOOK = 1.2 // kg paper per textbook
-const IMPACT_OMR_PER_BOOK = 12    // typical retail price saved, OMR
 let impactTargets = null
 let impactBaseTotal = 0
 function setImpact(total) {
   if (!total || total <= 0) return
   impactTargets = {
-    books: total,
     co2: Math.round(total * IMPACT_CO2_PER_BOOK),
     paper: Math.round(total * IMPACT_PAPER_PER_BOOK),
-    omr: Math.round(total * IMPACT_OMR_PER_BOOK),
   }
   initImpactCounters()
 }
@@ -1781,10 +1778,8 @@ function initImpactCounters() {
     if (impactCountersStarted) return
     impactCountersStarted = true
     if (onScroll) window.removeEventListener('scroll', onScroll)
-    animateCount(document.getElementById('impact-books'), impactTargets.books)
     animateCount(document.getElementById('impact-co2'), impactTargets.co2)
     animateCount(document.getElementById('impact-paper'), impactTargets.paper)
-    animateCount(document.getElementById('impact-omr'), impactTargets.omr)
   }
   if (reduceMotion) { run(); return }
   const inView = () => {
