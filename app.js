@@ -1703,10 +1703,15 @@ function registerReveal(root = document) {
 registerReveal()
 
 // ---- STICKY HEADER STATE ----
+// Over the leaf-canopy intro the header stays transparent (so the frosted glass never draws a
+// band across the leaves); it frosts once you scroll past the intro into the content below.
 const headerEl = document.querySelector('header')
 if (headerEl) {
-  const onScroll = () => headerEl.classList.toggle('is-scrolled', window.scrollY > 8)
+  const introEl = document.getElementById('intro')
+  const frostAt = () => introEl ? Math.max(introEl.offsetHeight - window.innerHeight - 10, 8) : 8
+  const onScroll = () => headerEl.classList.toggle('is-scrolled', window.scrollY > frostAt())
   window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onScroll, { passive: true })
   onScroll()
 }
 
@@ -1872,9 +1877,181 @@ function initCardTilt() {
   })
 }
 
+// ---- LEAF-CANOPY INTRO ----
+// A screen-filling canopy that hangs from the top and lifts/parts away on scroll to reveal the hero.
+// transform + opacity only (no per-leaf filters) so 100+ leaves stay at 60fps.
+function initLeafIntro() {
+  const intro = document.getElementById('intro')
+  const stage = document.getElementById('intro-stage')
+  const layer = document.getElementById('scatter-layer')
+  if (!intro || !stage || !layer) return
+  if (reduceMotion) { stage.style.setProperty('--lp', '1'); return }
+
+  // seeded RNG so the layout is identical on every load
+  const mulberry32 = (a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296 }
+  const rnd = mulberry32(20260626)
+
+  // light → dark fill pairs: fresh greens through autumn gold / amber / russet (all on-brand)
+  const LEAF_PAIRS = [
+    ['#88b556', '#477f2c'], ['#a6c659', '#688f31'], ['#6fa472', '#3c7350'], ['#cba93f', '#947019'],
+    ['#dc9a36', '#a85f1d'], ['#c56a3a', '#8a3f22'], ['#5f9140', '#36652a'], ['#b8862f', '#876016'],
+  ]
+  const leafSVG = (id, light, dark) => `<svg viewBox="0 0 64 64" aria-hidden="true">
+    <defs><linearGradient id="${id}" x1="0.15" y1="0.05" x2="0.85" y2="0.95"><stop offset="0" stop-color="${light}"/><stop offset="1" stop-color="${dark}"/></linearGradient></defs>
+    <path d="M32 2.5 C 13 17 11.5 41.5 32 61 C 52.5 41.5 51 17 32 2.5 Z" transform="translate(1.1 2.6)" fill="rgba(34,46,20,0.17)"/>
+    <path d="M32 2.5 C 13 17 11.5 41.5 32 61 C 52.5 41.5 51 17 32 2.5 Z" fill="url(#${id})"/>
+    <path d="M32 7 Q 30.5 34 32 58" fill="none" stroke="rgba(255,255,255,0.34)" stroke-width="1.5" stroke-linecap="round"/>
+    <g fill="none" stroke="rgba(255,255,255,0.20)" stroke-width="1.1" stroke-linecap="round">
+      <path d="M32 19 Q 25 21 20 28"/><path d="M33 30 Q 26 33 21.5 41"/><path d="M33 40 Q 27 43 23.5 49"/>
+      <path d="M32 19 Q 39 21 44 28"/><path d="M33 30 Q 40 33 44.5 41"/><path d="M33 40 Q 39 43 42.5 49"/>
+    </g>
+    <path d="M32 60 Q 31.5 62.5 31 63.6" fill="none" stroke="${dark}" stroke-width="1.8" stroke-linecap="round"/>
+  </svg>`
+
+  // build an even, full-width canopy: dense ceiling across the top + columns trailing down the
+  // left & right edges (full corners), short/clear in the centre for the headline, soft feather down.
+  const COLS = 20, ROWS = 16
+  let html = '', li = 0
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const left = (c + 0.5) / COLS * 100 + (rnd() * 6 - 3)
+      const top = (r + 0.5) / ROWS * 108 - 8 + (rnd() * 6 - 3)
+      if (top < 11 && left > 4 && left < 19) continue   // keep the logo wordmark clear
+      const cen = 1 - Math.abs(left - 50) / 50
+      const topReach = 42 - 11 * cen                     // centre ~31, edges ~42 — fuller corners, even band
+      const dTop = Math.max(0, 1 - (top + 8) / topReach)
+      const dLeft = Math.max(0, 1 - left / 26) * Math.max(0, 1 - (top + 6) / 42)
+      const dRight = Math.max(0, 1 - (100 - left) / 26) * Math.max(0, 1 - (top + 6) / 42)
+      const dens = Math.max(dTop, dLeft, dRight)
+      const prob = Math.pow(dens, 1.45)
+      let stray = false
+      if (rnd() > prob) {
+        const clearZone = (top < 26 && (left < 32 || left > 68)) || (top < 64 && (left < 6 || left > 94))
+        if (clearZone && rnd() < 0.06) stray = true
+        else continue
+      }
+      const depth = rnd()
+      const dx = left - 50, dy = top - 50
+      const ang = Math.atan2(dy, dx)
+      const mag = 16 + depth * 14
+      const tx = (Math.cos(ang) * mag).toFixed(1)
+      const ty = (Math.sin(ang) * mag - (8 + depth * 8)).toFixed(1)
+      const ceiling = top < 6
+      const size = Math.round((stray ? 26 : 36) + depth * (stray ? 22 : 44) + (ceiling ? 16 : 0) + rnd() * 14)
+      const o0 = (stray ? (0.20 + depth * 0.16) : (0.74 + depth * 0.22)).toFixed(2)
+      const r0 = (rnd() * 80 - 40).toFixed(0)
+      const dr = ((rnd() * 150 + 70) * (rnd() < 0.5 ? -1 : 1)).toFixed(0)
+      const s = (0.02 + (1 - depth) * 0.05).toFixed(3)
+      const idle = rnd() < 0.35
+      const fdur = (5.5 + rnd() * 4).toFixed(1)
+      const fdelay = (-rnd() * 6).toFixed(1)
+      const pair = LEAF_PAIRS[li % LEAF_PAIRS.length]
+      html += `<div class="leaf-card" style="left:${left.toFixed(1)}%; top:${top.toFixed(1)}%; width:${size}px; height:${size}px; --tx:${tx}vw; --ty:${ty}vh; --r0:${r0}deg; --dr:${dr}deg; --s:${s}; --depth:${depth.toFixed(2)}; --o0:${o0}; --fdur:${fdur}s; --fdelay:${fdelay}s; z-index:${Math.round(depth * 100)};"><div class="lf-w${idle ? ' idle' : ''}">${leafSVG('lf' + li, pair[0], pair[1])}</div></div>`
+      li++
+    }
+  }
+  layer.innerHTML = html
+
+  // scroll-driven progress → drives every leaf transform via the --p custom property
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
+  let ticking = false
+  const update = () => {
+    ticking = false
+    const travel = intro.offsetHeight - window.innerHeight
+    const p = travel > 0 ? Math.min(Math.max(window.scrollY / travel, 0), 1) : 0
+    stage.style.setProperty('--p', p.toFixed(4))
+    stage.style.setProperty('--lp', easeOutCubic(Math.min(p / 0.62, 1)).toFixed(4))
+  }
+  const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update) } }
+  window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', update)
+  update()
+
+  // gentle cursor parallax on the canopy (lerped)
+  let tmx = 0, tmy = 0, mx = 0, my = 0, raf = null
+  const loop = () => {
+    mx += (tmx - mx) * 0.08; my += (tmy - my) * 0.08
+    layer.style.setProperty('--mx', mx.toFixed(4))
+    layer.style.setProperty('--my', my.toFixed(4))
+    if (Math.abs(tmx - mx) > 0.001 || Math.abs(tmy - my) > 0.001) raf = requestAnimationFrame(loop)
+    else raf = null
+  }
+  window.addEventListener('pointermove', (e) => {
+    tmx = (e.clientX / window.innerWidth - 0.5) * 2
+    tmy = (e.clientY / window.innerHeight - 0.5) * 2
+    if (!raf) raf = requestAnimationFrame(loop)
+  }, { passive: true })
+}
+
+// ---- HEADER SEARCH (top-right) ----
+// Opens a panel that suggests from the real listings; selecting / Enter hands off to the main
+// browse search (#search) and scrolls to the shelf.
+function initNavSearch() {
+  const wrap = document.getElementById('nav-search')
+  const toggle = document.getElementById('nav-search-toggle')
+  const input = document.getElementById('nav-search-input')
+  const list = document.getElementById('nav-suggests')
+  const label = document.getElementById('nav-suggest-label')
+  if (!wrap || !toggle || !input || !list) return
+
+  const ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`
+
+  function render(q) {
+    const ql = q.trim().toLowerCase()
+    const seen = new Set()
+    const matched = []
+    for (const b of allListings) {
+      const hit = !ql || (b.title || '').toLowerCase().includes(ql) || (b.subject || '').toLowerCase().includes(ql) || (b.grade_level || '').toLowerCase().includes(ql)
+      const key = (b.title || '').toLowerCase()
+      if (hit && key && !seen.has(key)) { seen.add(key); matched.push(b) }
+      if (matched.length >= 6) break
+    }
+    if (label) label.textContent = ql ? 'Matches' : 'Browse the shelf'
+    list.innerHTML = matched.length
+      ? matched.map(b => `<button class="nav-suggest" type="button" data-q="${escapeHtml(b.title)}">${ICON}<span>${escapeHtml(b.title)}</span><span class="ns-tag">${escapeHtml([b.grade_level, b.subject].filter(Boolean).join(' · '))}</span></button>`).join('')
+      : `<div class="nav-suggest" style="cursor:default">${allListings.length ? 'No matches — try a subject or grade.' : 'Loading the shelf…'}</div>`
+  }
+  render('')
+
+  const open = () => { wrap.classList.add('open'); toggle.setAttribute('aria-expanded', 'true'); render(input.value); setTimeout(() => input.focus(), 40) }
+  const close = () => { wrap.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false') }
+
+  function goToResults(q) {
+    close()
+    const main = document.getElementById('search')
+    if (main) {
+      main.value = q != null ? q : input.value
+      main.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    const browse = document.getElementById('browse')
+    if (browse) browse.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+  }
+
+  toggle.addEventListener('click', () => wrap.classList.contains('open') ? close() : open())
+  input.addEventListener('input', () => render(input.value))
+  list.addEventListener('click', (e) => {
+    const btn = e.target.closest('.nav-suggest[data-q]')
+    if (!btn) return
+    input.value = btn.dataset.q
+    goToResults(btn.dataset.q)
+  })
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') goToResults()
+    if (e.key === 'Escape') { close(); toggle.focus() }
+  })
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close() })
+  document.addEventListener('keydown', (e) => {
+    const tag = document.activeElement && document.activeElement.tagName
+    const modalOpen = document.querySelector('.modal-backdrop:not(.hidden)')
+    if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT' && !modalOpen) { e.preventDefault(); open() }
+  })
+}
+
 initHeroMotion()
 initMagnetic()
 initCardTilt()
+initLeafIntro()
+initNavSearch()
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
