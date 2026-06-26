@@ -121,7 +121,7 @@ function showAuthModal(opts = {}) {
     const subtitle = isForgot
       ? "We'll email you a link to set a new password."
       : (pending
-          ? "Create a quick account to publish your listing — we've saved everything you typed."
+          ? "Create a quick account to publish your listing. We've saved everything you typed."
           : 'Sign in or create an account to share books.')
     modal.innerHTML = `
       <div class="modal auth-modal">
@@ -202,7 +202,7 @@ function showAuthModal(opts = {}) {
             showToast('Welcome to GreenShelf 🌿', 'success')
           } else {
             showToast(pending
-              ? "Check your inbox to verify — we've saved your listing for when you come back."
+              ? "Check your inbox to verify. We've saved your listing for when you come back."
               : 'Check your inbox to verify your email 📬',
               'success')
           }
@@ -286,7 +286,7 @@ function friendlyAuthError(msg) {
   if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.'
   if (/already registered/i.test(msg)) return 'An account with that email already exists. Try signing in.'
   if (/password.*6/i.test(msg)) return 'Password needs to be at least 6 characters.'
-  if (/email not confirmed/i.test(msg)) return 'Check your inbox — you need to verify your email before signing in.'
+  if (/email not confirmed/i.test(msg)) return 'Check your inbox. You need to verify your email before signing in.'
   return msg
 }
 async function signOut() {
@@ -329,8 +329,8 @@ function resumePendingListingIfAny() {
     const hadFiles = !!draft._guestHadFiles
     delete draft._guestHadFiles
     showCreateListingModal(null, draft)
-    if (hadFiles) showToast("You'll need to re-add your photos — sorry!", 'info')
-    else showToast("Welcome 🌿 Your listing is ready — click Post to publish.", 'success')
+    if (hadFiles) showToast("You'll need to re-add your photos, sorry!", 'info')
+    else showToast("Welcome 🌿 Your listing is ready. Click Post to publish.", 'success')
   }, 250)
 }
 // ---- VIEW SWITCHING ----
@@ -432,7 +432,7 @@ function ensureProfileSection() {
     </div>
     <div class="profile-card danger-zone" style="margin-top: 40px;">
       <h3>Danger zone</h3>
-      <p>Removes all your listings and clears your profile data. Your email is retained — to have it fully erased, email us at greenshelf1320@gmail.com.</p>
+      <p>Removes all your listings and clears your profile data. Your email is retained. To have it fully erased, email us at greenshelf1320@gmail.com.</p>
       <button type="button" class="btn-danger" id="delete-account-btn">Delete my account</button>
     </div>
   `
@@ -460,7 +460,7 @@ function ensureAboutSection() {
           <div class="about-photo-fallback" style="display:none;">H</div>
         </div>
         <h3>Hitesh Gurnani</h3>
-        <p>My name is Hitesh and I really like side-quest projects like GreenShelf. Building stuff that makes everyday life in Oman a little easier is the goal — and I hope this helps you find or give a book away :)</p>
+        <p>My name is Hitesh and I really like side-quest projects like GreenShelf. Building stuff that makes everyday life in Oman a little easier is the goal, and I hope this helps you find or give a book away :)</p>
       </div>
       <div class="about-person">
         <div class="about-photo">
@@ -474,7 +474,7 @@ function ensureAboutSection() {
     <div class="about-mission">
       <h2>Why we built this</h2>
       <p>At the end of every school year, our friends' parents would post in WhatsApp groups: "Anyone need a Grade 9 math book?" Within minutes, the message would be lost in 200 unrelated messages. Books that could have been passed on quietly ended up in the recycling.</p>
-      <p>We thought: surely there's a calmer way. So we built GreenShelf — a small, free site to make book-sharing simple, searchable, and human. Pass it on, don't bin it.</p>
+      <p>We thought: surely there's a calmer way. So we built GreenShelf, a small, free site to make book-sharing simple, searchable, and human. Pass it on, don't bin it.</p>
     </div>
   `
   document.querySelector('main').appendChild(section)
@@ -493,14 +493,14 @@ function ensureFaqSection() {
     </div>
     <div class="faq-list">
       <details class="faq-item"><summary>Is GreenShelf free?</summary><div class="faq-answer">Yes, completely. No fees, no commission.</div></details>
-      <details class="faq-item"><summary>Is GreenShelf safe?</summary><div class="faq-answer">Safety matters, especially because many of our users are students. Every user creates a profile with a real first name. Listings show your neighborhood — never your exact address. Anyone can report a listing or user behaving badly, and we review reports within 24 hours. For in-person handovers, we recommend meeting in public places during daytime, and that anyone under 18 is accompanied by a parent.</div></details>
-      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Click <strong>+ List a book</strong> anywhere on the site. Fill in the title, grade, subject, condition and how people can reach you. If you don't have an account yet, we'll have you create one in 20 seconds at the end — your draft is saved.</div></details>
+      <details class="faq-item"><summary>Is GreenShelf safe?</summary><div class="faq-answer">Safety matters, especially because many of our users are students. Every user creates a profile with a real first name. Listings show your neighborhood, never your exact address. Anyone can report a listing or user behaving badly, and we review reports within 24 hours. For in-person handovers, we recommend meeting in public places during daytime, and that anyone under 18 is accompanied by a parent.</div></details>
+      <details class="faq-item"><summary>How do I list a book?</summary><div class="faq-answer">Click <strong>+ List a book</strong> anywhere on the site. Fill in the title, grade, subject, condition and how people can reach you. If you don't have an account yet, we'll have you create one in 20 seconds at the end. Your draft is saved.</div></details>
       <details class="faq-item"><summary>How do I get a book someone listed?</summary><div class="faq-answer">Click the listing, see contact info, reach out directly.</div></details>
       <details class="faq-item"><summary>Is my contact info safe?</summary><div class="faq-answer">Your account email is private. We only ask for your area, never full address. Read our <a href="/privacy.html">Privacy Policy</a> for details.</div></details>
       <details class="faq-item"><summary>What if the book is damaged?</summary><div class="faq-answer">Be honest about condition when listing. Use photos.</div></details>
       <details class="faq-item"><summary>What happens after a book is claimed?</summary><div class="faq-answer">Mark it as claimed. You can un-claim if needed.</div></details>
       <details class="faq-item"><summary>How do I delete my account?</summary><div class="faq-answer">In your profile, scroll down → Delete my account.</div></details>
-      <details class="faq-item"><summary>I saw a spammy listing.</summary><div class="faq-answer">Click <strong>Report</strong> on the listing — we'll review it within 24 hours.</div></details>
+      <details class="faq-item"><summary>I saw a spammy listing.</summary><div class="faq-answer">Click <strong>Report</strong> on the listing. We'll review it within 24 hours.</div></details>
     </div>
   `
   document.querySelector('main').appendChild(section)
@@ -622,8 +622,8 @@ async function loadAdminStats() {
             ${stats.recent.map(l => `
               <tr>
                 <td>${escapeHtml(l.title)}</td>
-                <td>${escapeHtml(l.area || '—')}</td>
-                <td>${escapeHtml(l.subject || '—')}</td>
+                <td>${escapeHtml(l.area || '-')}</td>
+                <td>${escapeHtml(l.subject || '-')}</td>
                 <td><span class="admin-status-chip ${l.status}">${l.status}</span></td>
                 <td class="muted">${formatRelativeTime(l.created_at)}</td>
               </tr>
@@ -659,7 +659,7 @@ function renderReport(r) {
         <div class="report-listing-title">${escapeHtml(listingTitle)}</div>
         <div class="report-meta">
           <span class="report-reason-chip">${escapeHtml(reasonLabel)}</span>
-          ${listing ? `Owner: ${escapeHtml(listing.owner_name || '—')} · ` : ''}${formatRelativeTime(r.created_at)}
+          ${listing ? `Owner: ${escapeHtml(listing.owner_name || '-')} · ` : ''}${formatRelativeTime(r.created_at)}
         </div>
         ${r.notes ? `<div class="report-notes">"${escapeHtml(r.notes)}"</div>` : ''}
       </div>
@@ -721,7 +721,7 @@ function renderBars(entries, limit = 8) {
   return bars + (more > 0 ? `<div class="muted" style="margin-top: 8px;">+ ${more} more</div>` : '')
 }
 function formatRelativeTime(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const diff = Date.now() - new Date(iso).getTime()
   const minutes = Math.floor(diff / 60000)
   if (minutes < 1) return 'just now'
@@ -770,7 +770,7 @@ async function saveProfile(e) {
 async function deleteAccount() {
   const ok = await customConfirm({
     title: 'Delete your account?',
-    message: 'All your listings will be permanently removed and your profile cleared. Your email is retained — to have it fully erased, email greenshelf1320@gmail.com.',
+    message: 'All your listings will be permanently removed and your profile cleared. Your email is retained. To have it fully erased, email greenshelf1320@gmail.com.',
     confirmText: 'Yes, delete everything',
     danger: true,
   })
@@ -872,7 +872,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
               </optgroup>
               <option value="Other" ${areaValue === 'Other' ? 'selected' : ''}>Other</option>
             </select>
-            <small style="display:block; margin-top:4px; color: var(--text-muted); font-size: 0.85rem;">Just the general area, please — never share your full address.</small>
+            <small style="display:block; margin-top:4px; color: var(--text-muted); font-size: 0.85rem;">Just the general area, please. Never share your full address.</small>
           </label>
           <label class="auth-label" id="custom-area-wrap" style="display: ${isCustomArea ? '' : 'none'};">Specify area
             <input type="text" name="custom_area" placeholder="Type the area only, not your address" value="${escapeHtml(customAreaValue)}" ${isCustomArea ? 'required' : ''}>
@@ -889,7 +889,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
             </select>
           </label>
           <label class="auth-label">About this book (optional)
-            <textarea name="description" rows="3" placeholder="Anything worth mentioning — highlighting, missing pages, etc.">${escapeHtml(d.description || '')}</textarea>
+            <textarea name="description" rows="3" placeholder="Anything worth mentioning: highlighting, missing pages, etc.">${escapeHtml(d.description || '')}</textarea>
           </label>
           <label class="auth-label">Your name (shown on the listing)
             <input type="text" name="owner_name" required value="${escapeHtml(ownerNameValue)}">
@@ -1126,7 +1126,7 @@ function showReportModal(listing) {
       return
     }
     close()
-    showToast('Thanks — we\'ll review this listing.', 'success')
+    showToast('Thanks, we\'ll review this listing.', 'success')
   })
 }
 // ---- LISTINGS ----
@@ -1242,7 +1242,7 @@ function renderListings(listings) {
       grid.innerHTML = `
         <div class="empty">
           <div class="empty-title">No books match your filters.</div>
-          <div class="empty-msg">Try widening the search, or list a book yourself — you might be the first.</div>
+          <div class="empty-msg">Try widening the search, or list a book yourself, you might be the first.</div>
           <div class="empty-cta">
             <button type="button" class="btn btn-secondary" id="empty-clear">Clear filters</button>
             <button type="button" class="btn btn-primary" id="empty-list">List a book</button>
@@ -1252,7 +1252,7 @@ function renderListings(listings) {
       grid.innerHTML = `
         <div class="empty">
           <div class="empty-title">No books yet.</div>
-          <div class="empty-msg">GreenShelf is brand new. Be the first family in Oman to pass a textbook on — it takes under a minute.</div>
+          <div class="empty-msg">GreenShelf is brand new. Be the first family in Oman to pass a textbook on. It takes under a minute.</div>
           <div class="empty-cta">
             <button type="button" class="btn btn-primary" id="empty-list">List a book</button>
           </div>
@@ -1406,7 +1406,7 @@ function applyFilters() {
 async function shareListing(listing) {
   const url = `${window.location.origin}${window.location.pathname}#listing/${listing.id}`
   const shareData = {
-    title: `${listing.title} — GreenShelf`,
+    title: `${listing.title} · GreenShelf`,
     text: `Check out this book on GreenShelf: ${listing.title}`,
     url,
   }
@@ -1416,7 +1416,7 @@ async function shareListing(listing) {
   } else {
     try {
       await navigator.clipboard.writeText(url)
-      showToast('Link copied — paste it anywhere', 'success')
+      showToast('Link copied. Paste it anywhere', 'success')
     } catch {
       showToast('Couldn\'t copy automatically. Link: ' + url, 'error')
     }
@@ -1727,14 +1727,14 @@ async function loadSiteSettings() {
     ;(data || []).forEach(row => {
       if (row.key === 'show_live_counter') siteSettings.show_live_counter = row.value === true || row.value === 'true'
     })
-  } catch (e) { /* table may not exist yet — keep defaults */ }
+  } catch (e) { /* table may not exist yet, keep defaults */ }
   updateHeroStat()
 }
 async function setLiveCounter(enabled) {
   const { error } = await supabase.from('site_settings')
     .upsert({ key: 'show_live_counter', value: enabled }, { onConflict: 'key' })
   if (error) {
-    showToast("Couldn't save — is the site_settings table set up? " + error.message, 'error')
+    showToast("Couldn't save. Is the site_settings table set up? " + error.message, 'error')
     return false
   }
   siteSettings.show_live_counter = enabled

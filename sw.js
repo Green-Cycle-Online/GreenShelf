@@ -1,4 +1,4 @@
-const CACHE_NAME = 'greenshelf-v4';
+const CACHE_NAME = 'greenshelf-v6';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -9,7 +9,7 @@ const STATIC_ASSETS = [
   '/apple-touch-icon.png'
 ];
 
-// Install — cache static shell
+// Install: cache static shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -17,7 +17,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate — clean up old caches
+// Activate: clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -29,7 +29,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch — network first for API/Supabase, cache first for static
+// Fetch: network first for API/Supabase, cache first for static
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
