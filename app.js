@@ -332,8 +332,10 @@ function resumePendingListingIfAny() {
   }, 250)
 }
 // ---- VIEW SWITCHING ----
+// Home view = hero + browse + how + why. Hide all of those when switching to profile/about/faq/admin.
+const HOME_SECTIONS = ['.hero', '.browse', '.how', '.why']
 function hideAllSections() {
-  ['.hero', '.how', '.browse-section', '.mission'].forEach(sel => {
+  HOME_SECTIONS.forEach(sel => {
     const el = document.querySelector(sel)
     if (el) el.classList.add('hidden-section')
   })
@@ -345,7 +347,7 @@ function hideAllSections() {
 function showBrowseView() {
   currentView = 'browse'
   hideAllSections()
-  ;['.hero', '.how', '.browse-section', '.mission'].forEach(sel => {
+  HOME_SECTIONS.forEach(sel => {
     const el = document.querySelector(sel)
     if (el) el.classList.remove('hidden-section')
   })
@@ -1507,57 +1509,8 @@ document.getElementById('footer-about').addEventListener('click', (e) => { e.pre
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
 const heroListBtn = document.getElementById('hero-list-btn')
 if (heroListBtn) heroListBtn.addEventListener('click', () => showCreateListingModal())
-// ---- CRAFT PASS: scroll reveals, header shadow, live stats ----
+// (no scroll-scrub behavior — page is regular scroll now)
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-// Scroll reveal observer
-if ('IntersectionObserver' in window && !reduceMotion) {
-  const revealObs = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-view')
-        // also flag parent if it's a how-step inside how-steps
-        const stepsContainer = entry.target.closest('.how-steps')
-        if (stepsContainer) stepsContainer.classList.add('in-view-children')
-        revealObs.unobserve(entry.target)
-      }
-    })
-  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' })
-  // Apply only to elements OUTSIDE the hero (hero uses its own animation)
-  document.querySelectorAll('.reveal').forEach((el) => {
-    if (!el.closest('.hero-big')) revealObs.observe(el)
-  })
-}
-// Header scroll shadow + scroll-progress bar + subtle hero parallax
-const headerEl = document.querySelector('header')
-let progressBar = document.querySelector('.scroll-progress')
-if (!progressBar) {
-  progressBar = document.createElement('div')
-  progressBar.className = 'scroll-progress'
-  document.body.appendChild(progressBar)
-}
-const heroEl = document.querySelector('.hero-editorial')
-if (headerEl || progressBar || heroEl) {
-  const onScroll = () => {
-    const y = window.scrollY
-    if (headerEl) {
-      if (y > 8) headerEl.classList.add('scrolled')
-      else headerEl.classList.remove('scrolled')
-    }
-    if (progressBar) {
-      const docH = document.documentElement.scrollHeight - window.innerHeight
-      const pct = docH > 0 ? Math.min(100, (y / docH) * 100) : 0
-      progressBar.style.width = pct + '%'
-    }
-    if (heroEl && !reduceMotion) {
-      // parallax: only while hero is in view
-      const heroH = heroEl.offsetHeight
-      const t = Math.max(0, Math.min(1, y / heroH))
-      heroEl.style.setProperty('--scroll-y', t.toFixed(3))
-    }
-  }
-  window.addEventListener('scroll', onScroll, { passive: true })
-  onScroll()
-}
 // Animated count-up
 function animateCount(el, target, duration = 1400) {
   if (!el) return
