@@ -1176,24 +1176,24 @@ function updateAreaFilterOptions() {
 function renderCard(l) {
   const firstPhoto = (l.photos && l.photos.length > 0) ? l.photos[0] : null
   const moreCount = (l.photos && l.photos.length > 1) ? l.photos.length - 1 : 0
-  const locationLine = [l.area, l.school].filter(Boolean).join(' · ')
   const isNew = l.created_at && (Date.now() - new Date(l.created_at).getTime() < 7 * 24 * 60 * 60 * 1000)
+  const claimed = l.status === 'claimed'
+  const pinSvg = `<svg class="card-location-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`
   return `
-    <article class="card" data-id="${l.id}">
+    <article class="card${claimed ? ' is-claimed' : ''}" data-id="${escapeHtml(l.id)}">
       <div class="card-image">
-        ${isNew && l.status !== 'claimed' ? `<div class="card-new-badge">New</div>` : ''}
+        ${isNew && !claimed ? `<div class="card-new-badge">New</div>` : ''}
         ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}" loading="lazy">` : '📖'}
         ${moreCount > 0 ? `<div class="photo-count">+${moreCount}</div>` : ''}
       </div>
       <div class="card-body">
         <div class="card-title">${escapeHtml(l.title)}</div>
         <div class="card-meta">
-          ${l.status === 'claimed' ? `<span class="tag tag-status claimed">Claimed</span>` : ''}
           <span class="tag tag-grade">${escapeHtml(l.grade_level)}</span>
           <span class="tag tag-subject">${escapeHtml(l.subject)}</span>
           <span class="tag tag-condition ${l.condition}">${escapeHtml(l.condition)}</span>
         </div>
-        ${locationLine ? `<div class="card-school">${escapeHtml(locationLine)}</div>` : ''}
+        ${l.area || l.school ? `<div class="card-location">${pinSvg}<span>${escapeHtml([l.area, l.school].filter(Boolean).join(' · '))}</span></div>` : ''}
       </div>
     </article>
   `
@@ -1204,9 +1204,38 @@ function renderListings(listings) {
   currentFilteredListings = listings
   const totalPages = Math.max(1, Math.ceil(listings.length / PAGE_SIZE))
   if (currentPage > totalPages) currentPage = 1
+  renderFilterChips()
+
   if (listings.length === 0) {
-    meta.textContent = '0 books available'
-    grid.innerHTML = '<div class="empty">No books match your filters. Try clearing them.</div>'
+    const hasFilters = anyFiltersActive()
+    const hasAnyListings = allListings.length > 0
+    meta.textContent = '0 books'
+    if (hasFilters) {
+      grid.innerHTML = `
+        <div class="empty">
+          <div class="empty-title">No books match your filters.</div>
+          <div class="empty-msg">Try widening the search, or list a book yourself — you might be the first.</div>
+          <div class="empty-cta">
+            <button type="button" class="btn btn-secondary" id="empty-clear">Clear filters</button>
+            <button type="button" class="btn btn-primary" id="empty-list">List a book</button>
+          </div>
+        </div>`
+    } else if (!hasAnyListings) {
+      grid.innerHTML = `
+        <div class="empty">
+          <div class="empty-title">No books yet.</div>
+          <div class="empty-msg">GreenShelf is brand new. Be the first family in Oman to pass a textbook on — it takes under a minute.</div>
+          <div class="empty-cta">
+            <button type="button" class="btn btn-primary" id="empty-list">List a book</button>
+          </div>
+        </div>`
+    } else {
+      grid.innerHTML = `<div class="empty"><div class="empty-msg">No books here.</div></div>`
+    }
+    const clearBtn = document.getElementById('empty-clear')
+    if (clearBtn) clearBtn.addEventListener('click', clearAllFilters)
+    const listBtn = document.getElementById('empty-list')
+    if (listBtn) listBtn.addEventListener('click', () => showCreateListingModal())
     renderPagination(1)
     return
   }
@@ -1214,12 +1243,71 @@ function renderListings(listings) {
   const end = Math.min(start + PAGE_SIZE, listings.length)
   const pageItems = listings.slice(start, end)
   meta.textContent = listings.length === 1
-    ? '1 book available'
+    ? '1 book'
     : totalPages === 1
-      ? `${listings.length} books available`
+      ? `${listings.length} books`
       : `${listings.length} books · showing ${start + 1}–${end}`
   grid.innerHTML = pageItems.map(renderCard).join('')
   renderPagination(totalPages)
+}
+
+// ---- FILTER CHIPS + CLEAR ----
+function getActiveFilters() {
+  return {
+    search: (document.getElementById('search')?.value || '').trim(),
+    grade: document.getElementById('grade-filter')?.value || '',
+    subject: document.getElementById('subject-filter')?.value || '',
+    condition: document.getElementById('condition-filter')?.value || '',
+    area: document.getElementById('area-filter')?.value || '',
+  }
+}
+function anyFiltersActive() {
+  const f = getActiveFilters()
+  return !!(f.search || f.grade || f.subject || f.condition || f.area)
+}
+function renderFilterChips() {
+  const chipsEl = document.getElementById('filter-chips')
+  if (!chipsEl) return
+  const f = getActiveFilters()
+  const chips = []
+  if (f.search) chips.push({ key: 'search', label: 'Search', value: f.search })
+  if (f.grade)  chips.push({ key: 'grade',  label: 'Grade',  value: f.grade })
+  if (f.subject) chips.push({ key: 'subject', label: 'Subject', value: f.subject })
+  if (f.condition) chips.push({ key: 'condition', label: 'Condition', value: f.condition.charAt(0).toUpperCase() + f.condition.slice(1) })
+  if (f.area) chips.push({ key: 'area', label: 'Area', value: f.area })
+  if (chips.length === 0) { chipsEl.innerHTML = ''; return }
+  chipsEl.innerHTML = chips.map(c => `
+    <span class="fchip">
+      <span class="fchip-label">${escapeHtml(c.label)}</span>
+      <span>${escapeHtml(c.value)}</span>
+      <button type="button" class="fchip-x" data-key="${c.key}" aria-label="Remove ${escapeHtml(c.label)} filter">×</button>
+    </span>
+  `).join('') + (chips.length > 1 ? `<button type="button" class="fchip-clear" id="fchip-clear">Clear all</button>` : '')
+  chipsEl.querySelectorAll('.fchip-x').forEach(btn => {
+    btn.addEventListener('click', () => clearFilter(btn.dataset.key))
+  })
+  const clearBtn = chipsEl.querySelector('#fchip-clear')
+  if (clearBtn) clearBtn.addEventListener('click', clearAllFilters)
+}
+function clearFilter(key) {
+  const map = { search: 'search', grade: 'grade-filter', subject: 'subject-filter', condition: 'condition-filter', area: 'area-filter' }
+  const el = document.getElementById(map[key])
+  if (el) { el.value = ''; el.dispatchEvent(new Event(key === 'search' ? 'input' : 'change')) }
+}
+function clearAllFilters() {
+  ['search', 'grade-filter', 'subject-filter', 'condition-filter', 'area-filter'].forEach(id => {
+    const el = document.getElementById(id)
+    if (el) el.value = ''
+  })
+  applyFilters()
+  updateSearchClearBtn()
+}
+function updateSearchClearBtn() {
+  const input = document.getElementById('search')
+  const btn = document.getElementById('search-clear')
+  if (!input || !btn) return
+  if (input.value.trim()) btn.removeAttribute('hidden')
+  else btn.setAttribute('hidden', '')
 }
 function renderPagination(totalPages) {
   const listingsSection = document.querySelector('.listings')
@@ -1499,17 +1587,21 @@ function handleCardClick(e) {
   const listing = list.find(l => l.id === card.dataset.id)
   if (listing) showModal(listing)
 }
-document.getElementById('search').addEventListener('input', applyFilters)
+document.getElementById('search').addEventListener('input', () => { applyFilters(); updateSearchClearBtn() })
 document.getElementById('grade-filter').addEventListener('change', applyFilters)
 document.getElementById('subject-filter').addEventListener('change', applyFilters)
 document.getElementById('condition-filter').addEventListener('change', applyFilters)
 document.getElementById('listings-grid').addEventListener('click', handleCardClick)
+const searchClearBtn = document.getElementById('search-clear')
+if (searchClearBtn) searchClearBtn.addEventListener('click', () => {
+  const input = document.getElementById('search')
+  if (input) { input.value = ''; input.focus(); applyFilters(); updateSearchClearBtn() }
+})
 document.getElementById('logo-link').addEventListener('click', () => showBrowseView())
 document.getElementById('footer-about').addEventListener('click', (e) => { e.preventDefault(); showAboutView() })
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
 const heroListBtn = document.getElementById('hero-list-btn')
 if (heroListBtn) heroListBtn.addEventListener('click', () => showCreateListingModal())
-// (no scroll-scrub behavior — page is regular scroll now)
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 // Animated count-up
 function animateCount(el, target, duration = 1400) {

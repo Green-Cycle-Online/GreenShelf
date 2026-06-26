@@ -66,7 +66,11 @@
 
       <div class="filters">
         <div class="filter-grid">
-          <input type="search" id="search" placeholder="Search by title or subject…">
+          <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg>
+            <input type="search" id="search" placeholder="Search by title or subject…" autocomplete="off">
+            <button type="button" class="search-clear" id="search-clear" aria-label="Clear search" hidden>×</button>
+          </div>
           <select id="grade-filter">
             <option value="">All grades</option>
             <option>Grade 1</option><option>Grade 2</option><option>Grade 3</option>
@@ -86,7 +90,11 @@
         </div>
       </div>
 
-      <div class="listings-meta" id="listings-meta">Loading…</div>
+      <div class="filter-meta" id="filter-meta">
+        <div class="filter-chips" id="filter-chips" aria-live="polite"></div>
+        <div class="listings-meta" id="listings-meta">Loading…</div>
+      </div>
+
       <div class="grid" id="listings-grid">
         <div class="loading">Fetching listings…</div>
       </div>
