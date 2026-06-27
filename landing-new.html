@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenShelf: Free school books, passed hand to hand in Oman</title>
+  <meta name="description" content="Search the school books families across Oman are passing on. Free, no account, no middleman. Find a book, message the family, arrange a pickup.">
+  <meta name="theme-color" content="#16140f">
+  <script>
+    (function () {
+      var d = document.documentElement;
+      d.classList.add('js');
+      try {
+        var saved = localStorage.getItem('gs-theme');
+        var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        d.setAttribute('data-theme', theme);
+      } catch (e) { d.setAttribute('data-theme', 'light'); }
+      /* Reveal failsafe: if JS stalls, show everything after 2.5s */
+      setTimeout(function () {
+        var hidden = document.querySelectorAll('[data-reveal]:not(.in)');
+        for (var i = 0; i < hidden.length; i++) hidden[i].classList.add('in');
+      }, 2500);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,0,700;9..144,1,400;9..144,1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       GREENSHELF landing: a tool first, beautiful second.
+       Search real books, filter live, find one near you.
+       Warm editorial palette, motion that enhances (never gates).
+       ═══════════════════════════════════════════════════════════ */
+
+    :root {
+      --paper: #f6f1e6;
+      --paper-warm: #efe7d3;
+      --paper-deep: #e6dabd;
+      --surface: #fffdf8;
+      --surface-2: #f3ecdb;
+
+      --ink: #1b1712;
+      --ink-soft: #4a4236;
+      --ink-faint: #6f6757;
+
+      --hairline: rgba(27, 23, 18, 0.12);
+      --hairline-strong: rgba(27, 23, 18, 0.22);
+
+      --accent: #2f5e44;
+      --accent-deep: #214733;
+      --accent-bright: #3a7355;
+      --accent-tint: rgba(47, 94, 68, 0.10);
+      --gold: #a8761f;
+      --gold-soft: #d9a94a;
+      --error: #b23b22;
+
+      --shadow-sm: 0 2px 8px -2px rgba(43, 33, 18, 0.10);
+      --shadow-md: 0 10px 26px -10px rgba(43, 33, 18, 0.20);
+      --shadow-lg: 0 28px 64px -16px rgba(43, 33, 18, 0.30);
+
+      --r-sm: 8px;
+      --r-md: 12px;
+      --r-lg: 18px;
+      --r-xl: 26px;
+      --r-pill: 999px;
+
+      --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --dur: 0.26s;
+
+      --maxw: 1140px;
+    }
+    :root[data-theme="dark"] {
+      --paper: #16140f;
+      --paper-warm: #1f1c16;
+      --paper-deep: #2a261e;
+      --surface: #211d16;
+      --surface-2: #2a251c;
+
+      --ink: #f3ecdc;
+      --ink-soft: #c3b9a3;
+      --ink-faint: #94896f;
+
+      --hairline: rgba(243, 236, 220, 0.12);
+      --hairline-strong: rgba(243, 236, 220, 0.22);
+
+      --accent: #79b894;
+      --accent-deep: #5c9c78;
+      --accent-bright: #8fcaa8;
+      --accent-tint: rgba(121, 184, 148, 0.14);
+      --gold: #d9b25e;
+      --gold-soft: #e7c87f;
+      --error: #e0795f;
+
+      --shadow-sm: 0 2px 10px -2px rgba(0, 0, 0, 0.5);
+      --shadow-md: 0 12px 30px -12px rgba(0, 0, 0, 0.6);
+      --shadow-lg: 0 30px 70px -18px rgba(0, 0, 0, 0.7);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      scroll-behavior: smooth;
+      scroll-padding-top: 84px;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.6;
+      font-size: 16px;
+      overflow-x: hidden;
+      transition: background 0.4s var(--ease), color 0.4s var(--ease);
+    }
+    h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; letter-spacing: -0.025em; line-height: 1.06; color: var(--ink); text-wrap: balance; }
+    p { text-wrap: pretty; }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+    em { font-style: italic; color: var(--gold); }
+    ::selection { background: var(--gold-soft); color: #16140f; }
+
+    .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(18px, 5vw, 40px); }
+
+    .skip-link {
+      position: absolute; left: 12px; top: -60px; z-index: 200;
+      background: var(--accent); color: #fff; padding: 10px 16px; border-radius: 10px;
+      transition: top 0.18s var(--ease-out);
+    }
+    .skip-link:focus { top: 12px; }
+
+    /* ───────── NAV ───────── */
+    .nav {
+      position: fixed; inset: 0 0 auto 0; z-index: 60;
+      background: color-mix(in srgb, var(--paper) 78%, transparent);
+      -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s var(--ease), background 0.3s var(--ease);
+    }
+    .nav.scrolled { border-bottom-color: var(--hairline); }
+    .nav-in { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .brand { display: inline-flex; align-items: center; gap: 9px; font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.2rem; letter-spacing: -0.02em; border-radius: 8px; }
+    .brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    .brand svg { width: 22px; height: 22px; color: var(--accent); }
+    .nav-actions { display: inline-flex; align-items: center; gap: 8px; }
+    .nbtn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      min-height: 44px; padding: 0 16px;
+      font: inherit; font-size: 0.92rem; font-weight: 500;
+      color: var(--ink); cursor: pointer;
+      background: transparent; border: 1px solid var(--hairline); border-radius: var(--r-pill);
+      transition: border-color 0.2s var(--ease), background 0.2s var(--ease), transform 0.2s var(--ease-out), color 0.2s var(--ease);
+    }
+    .nbtn:hover { border-color: var(--accent-bright); transform: translateY(-1px); }
+    .nbtn:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 3px; }
+    .nbtn.icon { width: 44px; padding: 0; }
+    .nbtn svg { width: 17px; height: 17px; }
+    .nbtn.solid { background: var(--accent); color: #fff; border-color: transparent; box-shadow: var(--shadow-sm); }
+    .nbtn.solid:hover { background: var(--accent-deep); }
+    :root[data-theme="dark"] .nbtn.solid { color: #16140f; }
+    .theme-toggle .ic-sun { display: none; }
+    :root[data-theme="dark"] .theme-toggle .ic-sun { display: block; }
+    :root[data-theme="dark"] .theme-toggle .ic-moon { display: none; }
+
+    /* ───────── HERO ───────── */
+    .hero { position: relative; padding: clamp(104px, 16vh, 168px) 0 clamp(40px, 7vw, 72px); overflow: hidden; }
+    .hero-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; will-change: transform, opacity; }
+    .hero-bg .glow {
+      position: absolute; left: 50%; top: -8%; width: 120vmin; height: 120vmin; transform: translateX(-50%);
+      background: radial-gradient(closest-side, var(--accent-tint), transparent 70%);
+      opacity: 0.9;
+    }
+    /* morning sun streaming in from the upper right: soft bright core + wide warm wash */
+    .hero-bg .glow.gold {
+      left: 86%; top: 2%; width: 104vmin; height: 104vmin;
+      background:
+        radial-gradient(closest-side, color-mix(in srgb, #ffd587 50%, transparent), transparent 46%),
+        radial-gradient(closest-side, color-mix(in srgb, var(--gold-soft) 28%, transparent), transparent 72%);
+    }
+    :root[data-theme="dark"] .hero-bg .glow.gold {
+      background:
+        radial-gradient(closest-side, color-mix(in srgb, #ffcf7a 24%, transparent), transparent 44%),
+        radial-gradient(closest-side, color-mix(in srgb, var(--gold-soft) 18%, transparent), transparent 70%);
+    }
+    .hero-bg .grain {
+      position: absolute; inset: 0; opacity: 0.35; mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 150px 150px;
+    }
+    :root[data-theme="dark"] .hero-bg .grain { opacity: 0.16; }
+    .hero-in { position: relative; z-index: 1; max-width: 760px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; font-weight: 600; letter-spacing: 0.01em;
+      color: var(--accent); background: var(--accent-tint);
+      padding: 7px 14px; border-radius: var(--r-pill); margin-bottom: 22px;
+    }
+    .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+    .hero h1 { font-size: clamp(2.4rem, 6.2vw, 4.2rem); max-width: 15ch; }
+    .hero .lead { margin-top: 20px; font-size: clamp(1.05rem, 2.2vw, 1.28rem); color: var(--ink-soft); max-width: 52ch; }
+
+    /* ───────── SEARCH PANEL ───────── */
+    .panel {
+      margin-top: clamp(28px, 4vw, 40px);
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-xl);
+      padding: clamp(14px, 2.4vw, 20px);
+      box-shadow: var(--shadow-lg);
+      transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+    }
+    .panel:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--hairline)); }
+    .search {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-lg);
+      padding: 0 14px; height: 56px;
+      transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+    }
+    .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-tint); }
+    .search svg { width: 20px; height: 20px; color: var(--ink-faint); flex: none; }
+    .search input {
+      flex: 1; min-width: 0; height: 100%; border: none; background: none;
+      font: inherit; font-size: 1.05rem; color: var(--ink); outline: none;
+    }
+    .search input::placeholder { color: var(--ink-faint); }
+    .search .clear-x {
+      display: none; flex: none; width: 36px; height: 36px; border-radius: 50%;
+      border: none; background: var(--surface-2); color: var(--ink-soft); cursor: pointer;
+      align-items: center; justify-content: center;
+    }
+    .search.has-text .clear-x { display: inline-flex; }
+    .search .clear-x svg { width: 14px; height: 14px; }
+
+    .filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+    .field { position: relative; }
+    .field select {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 48px; padding: 0 38px 0 14px;
+      font: inherit; font-size: 0.96rem; color: var(--ink);
+      background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-md);
+      cursor: pointer; transition: border-color 0.2s var(--ease); text-transform: capitalize;
+    }
+    .field select:hover { border-color: var(--hairline-strong); }
+    .field select:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
+    .field::after {
+      content: ""; position: absolute; right: 15px; top: 50%; width: 8px; height: 8px;
+      border-right: 2px solid var(--ink-faint); border-bottom: 2px solid var(--ink-faint);
+      transform: translateY(-65%) rotate(45deg); pointer-events: none;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+    .chips .lbl { font-size: 0.84rem; color: var(--ink-faint); margin-right: 2px; }
+    .chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      font: inherit; font-size: 0.86rem; font-weight: 500; color: var(--ink-soft);
+      background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-pill);
+      padding: 0 16px; min-height: 44px; cursor: pointer;
+      transition: background 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease-out), border-color 0.18s var(--ease);
+    }
+    .chip:hover { transform: translateY(-1px); color: var(--ink); }
+    .chip:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
+    .chip.active { background: var(--accent); color: #fff; }
+    :root[data-theme="dark"] .chip.active { color: #16140f; }
+
+    .hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 22px; }
+    .stat { font-size: 1rem; color: var(--ink-soft); }
+    .stat strong { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.5rem; color: var(--accent); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .give-link {
+      display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink);
+      text-decoration: underline; text-decoration-color: var(--hairline-strong); text-underline-offset: 4px;
+      /* grow the tap area to 44px without shifting layout */
+      padding-block: 9px; margin-block: -9px;
+      transition: color 0.2s var(--ease), text-decoration-color 0.2s var(--ease);
+    }
+    .give-link:hover { color: var(--accent); text-decoration-color: var(--accent); }
+    .give-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+    .give-link svg { width: 16px; height: 16px; }
+
+    .trust { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 22px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 0.85rem; color: var(--ink-soft);
+      background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-pill);
+      padding: 7px 13px;
+    }
+    .pill svg { width: 15px; height: 15px; color: var(--accent); flex: none; }
+
+    /* ───────── SHELF RIBBON (real covers, slow drift) ───────── */
+    .ribbon { position: relative; padding: clamp(18px, 3vw, 28px) 0; overflow: hidden; }
+    .ribbon[hidden] { display: none; }
+    .ribbon::before, .ribbon::after {
+      content: ""; position: absolute; top: 0; bottom: 0; width: 12%; z-index: 2; pointer-events: none;
+    }
+    .ribbon::before { left: 0; background: linear-gradient(90deg, var(--paper), transparent); }
+    .ribbon::after { right: 0; background: linear-gradient(270deg, var(--paper), transparent); }
+    .ribbon-cap { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+    .ribbon-cap .t { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.05rem; }
+    .ribbon-cap .s { font-size: 0.86rem; color: var(--ink-faint); }
+    .mq { display: flex; width: max-content; gap: 14px; animation: drift 48s linear infinite; will-change: transform; }
+    .mq:hover { animation-play-state: paused; }
+    @keyframes drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .mq-cell {
+      flex: none; width: 96px; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden;
+      background: var(--surface-2); border: 1px solid var(--hairline); box-shadow: var(--shadow-sm);
+      transition: transform 0.25s var(--ease-out);
+    }
+    .mq-cell:hover { transform: translateY(-4px) scale(1.03); }
+    .mq-cell img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* ───────── RESULTS GRID ───────── */
+    .results { padding: clamp(20px, 4vw, 48px) 0 clamp(48px, 8vw, 88px); }
+    .res-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+    .res-head h2 { font-size: clamp(1.5rem, 3.4vw, 2.1rem); }
+    .res-head .count { display: block; margin-top: 4px; font-family: 'Inter', sans-serif; font-weight: 400; font-size: 0.95rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; transform-origin: left center; }
+    .res-head .count.pulse { animation: countPulse 0.42s var(--ease-out); }
+    @keyframes countPulse {
+      0% { transform: scale(1); color: var(--ink-faint); }
+      35% { transform: scale(1.06); color: var(--accent); }
+      100% { transform: scale(1); color: var(--ink-faint); }
+    }
+    .see-all {
+      display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: var(--accent);
+      border-radius: 8px; transition: gap 0.2s var(--ease-out);
+      /* grow the tap area to 44px without shifting layout */
+      padding-block: 9px; margin-block: -9px;
+    }
+    .see-all:hover { gap: 11px; }
+    .see-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    .see-all svg { width: 17px; height: 17px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: clamp(12px, 1.6vw, 18px); }
+
+    .bk {
+      display: flex; flex-direction: column;
+      background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg);
+      overflow: hidden; box-shadow: var(--shadow-sm);
+      transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease), border-color 0.22s var(--ease);
+    }
+    .bk:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--hairline-strong); }
+    .bk:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
+    .bk-img { position: relative; aspect-ratio: 4 / 5; background: var(--surface-2); overflow: hidden; }
+    .bk-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s var(--ease-out); }
+    .bk:hover .bk-img img { transform: scale(1.05); }
+    .bk-fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-faint); }
+    .bk-fallback svg { width: 40px; height: 40px; opacity: 0.6; }
+    .bk-img:not(.empty) .bk-fallback { display: none; }
+    .bk-new {
+      position: absolute; top: 9px; left: 9px; z-index: 2;
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em; color: #fff;
+      background: var(--accent); padding: 3px 9px; border-radius: var(--r-pill);
+    }
+    :root[data-theme="dark"] .bk-new { color: #16140f; }
+    .bk-go {
+      position: absolute; right: 9px; bottom: 9px; z-index: 2;
+      width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+      background: var(--accent); color: #fff; box-shadow: var(--shadow-sm);
+      opacity: 0; transform: translateY(7px) scale(0.85);
+      transition: opacity 0.24s var(--ease-out), transform 0.24s var(--ease-out);
+    }
+    :root[data-theme="dark"] .bk-go { color: #16140f; }
+    .bk-go svg { width: 16px; height: 16px; }
+    .bk:hover .bk-go, .bk:focus-visible .bk-go { opacity: 1; transform: none; }
+    .bk-body { padding: 12px 13px 14px; display: flex; flex-direction: column; gap: 9px; }
+    .bk-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.02rem; line-height: 1.2; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .bk-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .t { font-size: 0.72rem; font-weight: 500; padding: 3px 8px; border-radius: var(--r-pill); text-transform: capitalize; }
+    .t-g { background: var(--accent-tint); color: var(--accent-deep); }
+    :root[data-theme="dark"] .t-g { color: var(--accent-bright); }
+    .t-s { background: var(--surface-2); color: var(--ink-soft); }
+    .t-c { border: 1px solid var(--hairline); color: var(--ink-faint); }
+    .t-c.c-new { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+    .t-c.c-worn { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 40%, transparent); }
+    .bk-loc { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; color: var(--ink-faint); margin-top: 1px; }
+    .bk-loc svg { width: 12px; height: 12px; flex: none; }
+    .bk-loc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* skeleton + empty */
+    .sk { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); overflow: hidden; }
+    .sk .sk-img { aspect-ratio: 4 / 5; background: var(--surface-2); }
+    .sk .sk-line { height: 12px; margin: 12px 13px 0; border-radius: 6px; background: var(--surface-2); }
+    .sk .sk-line.s { width: 60%; margin-bottom: 14px; }
+    .shimmer { position: relative; overflow: hidden; }
+    .shimmer::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 7%, transparent), transparent); animation: sh 1.3s infinite; }
+    @keyframes sh { to { transform: translateX(100%); } }
+    .empty { grid-column: 1 / -1; text-align: center; padding: clamp(36px, 7vw, 64px) 20px; border: 1px dashed var(--hairline-strong); border-radius: var(--r-xl); background: var(--surface); }
+    .empty-t { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.3rem; color: var(--ink); }
+    .empty-m { margin-top: 8px; color: var(--ink-soft); max-width: 42ch; margin-left: auto; margin-right: auto; }
+    .empty-cta { margin-top: 20px; display: inline-flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      min-height: 50px; padding: 0 26px;
+      font: inherit; font-weight: 600; font-size: 1rem;
+      border-radius: var(--r-pill); cursor: pointer; border: 1px solid transparent;
+      transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease), background 0.2s var(--ease), border-color 0.2s var(--ease);
+    }
+    .btn svg { width: 18px; height: 18px; }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: var(--shadow-md); }
+    :root[data-theme="dark"] .btn-primary { color: #16140f; }
+    .btn-primary:hover { transform: translateY(-2px); background: var(--accent-deep); }
+    .btn-ghost { background: transparent; color: var(--ink); border-color: var(--hairline-strong); }
+    .btn-ghost:hover { transform: translateY(-2px); border-color: var(--accent-bright); color: var(--accent); }
+    .btn:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 3px; }
+
+    /* ───────── HOW IT WORKS ───────── */
+    .how { padding: clamp(48px, 8vw, 96px) 0; border-top: 1px solid var(--hairline); }
+    .sec-head { max-width: 56ch; margin-bottom: clamp(30px, 5vw, 52px); }
+    .sec-head h2 { font-size: clamp(1.8rem, 4.2vw, 2.8rem); }
+    .sec-head p { margin-top: 12px; font-size: 1.08rem; color: var(--ink-soft); }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(18px, 3vw, 36px); counter-reset: step; }
+    .step { position: relative; }
+    .step .num {
+      font-family: 'Fraunces', serif; font-weight: 600; font-style: italic; font-size: 1.1rem;
+      color: var(--accent); width: 44px; height: 44px; border-radius: 50%;
+      display: grid; place-items: center; background: var(--accent-tint); margin-bottom: 16px;
+    }
+    .step h3 { font-size: 1.32rem; }
+    .step p { margin-top: 8px; color: var(--ink-soft); }
+    .step:not(:last-child)::after {
+      content: ""; position: absolute; top: 22px; left: 56px; right: -18px; height: 1px;
+      background: linear-gradient(90deg, var(--hairline-strong), transparent);
+    }
+
+    /* ───────── WHY + SDG ───────── */
+    .why { padding: clamp(48px, 8vw, 96px) 0; border-top: 1px solid var(--hairline); }
+    .why-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(28px, 5vw, 64px); align-items: start; }
+    .quote { font-family: 'Fraunces', serif; font-weight: 500; font-style: italic; font-size: clamp(1.35rem, 2.8vw, 1.85rem); line-height: 1.4; color: var(--ink); }
+    .quote .mark { color: var(--gold); }
+    .byline { margin-top: 20px; display: flex; align-items: center; gap: 12px; }
+    .byline .av { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-tint); display: grid; place-items: center; color: var(--accent); font-weight: 600; font-family: 'Fraunces', serif; }
+    .byline .who { font-size: 0.92rem; }
+    .byline .who b { display: block; font-weight: 600; color: var(--ink); }
+    .byline .who span { color: var(--ink-faint); }
+
+    .sdg { display: flex; flex-direction: column; gap: 12px; }
+    .sdg-h { font-size: 0.86rem; color: var(--ink-faint); }
+    .sdg-row { display: flex; gap: 13px; align-items: flex-start; padding: 14px; border: 1px solid var(--hairline); border-radius: var(--r-md); background: var(--surface); transition: border-color 0.2s var(--ease), transform 0.2s var(--ease-out); }
+    .sdg-row:hover { border-color: var(--hairline-strong); transform: translateX(2px); }
+    .sdg-num { flex: none; font-family: 'Fraunces', serif; font-weight: 600; font-size: 1rem; color: #fff; width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; }
+    .sdg-row.s4 .sdg-num { background: #c5192d; }
+    .sdg-row.s12 .sdg-num { background: #bf8b2e; }
+    .sdg-row.s13 .sdg-num { background: #3f7e44; }
+    .sdg-txt b { display: block; font-size: 0.96rem; color: var(--ink); }
+    .sdg-txt span { font-size: 0.88rem; color: var(--ink-soft); }
+
+    /* ───────── CTA BAND ───────── */
+    .cta { padding: clamp(48px, 8vw, 96px) 0; border-top: 1px solid var(--hairline); }
+    .cta-card {
+      position: relative; overflow: hidden;
+      background: linear-gradient(150deg, var(--accent-deep), var(--accent));
+      border-radius: var(--r-xl); padding: clamp(36px, 6vw, 72px) clamp(24px, 5vw, 64px);
+      box-shadow: var(--shadow-lg);
+    }
+    .cta-card::before { content: ""; position: absolute; right: -10%; top: -40%; width: 60vmin; height: 60vmin; background: radial-gradient(closest-side, rgba(255,255,255,0.16), transparent 70%); pointer-events: none; }
+    .cta-card h2 { color: #fff; font-size: clamp(1.8rem, 4.4vw, 3rem); max-width: 18ch; position: relative; }
+    .cta-card p { color: rgba(255,255,255,0.86); margin-top: 14px; font-size: 1.1rem; max-width: 48ch; position: relative; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; position: relative; }
+    .cta-row .btn-primary { background: #fff; color: var(--accent-deep); }
+    .cta-row .btn-primary:hover { background: #f3ecdb; }
+    .cta-row .btn-ghost { color: #fff; border-color: rgba(255,255,255,0.5); }
+    .cta-row .btn-ghost:hover { border-color: #fff; background: rgba(255,255,255,0.08); color: #fff; }
+
+    /* ───────── FOOTER ───────── */
+    footer { padding: clamp(36px, 6vw, 56px) 0; border-top: 1px solid var(--hairline); }
+    .foot { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; }
+    .foot .brand { font-size: 1.05rem; }
+    .foot-links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.9rem; color: var(--ink-soft); }
+    .foot-links a { border-radius: 5px; }
+    .foot-links a:hover { color: var(--accent); }
+    .foot-links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .foot-note { width: 100%; margin-top: 18px; font-size: 0.84rem; color: var(--ink-faint); }
+
+    /* ───────── REVEAL (enhances an already-visible default) ───────── */
+    html.js [data-reveal] { opacity: 0; transform: translateY(18px); }
+    html.js [data-reveal].in { opacity: 1; transform: none; transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out); transition-delay: var(--d, 0s); }
+    html.js .grid .bk { opacity: 0; transform: translateY(14px); animation: cardIn 0.5s var(--ease-out) forwards; animation-delay: calc(var(--i, 0) * 45ms); }
+    @keyframes cardIn { to { opacity: 1; transform: none; } }
+    /* re-filter renders: quick uniform crossfade, no long stagger */
+    html.js .grid.quick .bk { transform: none; animation: cardQuick 0.28s var(--ease-out) forwards; animation-delay: calc(var(--i, 0) * 14ms); }
+    @keyframes cardQuick { from { opacity: 0; } to { opacity: 1; } }
+
+    /* ───────── RESPONSIVE ───────── */
+    @media (max-width: 720px) {
+      .filters { grid-template-columns: 1fr 1fr; }
+      .field.full { grid-column: 1 / -1; }
+      .why-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; gap: 24px; }
+      .step:not(:last-child)::after { display: none; }
+      .nbtn.hide-sm { display: none; }
+    }
+    @media (max-width: 440px) {
+      .grid { grid-template-columns: repeat(2, 1fr); gap: 11px; }
+      .hero h1 { font-size: clamp(2.1rem, 9vw, 2.6rem); }
+    }
+
+    /* ───────── REDUCED MOTION ───────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+      html.js [data-reveal] { opacity: 1; transform: none; }
+      html.js .grid .bk, html.js .grid.quick .bk { opacity: 1; transform: none; animation: none; }
+      .mq { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#results" class="skip-link">Skip to the books</a>
+
+  <header class="nav" id="nav">
+    <div class="wrap nav-in">
+      <a class="brand" href="index.html" aria-label="GreenShelf home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" fill="currentColor" fill-opacity="0.14"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
+        GreenShelf
+      </a>
+      <div class="nav-actions">
+        <button class="nbtn icon theme-toggle" type="button" aria-label="Switch between day and night" title="Day / night">
+          <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>
+          <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        </button>
+        <a class="nbtn hide-sm" href="#results">Browse books</a>
+        <a class="nbtn solid" href="index.html#cta">Give a book</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO: the tool is the first thing you see -->
+    <section class="hero">
+      <div class="hero-bg" aria-hidden="true">
+        <span class="glow"></span>
+        <span class="glow gold"></span>
+        <span class="grain"></span>
+      </div>
+      <div class="wrap hero-in">
+        <span class="eyebrow" data-reveal><span class="dot"></span> A free book exchange for Oman</span>
+        <h1 data-reveal style="--d:0.05s">Someone near you has the <em>school book you need.</em></h1>
+        <p class="lead" data-reveal style="--d:0.1s">Search what families across Oman are passing on. No fees, no account, no middleman. Find a book, message the family, arrange a pickup. Nothing into the bin.</p>
+
+        <div class="panel" data-reveal style="--d:0.15s" role="search">
+          <div class="search" id="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" id="search" placeholder="Search a title, subject or school..." aria-label="Search books" autocomplete="off">
+            <button class="clear-x" id="clear-search" type="button" aria-label="Clear search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            </button>
+          </div>
+          <div class="filters">
+            <div class="field">
+              <select id="grade" aria-label="Filter by grade">
+                <option value="">All grades</option>
+              </select>
+            </div>
+            <div class="field">
+              <select id="subject" aria-label="Filter by subject">
+                <option value="">All subjects</option>
+              </select>
+            </div>
+            <div class="field">
+              <select id="condition" aria-label="Filter by condition">
+                <option value="">Any condition</option>
+                <option value="new">New</option>
+                <option value="good">Good</option>
+                <option value="worn">Worn</option>
+              </select>
+            </div>
+          </div>
+          <div class="chips" id="chips">
+            <span class="lbl">Popular:</span>
+            <button class="chip" type="button" data-grade="Grade 9">Grade 9</button>
+            <button class="chip" type="button" data-grade="Grade 10">Grade 10</button>
+            <button class="chip" type="button" data-grade="Grade 12">Grade 12</button>
+            <button class="chip" type="button" data-subject="Math">Math</button>
+            <button class="chip" type="button" data-subject="Science">Science</button>
+            <button class="chip" type="button" data-subject="English">English</button>
+          </div>
+        </div>
+
+        <div class="hero-meta" data-reveal style="--d:0.2s">
+          <span class="stat"><strong id="stat-num">&middot;&middot;</strong> <span id="stat-label">books available across Oman right now</span></span>
+          <a class="give-link" href="index.html#cta">Or give a book you have finished with
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+
+        <div class="trust" data-reveal style="--d:0.25s">
+          <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Always free</span>
+          <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> No account needed to browse</span>
+          <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> You arrange the handover</span>
+          <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Books from your area</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHELF RIBBON: real covers, gentle drift -->
+    <section class="ribbon" id="ribbon" hidden aria-label="Recently shared books">
+      <div class="wrap">
+        <div class="ribbon-cap"><span class="t">Fresh on the shelf</span> <span class="s">real books shared by families this season</span></div>
+      </div>
+      <div class="mq" id="mq" aria-hidden="true"></div>
+    </section>
+
+    <!-- RESULTS: the live, filterable grid -->
+    <section class="results" id="results">
+      <div class="wrap">
+        <div class="res-head">
+          <div>
+            <h2 data-reveal>Books on the shelf right now</h2>
+            <span class="count" id="count" aria-live="polite">Loading books shared across Oman...</span>
+          </div>
+          <a class="see-all" href="index.html#browse">See every book
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+        <div class="grid" id="grid">
+          <noscript>
+            <div class="empty">
+              <div class="empty-t">Browsing the live shelf needs JavaScript.</div>
+              <div class="empty-m">Open the full GreenShelf site to search every book families are passing on.</div>
+              <div class="empty-cta"><a class="btn btn-primary" href="index.html#browse">Open GreenShelf</a></div>
+            </div>
+          </noscript>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how" id="how">
+      <div class="wrap">
+        <div class="sec-head" data-reveal>
+          <h2>Three steps, no fees, no forms to wrestle with.</h2>
+          <p>GreenShelf is a noticeboard, not a shop. We never touch the money or the books. You and the other family do the rest.</p>
+        </div>
+        <div class="steps">
+          <div class="step" data-reveal>
+            <div class="num">1</div>
+            <h3>Find a book</h3>
+            <p>Search by grade, subject or school. Every listing shows the condition and the area it is in.</p>
+          </div>
+          <div class="step" data-reveal style="--d:0.08s">
+            <div class="num">2</div>
+            <h3>Reach out</h3>
+            <p>Message the family directly through their listing. No bidding, no commission, no waiting.</p>
+          </div>
+          <div class="step" data-reveal style="--d:0.16s">
+            <div class="num">3</div>
+            <h3>Pick it up</h3>
+            <p>Agree a time and place that suits you both. The book gets a second year instead of a bin.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY + SDG -->
+    <section class="why" id="why">
+      <div class="wrap why-grid">
+        <div data-reveal>
+          <p class="quote"><span class="mark">"</span>Every June in Oman, perfectly good textbooks pile up in cupboards and end up in the bin while the next family buys the same books new. GreenShelf is the bridge between them.<span class="mark">"</span></p>
+          <div class="byline">
+            <div class="av">GS</div>
+            <div class="who">
+              <b>Hitesh Gurnani &amp; Anshul Date</b>
+              <span>Founders, Muscat</span>
+            </div>
+          </div>
+        </div>
+        <div class="sdg" data-reveal style="--d:0.1s">
+          <span class="sdg-h">Built toward the UN Sustainable Development Goals</span>
+          <div class="sdg-row s4">
+            <span class="sdg-num">4</span>
+            <span class="sdg-txt"><b>Quality Education</b><span>Lowers the cost of learning so a book is never a barrier.</span></span>
+          </div>
+          <div class="sdg-row s12">
+            <span class="sdg-num">12</span>
+            <span class="sdg-txt"><b>Responsible Consumption</b><span>Keeps usable books in circulation instead of the landfill.</span></span>
+          </div>
+          <div class="sdg-row s13">
+            <span class="sdg-num">13</span>
+            <span class="sdg-txt"><b>Climate Action</b><span>Each reused book saves the paper, water and carbon of a new one.</span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA BAND -->
+    <section class="cta">
+      <div class="wrap">
+        <div class="cta-card" data-reveal>
+          <h2>Have books your family has outgrown?</h2>
+          <p>It takes under a minute to list one. Give it to a student who needs it next, and keep it out of the bin.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="index.html#cta">Give a book
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="#results">Browse the shelf
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot">
+        <a class="brand" href="index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" fill="currentColor" fill-opacity="0.14"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
+          GreenShelf
+        </a>
+        <nav class="foot-links">
+          <a href="#results">Browse</a>
+          <a href="index.html#cta">Give a book</a>
+          <a href="index.html#how">How it works</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+        </nav>
+      </div>
+      <p class="foot-note">GreenShelf is a free, no-fee school-book exchange for families in Oman. Made in Muscat, 2026.</p>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
+    const SUPABASE_URL = 'https://wvladknkebqiqutboohw.supabase.co'
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bGFka25rZWJxaXF1dGJvb2h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTAxMjksImV4cCI6MjA5MzEyNjEyOX0.xHIZHgUQ72XRxHtQkHBJ4AbI7M9shejCPR5iv5SmqJ4'
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    const BASE_SUBJECTS = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business']
+    const GRADES = Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)
+    const LANDING_MAX = 12
+
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const root = document.documentElement
+
+    const el = {
+      search: document.getElementById('search'),
+      searchBox: document.getElementById('search-box'),
+      clear: document.getElementById('clear-search'),
+      grade: document.getElementById('grade'),
+      subject: document.getElementById('subject'),
+      condition: document.getElementById('condition'),
+      chips: document.getElementById('chips'),
+      grid: document.getElementById('grid'),
+      count: document.getElementById('count'),
+      statNum: document.getElementById('stat-num'),
+      statLabel: document.getElementById('stat-label'),
+      ribbon: document.getElementById('ribbon'),
+      mq: document.getElementById('mq'),
+      nav: document.getElementById('nav'),
+      heroBg: document.querySelector('.hero-bg')
+    }
+
+    let all = []
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+    }
+    const bookIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
+    const pinIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>'
+
+    /* ---- theme ---- */
+    document.querySelector('.theme-toggle').addEventListener('click', () => {
+      const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+      root.setAttribute('data-theme', next)
+      try { localStorage.setItem('gs-theme', next) } catch (e) {}
+    })
+
+    /* ---- nav shadow + hero parallax on scroll ---- */
+    let scrollQueued = false
+    const HERO_FADE = 620
+    function applyScroll() {
+      scrollQueued = false
+      const y = window.scrollY
+      el.nav.classList.toggle('scrolled', y > 8)
+      if (!reduce && el.heroBg && y < HERO_FADE) {
+        el.heroBg.style.transform = `translate3d(0, ${(y * 0.14).toFixed(1)}px, 0)`
+        el.heroBg.style.opacity = String(Math.max(0, 1 - y / HERO_FADE))
+      }
+    }
+    const onScroll = () => {
+      if (scrollQueued) return
+      scrollQueued = true
+      requestAnimationFrame(applyScroll)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    applyScroll()
+
+    /* ---- reveal on scroll ---- */
+    if ('IntersectionObserver' in window && !reduce) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } })
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 })
+      document.querySelectorAll('[data-reveal]').forEach(n => io.observe(n))
+    } else {
+      document.querySelectorAll('[data-reveal]').forEach(n => n.classList.add('in'))
+    }
+
+    /* ---- populate selects ---- */
+    function fillSelect(select, values, keepFirst = true) {
+      const first = keepFirst ? select.querySelector('option') : null
+      select.innerHTML = ''
+      if (first) select.appendChild(first)
+      values.forEach(v => {
+        const o = document.createElement('option')
+        o.value = v; o.textContent = v
+        select.appendChild(o)
+      })
+    }
+    fillSelect(el.grade, GRADES)
+    fillSelect(el.subject, BASE_SUBJECTS)
+
+    function mergeSubjects() {
+      const fromData = [...new Set(all.map(l => l.subject).filter(Boolean))]
+      const merged = [...new Set([...BASE_SUBJECTS, ...fromData])].sort()
+      const current = el.subject.value
+      fillSelect(el.subject, merged)
+      if (current && merged.includes(current)) el.subject.value = current
+    }
+
+    /* ---- count up ---- */
+    function countUp(node, target) {
+      if (reduce || target <= 0 || document.hidden) { node.textContent = String(target); return }
+      const dur = 900, t0 = performance.now()
+      const ease = p => 1 - Math.pow(1 - p, 3)
+      function step(now) {
+        const p = Math.min((now - t0) / dur, 1)
+        node.textContent = String(Math.round(ease(p) * target))
+        if (p < 1) requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+      /* safety: rAF pauses on hidden tabs, so guarantee the final value lands */
+      setTimeout(() => { node.textContent = String(target) }, dur + 200)
+    }
+
+    /* ---- card ---- */
+    function cardHtml(l, i) {
+      const photo = (l.photos && l.photos.length) ? l.photos[0] : null
+      const isNew = l.created_at && (Date.now() - new Date(l.created_at).getTime() < 7 * 864e5)
+      const loc = [l.area, l.school].filter(Boolean).join(' · ')
+      const cond = (l.condition || '').toLowerCase()
+      return `
+        <a class="bk" href="index.html#listing/${encodeURIComponent(l.id)}" style="--i:${i}" aria-label="${escapeHtml(l.title)}, ${escapeHtml(l.grade_level || '')} ${escapeHtml(l.subject || '')}">
+          <div class="bk-img${photo ? '' : ' empty'}">
+            <span class="bk-fallback">${bookIcon}</span>
+            ${isNew ? '<span class="bk-new">New</span>' : ''}
+            ${photo ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy" onerror="this.closest('.bk-img').classList.add('empty');this.remove()">` : ''}
+            <span class="bk-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
+          </div>
+          <div class="bk-body">
+            <div class="bk-title">${escapeHtml(l.title)}</div>
+            <div class="bk-tags">
+              ${l.grade_level ? `<span class="t t-g">${escapeHtml(l.grade_level)}</span>` : ''}
+              ${l.subject ? `<span class="t t-s">${escapeHtml(l.subject)}</span>` : ''}
+              ${cond ? `<span class="t t-c c-${cond}">${escapeHtml(cond)}</span>` : ''}
+            </div>
+            ${loc ? `<div class="bk-loc">${pinIcon}<span>${escapeHtml(loc)}</span></div>` : ''}
+          </div>
+        </a>`
+    }
+
+    /* ---- filtering ---- */
+    function apply() {
+      const q = el.search.value.trim().toLowerCase()
+      const g = el.grade.value, s = el.subject.value, c = el.condition.value
+      el.searchBox.classList.toggle('has-text', q.length > 0)
+
+      const filtered = all.filter(l => {
+        if (g && l.grade_level !== g) return false
+        if (s && l.subject !== s) return false
+        if (c && (l.condition || '').toLowerCase() !== c) return false
+        if (q) {
+          const hay = `${l.title || ''} ${l.subject || ''} ${l.grade_level || ''} ${l.area || ''} ${l.school || ''}`.toLowerCase()
+          if (!hay.includes(q)) return false
+        }
+        return true
+      })
+
+      renderGrid(filtered)
+      syncChips(g, s)
+    }
+
+    let lastCount = null
+    function setCount(txt) {
+      if (txt === lastCount) { el.count.textContent = txt; return }
+      lastCount = txt
+      el.count.textContent = txt
+      if (reduce) return
+      el.count.classList.remove('pulse')
+      void el.count.offsetWidth
+      el.count.classList.add('pulse')
+    }
+
+    let firstRender = true
+    function renderGrid(list) {
+      // lighter motion on re-filters: the first paint earns the stagger, refilters just crossfade
+      if (!firstRender) el.grid.classList.add('quick')
+      firstRender = false
+
+      if (!list.length) {
+        const anyFilter = el.search.value || el.grade.value || el.subject.value || el.condition.value
+        setCount('0 books')
+        el.grid.innerHTML = anyFilter
+          ? `<div class="empty">
+               <div class="empty-t">No books match yet.</div>
+               <div class="empty-m">Try widening the search, or be the family that lists this one first.</div>
+               <div class="empty-cta">
+                 <button class="btn btn-ghost" type="button" id="reset">Clear filters</button>
+                 <a class="btn btn-primary" href="index.html#cta">Give a book</a>
+               </div>
+             </div>`
+          : `<div class="empty">
+               <div class="empty-t">No books on the shelf yet.</div>
+               <div class="empty-m">GreenShelf is brand new. Be the first family in Oman to pass a textbook on. It takes under a minute.</div>
+               <div class="empty-cta"><a class="btn btn-primary" href="index.html#cta">Give a book</a></div>
+             </div>`
+        const reset = document.getElementById('reset')
+        if (reset) reset.addEventListener('click', clearFilters)
+        return
+      }
+      const shown = list.slice(0, LANDING_MAX)
+      setCount(list.length > LANDING_MAX
+        ? `Showing ${shown.length} of ${list.length} books`
+        : `${list.length} book${list.length === 1 ? '' : 's'}`)
+      el.grid.innerHTML = shown.map(cardHtml).join('')
+    }
+
+    function syncChips(g, s) {
+      el.chips.querySelectorAll('.chip').forEach(chip => {
+        const active = (chip.dataset.grade && chip.dataset.grade === g) || (chip.dataset.subject && chip.dataset.subject === s)
+        chip.classList.toggle('active', !!active)
+      })
+    }
+
+    function clearFilters() {
+      el.search.value = ''; el.grade.value = ''; el.subject.value = ''; el.condition.value = ''
+      apply()
+    }
+
+    /* ---- ribbon of real covers ---- */
+    function buildRibbon() {
+      const withPhotos = all.filter(l => l.photos && l.photos[0]).slice(0, 14)
+      if (withPhotos.length < 5) return
+      const cells = withPhotos.map(l =>
+        `<a class="mq-cell" href="index.html#listing/${encodeURIComponent(l.id)}" title="${escapeHtml(l.title)}"><img src="${escapeHtml(l.photos[0])}" alt="" loading="lazy" onerror="this.closest('.mq-cell').remove()"></a>`
+      ).join('')
+      el.mq.innerHTML = cells + cells
+      el.ribbon.hidden = false
+    }
+
+    /* ---- events (debounced search) ---- */
+    let t
+    el.search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(apply, 140) })
+    el.clear.addEventListener('click', () => { el.search.value = ''; el.search.focus(); apply() })
+    el.grade.addEventListener('change', apply)
+    el.subject.addEventListener('change', apply)
+    el.condition.addEventListener('change', apply)
+    el.chips.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip')
+      if (!chip) return
+      if (chip.dataset.grade) el.grade.value = (el.grade.value === chip.dataset.grade) ? '' : chip.dataset.grade
+      if (chip.dataset.subject) el.subject.value = (el.subject.value === chip.dataset.subject) ? '' : chip.dataset.subject
+      apply()
+    })
+
+    /* ---- skeleton ---- */
+    function skeleton() {
+      el.grid.innerHTML = Array.from({ length: 6 }, () =>
+        `<div class="sk"><div class="sk-img shimmer"></div><div class="sk-line shimmer"></div><div class="sk-line s shimmer"></div></div>`
+      ).join('')
+    }
+
+    /* ---- load ---- */
+    async function load() {
+      skeleton()
+      try {
+        const sixMonthsAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30 * 6).toISOString()
+        const { data, error } = await supabase
+          .from('listings').select('*').eq('status', 'available')
+          .gte('created_at', sixMonthsAgo)
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        all = data || []
+        mergeSubjects()
+        buildRibbon()
+        if (all.length === 0) {
+          el.statNum.textContent = '0'
+          el.statLabel.textContent = 'books yet. Be the first to share one.'
+        } else {
+          countUp(el.statNum, all.length)
+          el.statLabel.textContent = `book${all.length === 1 ? '' : 's'} available across Oman right now`
+        }
+        apply()
+      } catch (err) {
+        console.error('GreenShelf load error:', err)
+        el.statNum.textContent = '··'
+        el.count.textContent = 'Could not load books'
+        el.grid.innerHTML = `<div class="empty">
+            <div class="empty-t">We could not reach the shelf.</div>
+            <div class="empty-m">The connection dropped. Try again, or open the full site.</div>
+            <div class="empty-cta">
+              <button class="btn btn-ghost" type="button" id="retry">Try again</button>
+              <a class="btn btn-primary" href="index.html#browse">Open the full site</a>
+            </div>
+          </div>`
+        const retry = document.getElementById('retry')
+        if (retry) retry.addEventListener('click', load)
+      }
+    }
+
+    /* ---- a quiet hello for the curious ---- */
+    try {
+      console.log(
+        '%cGreenShelf%c\nA free book exchange for families across Oman.\nNo fees, no account, no waste. Built in Muscat, 2026.\nFound a bug or want to help? We would love that.',
+        'font:600 20px Georgia,serif;color:#2f7d4f',
+        'font:13px system-ui;color:#7a8a7e;line-height:1.6'
+      )
+    } catch (e) {}
+
+    load()
+  </script>
+</body>
+</html>
