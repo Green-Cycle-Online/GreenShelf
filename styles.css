@@ -1391,6 +1391,43 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
   .nav-search-toggle { padding: 0; width: 38px; justify-content: center; }
 }
 
+/* ───────── FIRST-PAINT CURTAIN ───────── */
+/* A brand moment that covers the page at first paint, then lifts to unveil the canopy.
+   Driven entirely by CSS so it self-clears even without JS; ends non-interactive and
+   invisible. JS adds skip-on-interaction and removes the node. */
+.intro-curtain {
+  position: fixed; inset: 0; z-index: 3000;
+  display: grid; place-items: center;
+  background: var(--paper);
+  animation: curtainLift 0.85s var(--ease-out) 0.5s forwards;
+  will-change: opacity, transform;
+}
+.intro-curtain .cur-mark {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  color: var(--accent);
+  animation: curtainMark 0.62s var(--ease-out) 0.05s both;
+}
+.intro-curtain .cur-leaf { width: 52px; height: 52px; }
+.intro-curtain .cur-word {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600; font-size: 1.5rem; letter-spacing: -0.01em;
+  color: var(--ink);
+}
+@keyframes curtainMark {
+  from { opacity: 0; transform: translateY(12px) scale(0.88); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes curtainLift {
+  0%   { opacity: 1; transform: none; }
+  99%  { visibility: visible; }
+  100% { opacity: 0; transform: translateY(-1.5%) scale(1.05); visibility: hidden; pointer-events: none; }
+}
+.intro-curtain.curtain-skip {
+  animation: none;
+  opacity: 0; transform: translateY(-1.5%) scale(1.04); pointer-events: none;
+  transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+}
+
 /* ───────── LEAF-CANOPY INTRO ───────── */
 .intro { position: relative; height: 150vh; }
 .intro-stage {
@@ -1477,17 +1514,45 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
   to   { transform: translateX(2.5%) rotate(1.2deg); }
 }
 
+/* WebGL volumetric-light + grain layer. Renders the real god-rays when the GPU is
+   available; the CSS .god-rays above is the graceful fallback and is hidden once the
+   shader is live. screen blend so only the lit pixels add warmth to the scene below. */
+.intro-fx {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  width: 100%; height: 100%;
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 1.4s var(--ease-out);
+}
+.intro-fx.is-on { opacity: 1; }
+.intro-stage.webgl-on .god-rays { display: none; }
+
+/* A warm mote of light that trails the cursor through the canopy: sits above the rays
+   (z:2) but behind the leaves (z:5) so it reads as light deep in the forest following
+   you, never washing out the headline. Pointer-fine only, created in JS, never blocks. */
+.intro-cursor {
+  position: absolute; top: 0; left: 0; z-index: 3;
+  width: 240px; height: 240px; margin: -120px 0 0 -120px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--gold-soft) 38%, transparent) 0%, transparent 64%);
+  mix-blend-mode: screen;
+  opacity: 0; transition: opacity 0.5s var(--ease-out);
+  will-change: transform, opacity;
+}
+.intro-cursor.is-active { opacity: 0.8; }
+:root[data-theme="dark"] .intro-cursor.is-active { opacity: 0.9; }
+
 .scatter-layer {
   position: absolute; inset: 0; pointer-events: none; z-index: 5;
-  transform-origin: 50% 44%;
-  transform: scale(calc(1 + 0.16 * var(--p)));   /* gentle camera push-in */
+  transform-origin: 50% 42%;
+  transform: scale(calc(1 + 0.4 * var(--p)));   /* camera dolly forward into the clearing */
   --mx: 0; --my: 0;
 }
 /* transform + opacity ONLY, no per-leaf filters, so 100+ leaves stay at 60fps */
 .leaf-card {
   position: absolute;
   --depth: 0.5;
-  --dt: calc(0.6 + 0.7 * var(--depth));
+  --dt: calc(0.7 + 1.05 * var(--depth));
   --pd: calc(6px + 24px * var(--depth));
   --cp: clamp(0, calc((var(--p) - var(--s)) / (0.9 - var(--s))), 1);
   transform:
@@ -1496,7 +1561,7 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
       calc(var(--ty) * var(--cp) * var(--dt) + var(--my) * var(--pd)),
       0)
     rotate(calc(var(--r0) + var(--dr) * var(--cp)))
-    scale(calc((0.66 + 0.5 * var(--depth)) * (1 + 0.34 * var(--cp))));
+    scale(calc((0.66 + 0.5 * var(--depth)) * (1 + (0.34 + 0.85 * var(--depth)) * var(--cp))));
   opacity: calc(var(--o0, 0.9) * (1 - clamp(0, calc(var(--cp) * 1.05), 1)));
 }
 /* Entrance wrapper: isolated from the leaf-card scroll transform and the lf-w idle sway,
@@ -1525,13 +1590,42 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
 .scroll-hint .chev { width: 22px; height: 22px; animation: hintBob 1.8s ease-in-out infinite; }
 @keyframes hintBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
 
+/* Ambient-sound toggle: lives in the scene (bottom-right), styled like the nav toggle so it
+   reads as a deliberate control, not chrome. Stays usable through the flight, then dims as the
+   clearing opens; the IntersectionObserver removes it entirely once the intro scrolls away. */
+.sound-toggle {
+  position: absolute; bottom: 30px; right: 28px; z-index: 8;
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-pill); border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: var(--ink-soft); cursor: pointer;
+  opacity: clamp(0, calc(1.1 - var(--p, 0) * 1.3), 1);
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+              background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease-spring);
+}
+.sound-toggle:hover { color: var(--accent); border-color: var(--accent); transform: scale(1.07); }
+.sound-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.sound-toggle svg { position: absolute; transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease-spring); }
+.sound-toggle .ic-on  { opacity: 0; transform: scale(0.5); }
+.sound-toggle .ic-off { opacity: 1; transform: scale(1); }
+.sound-toggle[aria-pressed="true"] .ic-on  { opacity: 1; transform: scale(1); }
+.sound-toggle[aria-pressed="true"] .ic-off { opacity: 0; transform: scale(0.5); }
+.sound-toggle[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--hairline)); }
+.sound-toggle.is-hidden { visibility: hidden; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sound-toggle svg { transition: opacity 0.01ms; }
+}
+@media (max-width: 600px) { .sound-toggle { bottom: 18px; right: 16px; width: 38px; height: 38px; } }
+
 @media (prefers-reduced-motion: reduce) {
   .intro { height: auto; }
   .intro-stage { position: static; height: auto; overflow: visible; }
   .intro-hero { position: static; }
   .intro-hero .hero { padding-top: 80px; padding-bottom: 72px; }
   .intro-hero .hero-bg { display: block; }
-  .scatter-layer, .scroll-hint, .intro-light, .god-rays { display: none; }
+  .scatter-layer, .scroll-hint, .intro-light, .god-rays, .intro-fx, .intro-curtain, .intro-cursor, .sound-toggle { display: none; }
   .leaf-card .lf-w.idle, .leaf-card .lf-in, .intro-light, .intro-light::before, .god-rays, .god-rays::before { animation: none; }
   .hero-title .hl > * { transform: none; animation: none; }
 }

@@ -2098,6 +2098,10 @@ function initCardTilt() {
   })
 }
 
+// shared scroll progress (0..1) through the intro, written by the leaf scroll handler
+// and read by the WebGL light layer so both stay in lockstep without double maths.
+let introProgress = 0
+
 // ---- LEAF-CANOPY INTRO ----
 // A screen-filling canopy that hangs from the top and lifts/parts away on scroll to reveal the hero.
 // transform + opacity only (no per-leaf filters) so 100+ leaves stay at 60fps.
@@ -2136,6 +2140,11 @@ function initLeafIntro() {
   // so the canopy still spans the full width, just less dense.
   const isMobile = window.innerWidth < 700
   const COLS = isMobile ? 12 : 20, ROWS = isMobile ? 12 : 16
+  // on phones the headline sits high in a tall, narrow viewport, so pull the canopy up:
+  // a denser top strip that clears the eyebrow/headline at rest, still parting on scroll.
+  const CENTRE_REACH = isMobile ? 24 : 42   // how far the centre column hangs down
+  const CENTRE_LIFT = isMobile ? 9 : 11     // extra lift applied at dead-centre
+  const SIDE_REACH = isMobile ? 28 : 42     // how far the left/right edge columns trail down
   let html = '', li = 0
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
@@ -2143,10 +2152,10 @@ function initLeafIntro() {
       const top = (r + 0.5) / ROWS * 108 - 8 + (rnd() * 6 - 3)
       if (top < 11 && left > 4 && left < 19) continue   // keep the logo wordmark clear
       const cen = 1 - Math.abs(left - 50) / 50
-      const topReach = 42 - 11 * cen                     // centre ~31, edges ~42, fuller corners, even band
+      const topReach = CENTRE_REACH - CENTRE_LIFT * cen  // desktop centre ~31/edges ~42; mobile ~15/~24
       const dTop = Math.max(0, 1 - (top + 8) / topReach)
-      const dLeft = Math.max(0, 1 - left / 26) * Math.max(0, 1 - (top + 6) / 42)
-      const dRight = Math.max(0, 1 - (100 - left) / 26) * Math.max(0, 1 - (top + 6) / 42)
+      const dLeft = Math.max(0, 1 - left / 26) * Math.max(0, 1 - (top + 6) / SIDE_REACH)
+      const dRight = Math.max(0, 1 - (100 - left) / 26) * Math.max(0, 1 - (top + 6) / SIDE_REACH)
       const dens = Math.max(dTop, dLeft, dRight)
       const prob = Math.pow(dens, 1.45)
       let stray = false
@@ -2188,6 +2197,7 @@ function initLeafIntro() {
     const p = travel > 0 ? Math.min(Math.max(window.scrollY / travel, 0), 1) : 0
     stage.style.setProperty('--p', p.toFixed(4))
     stage.style.setProperty('--lp', easeOutCubic(Math.min(p / 0.62, 1)).toFixed(4))
+    introProgress = p
   }
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update) } }
   window.addEventListener('scroll', onScroll, { passive: true })
@@ -2208,6 +2218,248 @@ function initLeafIntro() {
     tmy = (e.clientY / window.innerHeight - 0.5) * 2
     if (!raf) raf = requestAnimationFrame(loop)
   }, { passive: true })
+}
+
+// ---- WEBGL VOLUMETRIC LIGHT ----
+// Real god-rays through the canopy gap, rendered on the GPU: a fullscreen fragment
+// shader (no library, no CDN) painting warm light shafts + a whisper of film grain
+// that bloom as you scroll into the clearing. screen-blended over the scene, top-
+// weighted so the headline stays crisp. If WebGL is unavailable or the shader fails
+// to compile, the CSS .god-rays fallback stays and nothing here runs. Render buffer is
+// deliberately low-res (soft light hides it) and paused off-screen to hold 60fps.
+function initIntroFX() {
+  if (reduceMotion) return
+  const stage = document.getElementById('intro-stage')
+  const canvas = document.getElementById('intro-fx')
+  if (!stage || !canvas) return
+
+  let gl
+  try {
+    gl = canvas.getContext('webgl', { alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'low-power' })
+  } catch (e) { gl = null }
+  if (!gl) return
+
+  const VERT = 'attribute vec2 aPos; void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }'
+  const FRAG = [
+    'precision highp float;',
+    'uniform vec2 uRes; uniform float uTime; uniform float uP; uniform vec2 uPtr; uniform vec3 uCol; uniform float uDark;',
+    'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }',
+    'float noise(vec2 p){ vec2 i=floor(p), f=fract(p); float a=hash(i), b=hash(i+vec2(1.,0.)), c=hash(i+vec2(0.,1.)), d=hash(i+vec2(1.,1.)); vec2 u=f*f*(3.-2.*f); return mix(mix(a,b,u.x), mix(c,d,u.x), u.y); }',
+    'float fbm(vec2 p){ float v=0., a=0.5; for(int i=0;i<4;i++){ v+=a*noise(p); p*=2.03; a*=0.5; } return v; }',
+    'void main(){',
+    '  vec2 uv = gl_FragCoord.xy / uRes;',           // y: 0 bottom, 1 top
+    '  vec2 src = vec2(0.5 + uPtr.x*0.07, 1.06);',   // light source just above the top edge
+    '  vec2 d = uv - src;',
+    '  float dist = length(d);',
+    '  float ang = atan(d.x, -d.y);',                // angle fanning down from the source
+    '  float streak = fbm(vec2(ang*7.0, dist*2.4 - uTime*0.05));',
+    '  streak = pow(clamp(streak, 0.0, 1.0), 1.7);',
+    '  float fall = smoothstep(0.30, 1.0, uv.y);',   // bright at top, gone by mid-screen (headline safe)
+    '  float core = smoothstep(0.85, 0.0, dist);',   // soft glow blob at the gap
+    '  float rays = streak * fall;',
+    '  float intensity = (core*0.55 + rays*0.95) * (0.30 + 0.78*uP);',
+    '  float g = (hash(uv*uRes*0.5 + uTime) - 0.5) * 0.05 * fall;',  // subtle top-weighted grain
+    '  vec3 col = uCol * (intensity + g);',
+    '  col *= mix(0.85, 1.25, uDark);',              // a touch hotter in dark mode
+    '  gl_FragColor = vec4(max(col, 0.0), 1.0);',    // black where unlit; screen blend drops it
+    '}'
+  ].join('\n')
+
+  const compile = (type, src) => {
+    const sh = gl.createShader(type)
+    gl.shaderSource(sh, src); gl.compileShader(sh)
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null }
+    return sh
+  }
+  const vs = compile(gl.VERTEX_SHADER, VERT)
+  const fs = compile(gl.FRAGMENT_SHADER, FRAG)
+  if (!vs || !fs) return
+  const prog = gl.createProgram()
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog)
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return
+  gl.useProgram(prog)
+
+  // fullscreen triangle
+  const buf = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
+  const aPos = gl.getAttribLocation(prog, 'aPos')
+  gl.enableVertexAttribArray(aPos)
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
+
+  const uRes = gl.getUniformLocation(prog, 'uRes')
+  const uTime = gl.getUniformLocation(prog, 'uTime')
+  const uP = gl.getUniformLocation(prog, 'uP')
+  const uPtr = gl.getUniformLocation(prog, 'uPtr')
+  const uCol = gl.getUniformLocation(prog, 'uCol')
+  const uDark = gl.getUniformLocation(prog, 'uDark')
+
+  // low-res backing store: light is soft, so ~0.5x stays crisp enough and very cheap
+  const isMobile = window.innerWidth < 700
+  const scale = isMobile ? 0.45 : 0.55
+  const resize = () => {
+    const r = stage.getBoundingClientRect()
+    // fall back through layout queries so the buffer is never degenerate
+    const cssW = r.width || stage.clientWidth || window.innerWidth || 1280
+    const cssH = r.height || stage.clientHeight || window.innerHeight || 720
+    canvas.width = Math.max(2, Math.round(cssW * scale))
+    canvas.height = Math.max(2, Math.round(cssH * scale))
+    gl.viewport(0, 0, canvas.width, canvas.height)
+  }
+  resize()
+  window.addEventListener('resize', resize)
+
+  // warm gold light, read from the live theme tokens so it tracks brand changes
+  const cs = getComputedStyle(document.documentElement)
+  const parseCol = (v, fb) => {
+    const m = (v || '').trim().match(/^#?([0-9a-f]{6})$/i)
+    if (!m) return fb
+    const n = parseInt(m[1], 16)
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
+  }
+  const warm = parseCol(cs.getPropertyValue('--gold-soft'), [0.85, 0.66, 0.31])
+
+  let ptrX = 0, ptrTargetX = 0
+  window.addEventListener('pointermove', (e) => { ptrTargetX = (e.clientX / window.innerWidth - 0.5) * 2 }, { passive: true })
+
+  let visible = true
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([en]) => { visible = en.isIntersecting }, { threshold: 0 }).observe(stage)
+  }
+
+  const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark'
+  const start = performance.now()
+  let running = true
+  const render = (now) => {
+    if (!running) return
+    if (visible) {
+      ptrX += (ptrTargetX - ptrX) * 0.05
+      gl.uniform2f(uRes, canvas.width, canvas.height)
+      gl.uniform1f(uTime, (now - start) / 1000)
+      gl.uniform1f(uP, introProgress)
+      gl.uniform2f(uPtr, ptrX, 0)
+      gl.uniform3f(uCol, warm[0], warm[1], warm[2])
+      gl.uniform1f(uDark, isDark() ? 1 : 0)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+    }
+    requestAnimationFrame(render)
+  }
+  // shader is live: hand the rays over from CSS to GPU and fade in
+  stage.classList.add('webgl-on')
+  requestAnimationFrame(() => canvas.classList.add('is-on'))
+  requestAnimationFrame(render)
+}
+
+// ---- INTRO LIGHT-MOTE CURSOR ----
+// A soft warm glow that trails the pointer through the canopy ("you carry light into the
+// clearing"). Sits behind the leaves so it never washes out the headline, leaves the
+// native cursor untouched, and only runs on fine pointers (skipped on touch / reduced motion).
+function initIntroCursor() {
+  if (reduceMotion) return
+  if (!window.matchMedia || !window.matchMedia('(pointer: fine)').matches) return
+  const stage = document.getElementById('intro-stage')
+  if (!stage) return
+  const dot = document.createElement('div')
+  dot.className = 'intro-cursor'
+  dot.setAttribute('aria-hidden', 'true')
+  stage.appendChild(dot)
+  let tx = 0, ty = 0, x = 0, y = 0, raf = null, active = false
+  const loop = () => {
+    x += (tx - x) * 0.18; y += (ty - y) * 0.18
+    dot.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`
+    if (Math.abs(tx - x) > 0.1 || Math.abs(ty - y) > 0.1) raf = requestAnimationFrame(loop)
+    else raf = null
+  }
+  stage.addEventListener('pointermove', (e) => {
+    const r = stage.getBoundingClientRect()
+    tx = e.clientX - r.left; ty = e.clientY - r.top
+    if (!active) { active = true; dot.classList.add('is-active') }
+    if (!raf) raf = requestAnimationFrame(loop)
+  }, { passive: true })
+  stage.addEventListener('pointerleave', () => { active = false; dot.classList.remove('is-active') }, { passive: true })
+}
+
+// ---- AMBIENT FOREST SOUND ----
+// Off by default, generated live with Web Audio (no audio files): filtered brown noise for
+// the wind, two slow LFOs for gusts, and a faint band-passed rustle. Never autoplays (the
+// AudioContext is built on the user's click), only sings while the intro is on screen, and
+// drops to silence when the tab is hidden. If Web Audio is missing the control stays hidden.
+function initAmbientSound() {
+  const btn = document.getElementById('sound-toggle')
+  if (!btn) return
+  const AC = window.AudioContext || window.webkitAudioContext
+  if (!AC) return
+  btn.hidden = false
+
+  let ctx = null, master = null, enabled = false, introVisible = true
+
+  const build = () => {
+    ctx = new AC()
+    master = ctx.createGain()
+    master.gain.value = 0
+    master.connect(ctx.destination)
+
+    // brown noise = the body of the wind
+    const len = Math.floor(ctx.sampleRate * 4)
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate)
+    const d = buf.getChannelData(0)
+    let last = 0
+    for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.2 }
+
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 0.6
+    const wind = ctx.createGain(); wind.gain.value = 0.5
+    src.connect(lp); lp.connect(wind); wind.connect(master)
+
+    // slow gusts: LFOs sweep the cutoff + breathe the gain
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.06
+    const lfoF = ctx.createGain(); lfoF.gain.value = 260
+    lfo.connect(lfoF); lfoF.connect(lp.frequency)
+    const lfo2 = ctx.createOscillator(); lfo2.frequency.value = 0.09
+    const lfo2G = ctx.createGain(); lfo2G.gain.value = 0.16
+    lfo2.connect(lfo2G); lfo2G.connect(wind.gain)
+
+    // faint high rustle of leaves
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 0.7
+    const rsrc = ctx.createBufferSource(); rsrc.buffer = buf; rsrc.loop = true
+    const rgain = ctx.createGain(); rgain.gain.value = 0.04
+    rsrc.connect(bp); bp.connect(rgain); rgain.connect(master)
+
+    src.start(); rsrc.start(); lfo.start(); lfo2.start()
+  }
+
+  const target = () => (enabled && introVisible ? 0.13 : 0)
+  const ramp = () => {
+    if (!ctx) return
+    const g = master.gain, t = target()
+    g.cancelScheduledValues(ctx.currentTime)
+    g.setValueAtTime(g.value, ctx.currentTime)
+    g.linearRampToValueAtTime(t, ctx.currentTime + (t > 0 ? 1.1 : 0.6))
+  }
+
+  btn.addEventListener('click', async () => {
+    if (!ctx) build()
+    if (ctx.state === 'suspended') { try { await ctx.resume() } catch (e) {} }
+    enabled = !enabled
+    btn.setAttribute('aria-pressed', String(enabled))
+    btn.setAttribute('aria-label', enabled ? 'Mute ambient forest sound' : 'Play ambient forest sound')
+    ramp()
+  })
+
+  const stage = document.getElementById('intro-stage')
+  if (stage && 'IntersectionObserver' in window) {
+    new IntersectionObserver(([en]) => {
+      introVisible = en.isIntersecting
+      btn.classList.toggle('is-hidden', !introVisible)
+      ramp()
+    }, { threshold: 0 }).observe(stage)
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return
+    if (document.hidden) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0, ctx.currentTime) }
+    else ramp()
+  })
 }
 
 // ---- SEARCH SHORTCUT ----
@@ -2243,10 +2495,45 @@ function initOfflineIndicator() {
   sync()
 }
 
+// ---- FIRST-PAINT CURTAIN ----
+// The brand curtain in the markup plays + self-clears via CSS even without JS. Here we
+// only make it skippable on first interaction and remove the node once it's done, so it
+// never lingers in the DOM or eats clicks. Under reduced motion it's already display:none,
+// so we just remove it immediately.
+function initFirstPaint() {
+  const curtain = document.querySelector('.intro-curtain')
+  if (!curtain) return
+  let removed = false
+  const done = () => { if (removed) return; removed = true; cleanup(); curtain.remove() }
+  if (reduceMotion) { done(); return }
+  const skip = () => {
+    if (removed) return
+    curtain.classList.add('curtain-skip')
+    setTimeout(done, 440)
+    cleanup()
+  }
+  const cleanup = () => {
+    window.removeEventListener('pointerdown', skip)
+    window.removeEventListener('keydown', skip)
+    window.removeEventListener('wheel', skip)
+    window.removeEventListener('touchstart', skip)
+  }
+  curtain.addEventListener('animationend', (e) => { if (e.target === curtain) done() })
+  window.addEventListener('pointerdown', skip, { passive: true })
+  window.addEventListener('keydown', skip)
+  window.addEventListener('wheel', skip, { passive: true })
+  window.addEventListener('touchstart', skip, { passive: true })
+  setTimeout(done, 2400)   // backstop: clear even if animationend never fires (e.g. backgrounded tab)
+}
+
+initFirstPaint()
 initHeroMotion()
 initMagnetic()
 initCardTilt()
 initLeafIntro()
+initIntroFX()
+initIntroCursor()
+initAmbientSound()
 initSearchShortcut()
 initOfflineIndicator()
 

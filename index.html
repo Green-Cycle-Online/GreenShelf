@@ -79,6 +79,16 @@
 
   <a href="#main-content" class="skip-link">Skip to content</a>
 
+  <!-- First-paint reveal: a brand curtain that lifts to unveil the canopy. Pure-CSS so it
+       plays (and auto-clears itself) even if app.js never boots; app.js only makes it
+       skippable and removes it from the DOM. Hidden entirely under prefers-reduced-motion. -->
+  <div class="intro-curtain" aria-hidden="true">
+    <div class="cur-mark">
+      <svg class="cur-leaf" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" fill="currentColor" fill-opacity="0.14"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
+      <span class="cur-word">GreenShelf</span>
+    </div>
+  </div>
+
   <header>
     <nav>
       <div class="logo" id="logo-link">
@@ -161,6 +171,7 @@
 
         <div class="intro-light" aria-hidden="true"></div>
         <div class="god-rays" aria-hidden="true"></div>
+        <canvas class="intro-fx" id="intro-fx" aria-hidden="true"></canvas>
 
         <div class="scatter-layer" id="scatter-layer" aria-hidden="true"></div>
 
@@ -168,6 +179,14 @@
           <span>Scroll to enter</span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </div>
+
+        <!-- Off-by-default ambient forest sound. Generated live with Web Audio (no audio files),
+             never autoplays, and only plays while the intro is on screen. Hidden until JS confirms
+             Web Audio is available, so it never appears as a dead control. -->
+        <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="false" aria-label="Play ambient forest sound" title="Ambient sound" hidden>
+          <svg class="ic-off" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+          <svg class="ic-on" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        </button>
       </div><!-- /.intro-stage -->
     </section><!-- /.intro -->
 
