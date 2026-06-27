@@ -355,16 +355,36 @@ nav {
   font-family: 'Fraunces', serif;
   font-weight: 600;
   font-size: clamp(2.6rem, 6.4vw, 4.9rem);
-  line-height: 1.0;
+  line-height: 1.04;
   letter-spacing: -0.04em;
   color: var(--ink);
   margin-bottom: 26px;
-  text-wrap: balance;
-  animation: heroRise 0.8s var(--ease-out) 0.08s both;
+}
+/* Line-mask reveal: each line sits in an overflow-clipped band and rises into view
+   from below. padding/margin pair gives descenders room without clipping. */
+.hero-title .hl {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+}
+.hero-title .hl > * {
+  display: block;
+  transform: translateY(115%);
+  animation: lineRise 0.95s var(--ease-out) both;
+}
+.hero-title .hl:nth-child(1) > * { animation-delay: 0.14s; }
+.hero-title .hl:nth-child(2) > * { animation-delay: 0.30s; }
+@keyframes lineRise {
+  from { transform: translateY(115%); }
+  to   { transform: translateY(0); }
 }
 .hero-title em {
   color: var(--gold); font-style: italic; font-weight: 500;
   position: relative;
+}
+:root[data-theme="dark"] .hero-title em {
+  text-shadow: 0 0 32px color-mix(in srgb, var(--gold-soft) 34%, transparent);
 }
 .hero-sub {
   font-family: 'Inter', sans-serif;
@@ -373,11 +393,11 @@ nav {
   color: var(--ink-soft);
   margin-bottom: 36px;
   max-width: 580px;
-  animation: heroRise 0.8s var(--ease-out) 0.16s both;
+  animation: heroRise 0.8s var(--ease-out) 0.5s both;
 }
 .hero-actions {
   display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
-  animation: heroRise 0.8s var(--ease-out) 0.24s both;
+  animation: heroRise 0.8s var(--ease-out) 0.62s both;
 }
 .hero-actions .btn-primary { padding: 14px 26px; font-size: 0.96rem; }
 .hero-actions .btn-secondary { padding: 14px 26px; font-size: 0.96rem; }
@@ -1417,6 +1437,46 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
   to   { transform: translate3d(3%, 1.5%, 0) scale(1.08); }
 }
 
+/* God-rays: shafts of light pouring through the canopy gap. A band of soft gold
+   stripes, radially masked so they're brightest at the top opening and dissolve
+   toward the floor. Sits above the warm pool (z:1), below the leaves (z:5) so the
+   canopy reads as casting them. Opacity is the only scroll-driven value; the slow
+   sway and on-load bloom run on separate, cheap properties. */
+.god-rays {
+  position: absolute; inset: -10% -14% 0; z-index: 2; pointer-events: none;
+  background: repeating-linear-gradient(
+    95deg,
+    transparent 0 30px,
+    color-mix(in srgb, var(--gold-soft) 30%, transparent) 42px,
+    transparent 52px 104px
+  );
+  -webkit-mask-image: radial-gradient(72% 86% at 50% -8%, #000 4%, rgba(0,0,0,0.34) 38%, transparent 76%);
+          mask-image: radial-gradient(72% 86% at 50% -8%, #000 4%, rgba(0,0,0,0.34) 38%, transparent 76%);
+  mix-blend-mode: screen;
+  opacity: calc(0.34 + 0.5 * var(--p, 0));
+  animation: glowIn 1.9s var(--ease-out) 0.25s backwards, rayDrift 15s ease-in-out infinite alternate;
+  will-change: opacity, transform;
+}
+.god-rays::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    88deg,
+    transparent 0 64px,
+    color-mix(in srgb, var(--gold-soft) 18%, transparent) 80px,
+    transparent 96px 188px
+  );
+  -webkit-mask-image: inherit; mask-image: inherit;
+  mix-blend-mode: screen;
+  animation: rayDrift 23s ease-in-out infinite alternate-reverse;
+  will-change: transform;
+}
+:root[data-theme="dark"] .god-rays { opacity: calc(0.42 + 0.55 * var(--p, 0)); }
+@keyframes glowIn { from { opacity: 0; } }
+@keyframes rayDrift {
+  from { transform: translateX(-2.5%) rotate(-1.2deg); }
+  to   { transform: translateX(2.5%) rotate(1.2deg); }
+}
+
 .scatter-layer {
   position: absolute; inset: 0; pointer-events: none; z-index: 5;
   transform-origin: 50% 44%;
@@ -1442,7 +1502,7 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
 /* Entrance wrapper: isolated from the leaf-card scroll transform and the lf-w idle sway,
    so the on-load settle composes cleanly with both. backwards fill hides the leaf during
    its stagger delay, then hands control back so scroll-parting works untouched. */
-.leaf-card .lf-in { width: 100%; height: 100%; animation: leafIn 0.8s var(--ease-out) var(--ein, 0s) backwards; }
+.leaf-card .lf-in { width: 100%; height: 100%; animation: leafIn 1s var(--ease-out) var(--ein, 0s) backwards; }
 .leaf-card .lf-w { width: 100%; height: 100%; transform-origin: 50% 50%; }
 .leaf-card .lf-w.idle { animation: leafIdle var(--fdur, 7s) ease-in-out var(--fdelay, 0s) infinite; }
 .leaf-card svg { display: block; width: 100%; height: 100%; }
@@ -1451,7 +1511,7 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
   50%      { transform: translateY(-7px) rotate(2.4deg); }
 }
 @keyframes leafIn {
-  from { opacity: 0; transform: translateY(-26px) scale(0.6); }
+  from { opacity: 0; transform: translateY(-62px) rotate(-15deg) scale(0.46); }
   to   { opacity: 1; transform: none; }
 }
 .scroll-hint {
@@ -1471,6 +1531,7 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
   .intro-hero { position: static; }
   .intro-hero .hero { padding-top: 80px; padding-bottom: 72px; }
   .intro-hero .hero-bg { display: block; }
-  .scatter-layer, .scroll-hint, .intro-light { display: none; }
-  .leaf-card .lf-w.idle, .leaf-card .lf-in, .intro-light, .intro-light::before { animation: none; }
+  .scatter-layer, .scroll-hint, .intro-light, .god-rays { display: none; }
+  .leaf-card .lf-w.idle, .leaf-card .lf-in, .intro-light, .intro-light::before, .god-rays, .god-rays::before { animation: none; }
+  .hero-title .hl > * { transform: none; animation: none; }
 }
