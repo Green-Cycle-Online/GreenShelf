@@ -1,0 +1,14 @@
+# Tooling / agent scratch
+.claude/
+.impeccable/
+
+# Local design previews (not part of the live site)
+book-preview.html
+hero-preview.html
+intro-preview.html
+
+# Internal planning notes
+PRODUCT.md
+
+# OS junk
+.DS_Store

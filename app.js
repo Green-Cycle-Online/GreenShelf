@@ -34,6 +34,39 @@ const BOOK_ICON_SVG = `<svg class="ph-book" viewBox="0 0 24 24" fill="none" stro
 let currentView = 'browse'
 let currentPage = 1
 let currentFilteredListings = []
+// ---- ERROR LOG (admin diagnostics) ----
+// Quietly captures uncaught errors and unhandled promise rejections so the admin
+// diagnostics panel can surface crashes that would otherwise vanish into the console.
+// Kept small and saved to localStorage so a refresh does not wipe the trail.
+const ERROR_LOG_KEY = 'gs-error-log'
+const ERROR_LOG_MAX = 50
+function readErrorLog() {
+  try { return JSON.parse(localStorage.getItem(ERROR_LOG_KEY)) || [] } catch (e) { return [] }
+}
+function recordError(type, message, source) {
+  try {
+    const log = readErrorLog()
+    log.unshift({
+      time: new Date().toISOString(),
+      type,
+      message: String(message == null ? 'Unknown error' : message).slice(0, 500),
+      source: String(source || '').slice(0, 300),
+    })
+    localStorage.setItem(ERROR_LOG_KEY, JSON.stringify(log.slice(0, ERROR_LOG_MAX)))
+  } catch (e) { /* never let logging throw */ }
+}
+window.addEventListener('error', (e) => {
+  const where = e.filename ? `${e.filename}:${e.lineno || 0}:${e.colno || 0}` : ''
+  recordError('error', e.message || (e.error && e.error.message), where)
+})
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e.reason
+  let msg = 'Unhandled promise rejection'
+  if (reason && reason.message) msg = reason.message
+  else if (typeof reason === 'string') msg = reason
+  else if (reason) { try { msg = JSON.stringify(reason) } catch (err) {} }
+  recordError('promise', msg, 'unhandled rejection')
+})
 // ---- TOASTS & CONFIRM ----
 function showToast(message, type = 'info') {
   let container = document.getElementById('toast-container')
@@ -639,10 +672,30 @@ async function loadAdminStats() {
         </table>
       `}
     </div>
+    <div class="admin-card">
+      <div class="diag-head">
+        <h3>Diagnostics</h3>
+        <button type="button" class="btn-secondary" id="run-health-checks">Run health checks</button>
+      </div>
+      <div id="health-results" class="diag-results">
+        <p class="muted">Run a check to test the database, storage, sign-in, service worker, and offline cache.</p>
+      </div>
+    </div>
+    <div class="admin-card">
+      <div class="diag-head">
+        <h3>Error log</h3>
+        <div class="diag-head-actions">
+          <button type="button" class="btn-secondary" id="copy-error-log">Copy</button>
+          <button type="button" class="btn-secondary" id="clear-error-log">Clear</button>
+        </div>
+      </div>
+      <div id="error-log-list" class="error-log"></div>
+    </div>
   `
   content.querySelectorAll('[data-report-action]').forEach(btn => {
     btn.addEventListener('click', () => handleReportAction(btn.dataset.reportId, btn.dataset.reportAction, btn.dataset.listingId))
   })
+  wireDiagnostics(content)
   const counterToggle = content.querySelector('#toggle-live-counter')
   if (counterToggle) counterToggle.addEventListener('click', async () => {
     const next = !siteSettings.show_live_counter
@@ -700,6 +753,145 @@ async function handleReportAction(reportId, action, listingId) {
     showToast('Report dismissed.', 'success')
     await loadAdminStats()
   }
+}
+// ---- ADMIN DIAGNOSTICS ----
+function wireDiagnostics(content) {
+  const errorLogList = content.querySelector('#error-log-list')
+  if (errorLogList) errorLogList.innerHTML = renderErrorLogEntries()
+
+  const runBtn = content.querySelector('#run-health-checks')
+  if (runBtn) runBtn.addEventListener('click', async () => {
+    const out = content.querySelector('#health-results')
+    runBtn.disabled = true
+    if (out) out.innerHTML = '<div class="loading">Running checks…</div>'
+    const results = await runHealthChecks()
+    if (out) out.innerHTML = renderHealthChecks(results)
+    runBtn.disabled = false
+  })
+
+  const copyBtn = content.querySelector('#copy-error-log')
+  if (copyBtn) copyBtn.addEventListener('click', async () => {
+    const log = readErrorLog()
+    const text = log.length
+      ? log.map(e => `[${e.time}] ${e.type}: ${e.message}${e.source ? ' (' + e.source + ')' : ''}`).join('\n')
+      : 'No errors logged.'
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast('Error log copied.', 'success')
+    } catch (err) {
+      showToast("Couldn't copy to clipboard.", 'error')
+    }
+  })
+
+  const clearBtn = content.querySelector('#clear-error-log')
+  if (clearBtn) clearBtn.addEventListener('click', async () => {
+    const ok = await customConfirm({
+      title: 'Clear the error log?',
+      message: 'This removes all captured errors from this browser. It cannot be undone.',
+      confirmText: 'Clear',
+    })
+    if (!ok) return
+    try { localStorage.removeItem(ERROR_LOG_KEY) } catch (e) {}
+    if (errorLogList) errorLogList.innerHTML = renderErrorLogEntries()
+    showToast('Error log cleared.', 'success')
+  })
+}
+async function runHealthChecks() {
+  const results = []
+  const push = (label, status, detail) => results.push({ label, status, detail })
+
+  // Network
+  push('Network', navigator.onLine ? 'pass' : 'warn',
+    navigator.onLine ? 'Browser reports online.' : 'Browser is offline. Live data will not load.')
+
+  // Auth session
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session && session.user) push('Sign-in session', 'pass', `Signed in as ${session.user.email}.`)
+    else push('Sign-in session', 'warn', 'No active session.')
+  } catch (e) { push('Sign-in session', 'fail', e.message) }
+
+  // Admin rights
+  push('Admin access', isAdmin ? 'pass' : 'warn',
+    isAdmin ? 'Current user has admin rights.' : 'Current user is not an admin.')
+
+  // Database tables
+  const tables = ['listings', 'profiles', 'reports', 'site_settings']
+  for (const t of tables) {
+    try {
+      const { count, error } = await supabase.from(t).select('*', { count: 'exact', head: true })
+      if (error) push(`Table: ${t}`, 'fail', error.message)
+      else push(`Table: ${t}`, 'pass', `Reachable${typeof count === 'number' ? ` (${count} rows readable)` : ''}.`)
+    } catch (e) { push(`Table: ${t}`, 'fail', e.message) }
+  }
+
+  // Storage bucket
+  try {
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).list('', { limit: 1 })
+    if (error) push(`Storage: ${PHOTO_BUCKET}`, 'fail', error.message)
+    else push(`Storage: ${PHOTO_BUCKET}`, 'pass', 'Photo bucket reachable.')
+  } catch (e) { push(`Storage: ${PHOTO_BUCKET}`, 'fail', e.message) }
+
+  // Service worker
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration()
+      if (reg && (reg.active || reg.waiting || reg.installing)) {
+        const state = reg.active ? 'active' : reg.waiting ? 'waiting' : 'installing'
+        push('Service worker', 'pass', `Registered (${state}).`)
+      } else push('Service worker', 'warn', 'Not registered yet. Reload once to install it.')
+    } else push('Service worker', 'warn', 'Not supported in this browser.')
+  } catch (e) { push('Service worker', 'fail', e.message) }
+
+  // Offline cache
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys()
+      const gsCache = keys.find(k => k.startsWith('greenshelf-'))
+      if (gsCache) push('Offline cache', 'pass', `Present (${gsCache}).`)
+      else push('Offline cache', 'warn', 'No GreenShelf cache found yet.')
+    } else push('Offline cache', 'warn', 'Cache API not supported.')
+  } catch (e) { push('Offline cache', 'fail', e.message) }
+
+  // Captured errors
+  const errCount = readErrorLog().length
+  push('Captured errors', errCount === 0 ? 'pass' : 'warn',
+    errCount === 0 ? 'No JavaScript errors logged.' : `${errCount} error${errCount === 1 ? '' : 's'} logged. See the error log below.`)
+
+  return results
+}
+function renderHealthChecks(results) {
+  const counts = results.reduce((a, r) => (a[r.status] = (a[r.status] || 0) + 1, a), {})
+  const summary = `${counts.pass || 0} passed, ${counts.warn || 0} warnings, ${counts.fail || 0} failed`
+  return `
+    <div class="diag-summary">${summary}</div>
+    <ul class="diag-list">
+      ${results.map(r => `
+        <li class="diag-row diag-${r.status}">
+          <span class="diag-dot" aria-hidden="true"></span>
+          <span class="diag-text">
+            <span class="diag-label">${escapeHtml(r.label)}</span>
+            <span class="diag-detail">${escapeHtml(r.detail || '')}</span>
+          </span>
+          <span class="diag-badge">${r.status}</span>
+        </li>
+      `).join('')}
+    </ul>
+  `
+}
+function renderErrorLogEntries() {
+  const log = readErrorLog()
+  if (!log.length) return '<p class="muted">No errors captured. 🌿</p>'
+  return log.map(e => `
+    <div class="error-entry">
+      <div class="error-entry-head">
+        <span class="error-entry-type error-${e.type === 'promise' ? 'promise' : 'error'}">${escapeHtml(e.type)}</span>
+        <span class="error-entry-time">${formatRelativeTime(e.time)}</span>
+      </div>
+      <div class="error-entry-msg">${escapeHtml(e.message)}</div>
+      ${e.source ? `<div class="error-entry-src">${escapeHtml(e.source)}</div>` : ''}
+    </div>
+  `).join('')
 }
 function countBy(items, key) {
   const counts = {}
