@@ -2170,8 +2170,10 @@ function initLeafIntro() {
       const idle = rnd() < 0.35
       const fdur = (5.5 + rnd() * 4).toFixed(1)
       const fdelay = (-rnd() * 6).toFixed(1)
+      // on-load entrance stagger: top of the canopy settles first, edges/lower leaves follow
+      const ein = (Math.max(0, (top + 8) / 108) * 0.3 + rnd() * 0.1).toFixed(2)
       const pair = LEAF_PAIRS[li % LEAF_PAIRS.length]
-      html += `<div class="leaf-card" style="left:${left.toFixed(1)}%; top:${top.toFixed(1)}%; width:${size}px; height:${size}px; --tx:${tx}vw; --ty:${ty}vh; --r0:${r0}deg; --dr:${dr}deg; --s:${s}; --depth:${depth.toFixed(2)}; --o0:${o0}; --fdur:${fdur}s; --fdelay:${fdelay}s; z-index:${Math.round(depth * 100)};"><div class="lf-w${idle ? ' idle' : ''}">${leafSVG('lf' + li, pair[0], pair[1])}</div></div>`
+      html += `<div class="leaf-card" style="left:${left.toFixed(1)}%; top:${top.toFixed(1)}%; width:${size}px; height:${size}px; --tx:${tx}vw; --ty:${ty}vh; --r0:${r0}deg; --dr:${dr}deg; --s:${s}; --depth:${depth.toFixed(2)}; --o0:${o0}; --fdur:${fdur}s; --fdelay:${fdelay}s; --ein:${ein}s; z-index:${Math.round(depth * 100)};"><div class="lf-in"><div class="lf-w${idle ? ' idle' : ''}">${leafSVG('lf' + li, pair[0], pair[1])}</div></div></div>`
       li++
     }
   }
