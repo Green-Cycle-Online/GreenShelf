@@ -88,7 +88,7 @@ function updateNav() {
       : `<a href="#" id="browse-link">Browse</a>`
     navAuth.innerHTML = `
       ${viewLink}
-      <button class="btn-primary" id="new-listing-btn">+ List a book</button>
+      <button class="btn-primary" id="new-listing-btn">+ List<span class="cta-extra">&nbsp;a book</span></button>
       <span class="nav-user">${escapeHtml(displayEmail)}</span>
       ${isAdmin ? '<a href="#" class="admin-badge admin-link" id="admin-link">ADMIN</a>' : ''}
       <button class="btn-secondary" id="signout-btn">Sign out</button>
@@ -103,12 +103,19 @@ function updateNav() {
     if (adminLink) adminLink.addEventListener('click', (e) => { e.preventDefault(); showAdminView() })
   } else {
     navAuth.innerHTML = `
-      <a href="#browse">Browse</a>
-      <button class="btn-secondary" id="nav-list-btn">+ List a book</button>
+      <a href="#browse" id="browse-anchor">Browse</a>
+      <button class="btn-secondary" id="nav-list-btn">+ List<span class="cta-extra">&nbsp;a book</span></button>
       <button class="btn-primary" id="signin-btn">Sign in</button>
     `
     document.getElementById('signin-btn').addEventListener('click', showAuthModal)
     document.getElementById('nav-list-btn').addEventListener('click', () => showCreateListingModal())
+    const browseAnchor = document.getElementById('browse-anchor')
+    if (browseAnchor) browseAnchor.addEventListener('click', (e) => {
+      e.preventDefault()
+      if (currentView !== 'browse') showBrowseView()
+      const b = document.getElementById('browse')
+      if (b) b.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+    })
   }
 }
 function showAuthModal(opts = {}) {
@@ -335,7 +342,7 @@ function resumePendingListingIfAny() {
 }
 // ---- VIEW SWITCHING ----
 // Home view = hero + browse + how + why. Hide all of those when switching to profile/about/faq/admin.
-const HOME_SECTIONS = ['.hero', '.impact', '.browse', '.how', '.sdg', '.why', '.cta-band']
+const HOME_SECTIONS = ['.intro', '.impact', '.browse', '.how', '.sdg', '.why', '.cta-band']
 function hideAllSections() {
   HOME_SECTIONS.forEach(sel => {
     const el = document.querySelector(sel)
@@ -456,7 +463,7 @@ function ensureAboutSection() {
     <div class="about-grid">
       <div class="about-person">
         <div class="about-photo">
-          <img src="hitesh.jpeg" alt="Hitesh" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="hitesh.jpeg" alt="Hitesh Gurnani, co-founder of GreenShelf" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="about-photo-fallback" style="display:none;">H</div>
         </div>
         <h3>Hitesh Gurnani</h3>
@@ -464,7 +471,7 @@ function ensureAboutSection() {
       </div>
       <div class="about-person">
         <div class="about-photo">
-          <img src="anshul.jpeg" alt="Anshul" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="anshul.jpeg" alt="Anshul Date, co-founder of GreenShelf" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="about-photo-fallback" style="display:none;">A</div>
         </div>
         <h3>Anshul Date</h3>
@@ -919,8 +926,8 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       const src = slot.url || (slot.file ? URL.createObjectURL(slot.file) : '')
       return `
         <div class="photo-slot">
-          <img src="${escapeHtml(src)}" alt="" loading="lazy">
-          <button type="button" class="photo-remove" data-index="${i}" aria-label="Remove">×</button>
+          <img src="${escapeHtml(src)}" alt="Selected photo ${i + 1}" loading="lazy">
+          <button type="button" class="photo-remove" data-index="${i}" aria-label="Remove photo ${i + 1}">×</button>
         </div>
       `
     }).join('')
@@ -1312,7 +1319,15 @@ function renderFilterChips() {
     </span>
   `).join('') + (chips.length > 1 ? `<button type="button" class="fchip-clear" id="fchip-clear">Clear all</button>` : '')
   chipsEl.querySelectorAll('.fchip-x').forEach(btn => {
-    btn.addEventListener('click', () => clearFilter(btn.dataset.key))
+    btn.addEventListener('click', () => {
+      const chip = btn.closest('.fchip')
+      if (chip && !reduceMotion) {
+        chip.classList.add('fchip-out')
+        chip.addEventListener('animationend', () => clearFilter(btn.dataset.key), { once: true })
+      } else {
+        clearFilter(btn.dataset.key)
+      }
+    })
   })
   const clearBtn = chipsEl.querySelector('#fchip-clear')
   if (clearBtn) clearBtn.addEventListener('click', clearAllFilters)
@@ -1644,8 +1659,6 @@ if (popularRow) popularRow.addEventListener('click', (e) => {
 document.getElementById('logo-link').addEventListener('click', () => showBrowseView())
 document.getElementById('footer-about').addEventListener('click', (e) => { e.preventDefault(); showAboutView() })
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
-const heroListBtn = document.getElementById('hero-list-btn')
-if (heroListBtn) heroListBtn.addEventListener('click', () => showCreateListingModal())
 const ctaListBtn = document.getElementById('cta-list-btn')
 if (ctaListBtn) ctaListBtn.addEventListener('click', () => showCreateListingModal())
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -1684,6 +1697,8 @@ if (themeToggle) {
 
 // ---- SCROLL REVEAL ----
 function registerReveal(root = document) {
+  // app.js booted, so the head-script failsafe is no longer needed.
+  if (window.__revealFailsafe) { clearTimeout(window.__revealFailsafe); window.__revealFailsafe = null }
   const els = root.querySelectorAll('.reveal:not(.is-visible)')
   if (!els.length) return
   if (reduceMotion || !('IntersectionObserver' in window)) {
@@ -1739,7 +1754,8 @@ async function setLiveCounter(enabled) {
   const { error } = await supabase.from('site_settings')
     .upsert({ key: 'show_live_counter', value: enabled }, { onConflict: 'key' })
   if (error) {
-    showToast("Couldn't save. Is the site_settings table set up? " + error.message, 'error')
+    console.error('setLiveCounter failed:', error)
+    showToast("Couldn't save your change. Please try again.", 'error')
     return false
   }
   siteSettings.show_live_counter = enabled
@@ -1804,19 +1820,25 @@ function initHeroMotion() {
   const cards = [...visual.querySelectorAll('.float-card')]
   if (!cards.length) return
   const rots = [-7, 5, -2]
-  const cfg = cards.map((el, i) => ({
-    el,
-    depth: parseFloat(el.dataset.depth) || 18,
-    rot: rots[i] ?? 0,
-    phase: i * 1.4,
-    amp: 6 + i * 3,
-  }))
+  const cfg = cards.map((el, i) => {
+    const depth = parseFloat(el.dataset.depth) || 18
+    return {
+      el,
+      depth,
+      rot: rots[i] ?? 0,
+      phase: i * 1.4,
+      amp: 6 + i * 3,
+      tilt: 7 + i * 3,        // closer cards lean further toward the pointer
+      z: (depth - 24) * 1.4,  // base depth plane → real layer separation under perspective
+    }
+  })
   visual.classList.add('is-interactive')
   let tmx = 0, tmy = 0, mx = 0, my = 0, visible = true
+  const clamp = (v) => v < -0.6 ? -0.6 : v > 0.6 ? 0.6 : v
   hero.addEventListener('pointermove', (e) => {
     const r = visual.getBoundingClientRect()
-    tmx = (e.clientX - r.left) / r.width - 0.5
-    tmy = (e.clientY - r.top) / r.height - 0.5
+    tmx = clamp((e.clientX - r.left) / r.width - 0.5)
+    tmy = clamp((e.clientY - r.top) / r.height - 0.5)
   })
   hero.addEventListener('pointerleave', () => { tmx = 0; tmy = 0 })
   if ('IntersectionObserver' in window) {
@@ -1827,12 +1849,19 @@ function initHeroMotion() {
     if (visible) {
       mx += (tmx - mx) * 0.07
       my += (tmy - my) * 0.07
+      // sheen sweep follows the pointer across the whole cluster
+      visual.style.setProperty('--lx', ((mx + 0.5) * 100).toFixed(1) + '%')
+      visual.style.setProperty('--ly', ((my + 0.5) * 100).toFixed(1) + '%')
       const t = (now - start) / 1000
       for (const c of cfg) {
         const fy = Math.sin(t * 0.85 + c.phase) * c.amp
         const px = mx * c.depth
         const py = my * c.depth + fy
-        c.el.style.transform = `translate3d(${px.toFixed(2)}px, ${py.toFixed(2)}px, 0) rotate(${c.rot}deg)`
+        const rx = (-my * c.tilt).toFixed(2)
+        const ry = (mx * c.tilt).toFixed(2)
+        c.el.style.transform =
+          `translate3d(${px.toFixed(2)}px, ${py.toFixed(2)}px, ${c.z.toFixed(1)}px) ` +
+          `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${c.rot}deg)`
       }
     }
     requestAnimationFrame(frame)
@@ -1910,7 +1939,11 @@ function initLeafIntro() {
 
   // build an even, full-width canopy: dense ceiling across the top + columns trailing down the
   // left & right edges (full corners), short/clear in the centre for the headline, soft feather down.
-  const COLS = 20, ROWS = 16
+  // lighter canopy on phones / low-power devices: fewer grid cells = fewer leaves to
+  // transform per scroll frame, keeping the intro at 60fps. Positions stay percentage-based
+  // so the canopy still spans the full width, just less dense.
+  const isMobile = window.innerWidth < 700
+  const COLS = isMobile ? 12 : 20, ROWS = isMobile ? 12 : 16
   let html = '', li = 0
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
@@ -1918,7 +1951,7 @@ function initLeafIntro() {
       const top = (r + 0.5) / ROWS * 108 - 8 + (rnd() * 6 - 3)
       if (top < 11 && left > 4 && left < 19) continue   // keep the logo wordmark clear
       const cen = 1 - Math.abs(left - 50) / 50
-      const topReach = 42 - 11 * cen                     // centre ~31, edges ~42 — fuller corners, even band
+      const topReach = 42 - 11 * cen                     // centre ~31, edges ~42, fuller corners, even band
       const dTop = Math.max(0, 1 - (top + 8) / topReach)
       const dLeft = Math.max(0, 1 - left / 26) * Math.max(0, 1 - (top + 6) / 42)
       const dRight = Math.max(0, 1 - (100 - left) / 26) * Math.max(0, 1 - (top + 6) / 42)
@@ -1983,75 +2016,45 @@ function initLeafIntro() {
   }, { passive: true })
 }
 
-// ---- HEADER SEARCH (top-right) ----
-// Opens a panel that suggests from the real listings; selecting / Enter hands off to the main
-// browse search (#search) and scrolls to the shelf.
-function initNavSearch() {
-  const wrap = document.getElementById('nav-search')
-  const toggle = document.getElementById('nav-search-toggle')
-  const input = document.getElementById('nav-search-input')
-  const list = document.getElementById('nav-suggests')
-  const label = document.getElementById('nav-suggest-label')
-  if (!wrap || !toggle || !input || !list) return
-
-  const ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`
-
-  function render(q) {
-    const ql = q.trim().toLowerCase()
-    const seen = new Set()
-    const matched = []
-    for (const b of allListings) {
-      const hit = !ql || (b.title || '').toLowerCase().includes(ql) || (b.subject || '').toLowerCase().includes(ql) || (b.grade_level || '').toLowerCase().includes(ql)
-      const key = (b.title || '').toLowerCase()
-      if (hit && key && !seen.has(key)) { seen.add(key); matched.push(b) }
-      if (matched.length >= 6) break
-    }
-    if (label) label.textContent = ql ? 'Matches' : 'Browse the shelf'
-    list.innerHTML = matched.length
-      ? matched.map(b => `<button class="nav-suggest" type="button" data-q="${escapeHtml(b.title)}">${ICON}<span>${escapeHtml(b.title)}</span><span class="ns-tag">${escapeHtml([b.grade_level, b.subject].filter(Boolean).join(' · '))}</span></button>`).join('')
-      : `<div class="nav-suggest" style="cursor:default">${allListings.length ? 'No matches — try a subject or grade.' : 'Loading the shelf…'}</div>`
-  }
-  render('')
-
-  const open = () => { wrap.classList.add('open'); toggle.setAttribute('aria-expanded', 'true'); render(input.value); setTimeout(() => input.focus(), 40) }
-  const close = () => { wrap.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false') }
-
-  function goToResults(q) {
-    close()
-    const main = document.getElementById('search')
-    if (main) {
-      main.value = q != null ? q : input.value
-      main.dispatchEvent(new Event('input', { bubbles: true }))
-    }
-    const browse = document.getElementById('browse')
-    if (browse) browse.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
-  }
-
-  toggle.addEventListener('click', () => wrap.classList.contains('open') ? close() : open())
-  input.addEventListener('input', () => render(input.value))
-  list.addEventListener('click', (e) => {
-    const btn = e.target.closest('.nav-suggest[data-q]')
-    if (!btn) return
-    input.value = btn.dataset.q
-    goToResults(btn.dataset.q)
-  })
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') goToResults()
-    if (e.key === 'Escape') { close(); toggle.focus() }
-  })
-  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close() })
+// ---- SEARCH SHORTCUT ----
+// One search lives in the browse section. '/' jumps to it from anywhere on the page.
+function initSearchShortcut() {
   document.addEventListener('keydown', (e) => {
     const tag = document.activeElement && document.activeElement.tagName
     const modalOpen = document.querySelector('.modal-backdrop:not(.hidden)')
-    if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT' && !modalOpen) { e.preventDefault(); open() }
+    if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT' && !modalOpen) {
+      e.preventDefault()
+      const main = document.getElementById('search')
+      const browse = document.getElementById('browse')
+      if (browse) browse.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+      if (main) setTimeout(() => main.focus(), reduceMotion ? 0 : 360)
+    }
   })
+}
+
+// ---- OFFLINE INDICATOR ----
+// Quiet status pill that slides up when the connection drops and slides away when it
+// returns. The cached shell still loads offline, but live listings need the network, so
+// the message is honest about that.
+function initOfflineIndicator() {
+  const el = document.createElement('div')
+  el.className = 'offline-banner'
+  el.setAttribute('role', 'status')
+  el.setAttribute('aria-live', 'polite')
+  el.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><span>You're offline. New books won't load until you reconnect.</span>`
+  document.body.appendChild(el)
+  const sync = () => el.classList.toggle('is-visible', !navigator.onLine)
+  window.addEventListener('online', sync)
+  window.addEventListener('offline', sync)
+  sync()
 }
 
 initHeroMotion()
 initMagnetic()
 initCardTilt()
 initLeafIntro()
-initNavSearch()
+initSearchShortcut()
+initOfflineIndicator()
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {

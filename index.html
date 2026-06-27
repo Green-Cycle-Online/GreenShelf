@@ -24,13 +24,50 @@
   <meta name="twitter:description" content="A free, friendly way for students, parents, and schools in Oman to share textbooks at the end of the year.">
   <meta name="twitter:image" content="https://greenshelf.online/og-image.png">
   <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="canonical" href="https://greenshelf.online/">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://greenshelf.online/#organization",
+        "name": "GreenShelf",
+        "url": "https://greenshelf.online/",
+        "logo": "https://greenshelf.online/icon-512.png",
+        "description": "A free, no-fee book exchange that helps students, parents, and schools in Oman pass on school textbooks instead of throwing them away.",
+        "foundingDate": "2026",
+        "founder": [
+          { "@type": "Person", "name": "Hitesh Gurnani" },
+          { "@type": "Person", "name": "Anshul Date" }
+        ],
+        "areaServed": { "@type": "Country", "name": "Oman" }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://greenshelf.online/#website",
+        "url": "https://greenshelf.online/",
+        "name": "GreenShelf",
+        "description": "A free, friendly way for students, parents, and schools in Oman to share textbooks at the end of the year.",
+        "publisher": { "@id": "https://greenshelf.online/#organization" },
+        "inLanguage": "en"
+      }
+    ]
+  }
+  </script>
   <script>
     (function () {
+      var d = document.documentElement;
       try {
         var saved = localStorage.getItem('gs-theme');
         var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
+        d.setAttribute('data-theme', theme);
       } catch (e) {}
+      // Scroll-reveal is opt-in: hide pre-animation state ONLY while JS is confirmed
+      // running. The failsafe reveals everything if app.js never boots, so a broken
+      // or slow script can't ship blank sections. Cleared in app.js once it loads.
+      d.classList.add('js-reveal');
+      window.__revealFailsafe = setTimeout(function () { d.classList.remove('js-reveal'); }, 2500);
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,6 +77,8 @@
 </head>
 <body>
 
+  <a href="#main-content" class="skip-link">Skip to content</a>
+
   <header>
     <nav>
       <div class="logo" id="logo-link">
@@ -47,21 +86,6 @@
         <span>GreenShelf</span>
       </div>
       <div class="nav-right">
-        <div class="nav-search" id="nav-search">
-          <button class="nav-search-toggle" id="nav-search-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Search books">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg>
-            <span class="ns-label">Search books</span>
-            <span class="kbd">/</span>
-          </button>
-          <div class="nav-search-panel" id="nav-search-panel" role="dialog" aria-label="Search">
-            <div class="nav-search-field">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg>
-              <input type="search" id="nav-search-input" placeholder="Search by title, subject or grade…" autocomplete="off">
-            </div>
-            <div class="nav-suggest-label" id="nav-suggest-label">Popular right now</div>
-            <div class="nav-suggests" id="nav-suggests"></div>
-          </div>
-        </div>
         <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -73,7 +97,7 @@
     </nav>
   </header>
 
-  <main>
+  <main id="main-content">
 
     <!-- ───────── HERO + LEAF-CANOPY INTRO (scroll to part the leaves) ───────── -->
     <section class="intro" id="intro">
@@ -94,7 +118,6 @@
           <p class="hero-sub">Find what your child needs next year. Give away what they're done with. Free for everyone, no fees, no commission, direct contact.</p>
           <div class="hero-actions">
             <a href="#browse" class="btn btn-primary" data-magnetic>Browse the books →</a>
-            <button class="btn btn-secondary" id="hero-list-btn" data-magnetic>List a book</button>
             <span class="hero-stat" id="hero-stat" hidden><strong id="hero-stat-num">0</strong> books shared so far</span>
           </div>
         </div>
@@ -148,9 +171,8 @@
     <section class="impact" id="impact">
       <div class="impact-bg" aria-hidden="true"><span class="impact-orb"></span></div>
       <div class="impact-head reveal">
-        <span class="eyebrow">The quiet math of a shared book</span>
         <h2>A textbook doesn't have to die at the end of term.</h2>
-        <p>Every book kept in circulation is one less printed, saving paper and carbon, term after term.</p>
+        <p>Every book kept in circulation is one fewer printed, and one less in the bin, term after term.</p>
       </div>
       <div class="impact-grid">
         <div class="impact-tile reveal" style="--i:0">
@@ -169,7 +191,7 @@
     <section class="browse" id="browse">
       <div class="browse-head reveal">
         <h2>The books, right now</h2>
-        <p>Free for everyone. No accounts needed to look.</p>
+        <p>Free for everyone, and you don't need an account just to look.</p>
       </div>
 
       <div class="filters">
@@ -219,8 +241,7 @@
     <!-- ───────── HOW IT WORKS (compact, 1 screen, side-by-side) ───────── -->
     <section class="how">
       <div class="how-head reveal">
-        <span class="eyebrow">How it works</span>
-        <h2>Three steps. No money. No fuss.</h2>
+        <h2>Three simple steps, start to finish.</h2>
       </div>
       <ol class="steps">
         <li class="reveal" style="--i:0">
@@ -231,7 +252,7 @@
         <li class="reveal" style="--i:1">
           <span class="step-num">02</span>
           <h3>Reach out</h3>
-          <p>Message them on WhatsApp, call, or email directly. No app inboxes, no anonymous chat, no middleman.</p>
+          <p>Message them on WhatsApp, call, or email directly, with no app inbox or middleman in between.</p>
         </li>
         <li class="reveal" style="--i:2">
           <span class="step-num">03</span>
@@ -244,25 +265,51 @@
     <!-- ───────── SDG ALIGNMENT (the global-goals frame) ───────── -->
     <section class="sdg" id="sdg">
       <div class="sdg-head reveal">
-        <span class="eyebrow">Aligned with the UN Global Goals</span>
         <h2>A small idea, pointed at big goals.</h2>
         <p>GreenShelf is a local act of reuse that ladders up to three of the United Nations Sustainable Development Goals.</p>
       </div>
       <div class="sdg-grid">
-        <div class="sdg-card sdg-4 reveal" style="--i:0">
-          <span class="sdg-num">04</span>
-          <h3>Quality Education</h3>
-          <p>Lowering the cost of textbooks so the next student is never priced out of the books they need to learn.</p>
+        <div class="sdg-card sdg-4 reveal" style="--i:0" tabindex="0">
+          <div class="sdg-card-inner">
+            <div class="sdg-face sdg-front">
+              <span class="sdg-num">04</span>
+              <h3>Quality Education</h3>
+              <p>Lowering the cost of textbooks so the next student is never priced out of the books they need to learn.</p>
+            </div>
+            <div class="sdg-face sdg-back">
+              <span class="sdg-target">UN Target 4.1</span>
+              <p class="sdg-back-quote">Every child completing free, equitable, quality education.</p>
+              <p>GreenShelf keeps the cost of each new school year close to zero, so no student is priced out.</p>
+            </div>
+          </div>
         </div>
-        <div class="sdg-card sdg-12 reveal" style="--i:1">
-          <span class="sdg-num">12</span>
-          <h3>Responsible Consumption</h3>
-          <p>Reuse over re-buy, by default, keeping good books in circulation instead of in a landfill.</p>
+        <div class="sdg-card sdg-12 reveal" style="--i:1" tabindex="0">
+          <div class="sdg-card-inner">
+            <div class="sdg-face sdg-front">
+              <span class="sdg-num">12</span>
+              <h3>Responsible Consumption</h3>
+              <p>Reuse over re-buy, by default, keeping good books in circulation instead of in a landfill.</p>
+            </div>
+            <div class="sdg-face sdg-back">
+              <span class="sdg-target">UN Target 12.5</span>
+              <p class="sdg-back-quote">Substantially reduce waste through prevention and reuse.</p>
+              <p>Every book passed on here is one not reprinted, repackaged, or sent to landfill.</p>
+            </div>
+          </div>
         </div>
-        <div class="sdg-card sdg-13 reveal" style="--i:2">
-          <span class="sdg-num">13</span>
-          <h3>Climate Action</h3>
-          <p>Every reused book quietly avoids the carbon of printing, binding, and shipping a brand-new one.</p>
+        <div class="sdg-card sdg-13 reveal" style="--i:2" tabindex="0">
+          <div class="sdg-card-inner">
+            <div class="sdg-face sdg-front">
+              <span class="sdg-num">13</span>
+              <h3>Climate Action</h3>
+              <p>Every reused book quietly avoids the carbon of printing, binding, and shipping a brand-new one.</p>
+            </div>
+            <div class="sdg-face sdg-back">
+              <span class="sdg-target">UN Target 13.3</span>
+              <p class="sdg-back-quote">Build education and awareness on climate action.</p>
+              <p>Skipping one reprint avoids the carbon of paper, ink, binding, and freight.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -270,7 +317,6 @@
     <!-- ───────── WHY (compact, brief story) ───────── -->
     <section class="why">
       <div class="why-inner reveal">
-        <span class="eyebrow">Why we built this</span>
         <p class="why-quote">
           Every June in Oman, perfectly good textbooks pile up in homes, and two streets away, a family is searching for that exact book. <em>GreenShelf is the bridge.</em>
         </p>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page not found · GreenShelf</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('gs-theme');
+        var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    :root { --paper: #f6f1e6; --ink: #1b1712; --ink-soft: #4a4236; --accent: #2f5e44; }
+    :root[data-theme="dark"] { --paper: #16140f; --ink: #f3ecdc; --ink-soft: #b9b09c; --accent: #79b894; }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .wrap { max-width: 30rem; }
+    svg { color: var(--accent); margin-bottom: 1.5rem; }
+    h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); line-height: 1.2; margin-bottom: 0.75rem; }
+    p { color: var(--ink-soft); font-size: 1.05rem; line-height: 1.6; margin-bottom: 1.75rem; }
+    a.home {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 10px;
+    }
+    :root[data-theme="dark"] a.home { color: #10231a; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" fill="currentColor" fill-opacity="0.14"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
+    <h1>This page wandered off.</h1>
+    <p>The page you were looking for isn't here. It may have moved, or the link might be out of date. Let's get you back to the books.</p>
+    <a class="home" href="/">Back to GreenShelf</a>
+  </div>
+</body>
+</html>

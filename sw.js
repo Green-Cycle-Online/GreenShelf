@@ -1,9 +1,10 @@
-const CACHE_NAME = 'greenshelf-v7';
+const CACHE_NAME = 'greenshelf-v19';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/404.html',
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png'
