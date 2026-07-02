@@ -425,7 +425,10 @@ function resumePendingListingIfAny() {
 const SAVED_KEY = 'gs_saved'
 let savedOnly = false
 function getSavedIds() {
-  try { return JSON.parse(localStorage.getItem(SAVED_KEY)) || [] } catch (e) { return [] }
+  try {
+    const ids = JSON.parse(localStorage.getItem(SAVED_KEY))
+    return Array.isArray(ids) ? ids : []
+  } catch (e) { return [] }
 }
 function isSaved(id) { return getSavedIds().includes(String(id)) }
 function savedCount() { return getSavedIds().length }
@@ -833,8 +836,8 @@ function renderReport(r) {
         ${r.notes ? `<div class="report-notes">"${escapeHtml(r.notes)}"</div>` : ''}
       </div>
       <div class="report-actions">
-        ${listing ? `<button class="btn-secondary" data-report-action="view" data-report-id="${r.id}" data-listing-id="${listing.id}">View</button>` : ''}
-        <button class="btn-secondary" data-report-action="dismiss" data-report-id="${r.id}">Dismiss</button>
+        ${listing ? `<button class="btn-secondary" data-report-action="view" data-report-id="${escapeHtml(r.id)}" data-listing-id="${escapeHtml(listing.id)}">View</button>` : ''}
+        <button class="btn-secondary" data-report-action="dismiss" data-report-id="${escapeHtml(r.id)}">Dismiss</button>
       </div>
     </div>
   `
@@ -1003,7 +1006,9 @@ function renderErrorLogEntries() {
   `).join('')
 }
 function countBy(items, key) {
-  const counts = {}
+  // Null prototype: user-entered values like "constructor" must not collide
+  // with Object.prototype keys and corrupt the counts
+  const counts = Object.create(null)
   for (const item of items) {
     const v = item[key]
     if (v == null || v === '') continue
@@ -1801,7 +1806,8 @@ function showModal(listing) {
   const contactLabel = contactLabelFor(listing.contact_method)
   const isOwner = currentUser && listing.owner_id === currentUser.id
   const isClaimed = listing.status === 'claimed'
-  const photos = Array.isArray(listing.photos) ? listing.photos : []
+  const photos = (Array.isArray(listing.photos) ? listing.photos : [])
+    .filter(p => typeof p === 'string' && /^https:\/\//.test(p))
   let photoBlockHtml
   if (photos.length === 0) {
     photoBlockHtml = `<div class="modal-image no-photo">${bookCoverHTML(listing)}</div>`

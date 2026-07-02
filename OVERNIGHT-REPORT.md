@@ -1,7 +1,7 @@
 # Overnight security + hardening report
 
 Session date: 2026-07-02 (overnight). All changes are LOCAL ONLY, nothing committed or pushed.
-Service worker cache bumped to `greenshelf-v32` (one bump covers this whole wave).
+Service worker cache is at `greenshelf-v34` (one bump per wave: v32 security, v33 a11y, v34 wave 4).
 
 ## The short version
 
@@ -129,3 +129,58 @@ were one careful reviewer, not adversarial agent panels, because the subagent bu
 
 7. **Sample data is still live:** all 9 current listings are "(Sample)" entries. Clear them
    (admin delete) before sharing the site publicly; I cannot and did not touch the database.
+
+## Wave 4: agent panel over the patched tree (after the token budget reset)
+
+The budget reset mid-night, so Wave 4 ran as a real 5-finder agent panel with adversarial
+verification. It then hit the limit AGAIN partway through verification (next reset 5:30pm),
+so I confirmed the unverified findings myself before fixing. Nine more fixes, cache v34:
+
+1. sw.js: the background cache refresh was a detached promise the browser could kill when the
+   service worker shut down; it is now registered with event.waitUntil. (Agent-confirmed 2/2.)
+2. sw.js: offline requests for never-cached assets handed `undefined` to respondWith (a spec
+   violation that throws TypeError); now returns a proper network-error Response.
+   (Agent-confirmed 3/3.)
+3. landing.js: the condition value was interpolated into a class attribute unescaped
+   (`c-${cond}`), the same pattern fixed in app.js earlier. Escaped.
+4. landing.js: ribbon marquee links were keyboard-focusable inside an aria-hidden container;
+   now tabindex -1 (the marquee is decorative and duplicated).
+5. app.js: the modal photo list is now filtered to https URLs up front, closing the gap where
+   the FIRST carousel photo bypassed the scheme guard the other photos had.
+6. app.js: report action buttons interpolated raw DB ids into data attributes; escaped for
+   consistency with every other id render.
+7. app.js: a hand-edited localStorage gs_saved value that parsed to a non-array could crash the
+   whole browse render; now Array.isArray-guarded.
+8. app.js: admin stats countBy used a plain object, so subjects named "constructor" or
+   "__proto__" corrupted counts; now a null-prototype object.
+9. landing-new.html dark theme: the skip link and the CTA band rendered white text on light
+   green (about 2.3:1, WCAG fail). Dark theme now uses dark ink there; light theme unchanged.
+   Verified live in both themes.
+
+Wave 4 verification: v34 active, 9 cards + hearts + saved toggle intact, modal opens clean,
+landing renders 9 cards, CTA dark ink confirmed computed in dark and white in light, zero
+console output on both pages. node --check passes on all three JS files; no em/en dashes.
+
+### Flagged, deliberately NOT fixed (cosmetic, low risk, your call)
+
+- landing-new.html: WebKit shows its native search-clear x next to the custom one (add
+  `input[type="search"]::-webkit-search-cancel-button { display: none }` if it bothers you).
+- landing-new.html: a `.field.full` rule references a class the markup never uses, so the
+  condition filter sits half-width at narrow widths. Purely visual, page still works.
+- landing-new.html: step numbers ask for italic 600 but the italic font file is declared
+  400-500; the browser synthesizes the weight. This was equally true with the old Google
+  Fonts CSS, so nothing regressed; a taller declared range may work if the subset file
+  really is variable to 700, but I could not verify that safely overnight.
+
+## Final status
+
+Waves: 1 (agent panel, 19 raw findings), 2 and 3 (inline, both dry), 4 (agent panel on the
+patched tree: only my own new sw.js code and pre-existing polish items surfaced; all fixed).
+The find-fix-verify loop is dry. Site verified working after every wave. Nothing pushed.
+
+## Git state when you wake up
+
+You (not me) made a local commit at 23:03 called "yes" (fff2429) containing waves 1-3.
+It is NOT pushed (main is ahead of origin by 1). The Wave 4 fixes are uncommitted on top,
+in: app.js, sw.js, landing.js, landing-new.html, and this report. To ship everything:
+commit the working tree in GitHub Desktop, then push both commits together.

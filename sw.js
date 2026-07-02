@@ -1,4 +1,4 @@
-const CACHE_NAME = 'greenshelf-v33';
+const CACHE_NAME = 'greenshelf-v34';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -61,16 +61,22 @@ self.addEventListener('fetch', (event) => {
   // security fixes) reach returning visitors even between CACHE_NAME bumps.
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const fresh = fetch(event.request)
-        .then((resp) => {
-          if (resp && resp.ok && resp.type === 'basic') {
-            const copy = resp.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return resp;
-        })
-        .catch(() => cached);
-      return cached || fresh;
+      const fresh = fetch(event.request).then((resp) => {
+        if (resp && resp.ok && resp.type === 'basic') {
+          const copy = resp.clone();
+          // waitUntil keeps the worker alive until the refreshed copy is stored
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)));
+        }
+        return resp;
+      });
+      if (cached) {
+        // Serve instantly; let the refresh finish in the background, ignore failures
+        event.waitUntil(fresh.then(() => {}, () => {}));
+        return cached;
+      }
+      // Nothing cached: network is the only source. respondWith must receive a
+      // Response, so surface a proper network error instead of undefined.
+      return fresh.catch(() => Response.error());
     })
   );
 });

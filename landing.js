@@ -141,7 +141,7 @@
             <div class="bk-tags">
               ${l.grade_level ? `<span class="t t-g">${escapeHtml(l.grade_level)}</span>` : ''}
               ${l.subject ? `<span class="t t-s">${escapeHtml(l.subject)}</span>` : ''}
-              ${cond ? `<span class="t t-c c-${cond}">${escapeHtml(cond)}</span>` : ''}
+              ${cond ? `<span class="t t-c c-${escapeHtml(cond)}">${escapeHtml(cond)}</span>` : ''}
             </div>
             ${loc ? `<div class="bk-loc">${pinIcon}<span>${escapeHtml(loc)}</span></div>` : ''}
           </div>
@@ -231,7 +231,7 @@
       const withPhotos = all.filter(l => l.photos && typeof l.photos[0] === 'string' && /^https:\/\//.test(l.photos[0])).slice(0, 14)
       if (withPhotos.length < 5) return
       const cells = withPhotos.map(l =>
-        `<a class="mq-cell" href="index.html#listing/${encodeURIComponent(l.id)}" title="${escapeHtml(l.title)}"><img src="${escapeHtml(l.photos[0])}" alt="" loading="lazy"></a>`
+        `<a class="mq-cell" href="index.html#listing/${encodeURIComponent(l.id)}" title="${escapeHtml(l.title)}" tabindex="-1"><img src="${escapeHtml(l.photos[0])}" alt="" loading="lazy"></a>`
       ).join('')
       el.mq.innerHTML = cells + cells
       el.ribbon.hidden = false

@@ -142,6 +142,8 @@
       background: var(--accent); color: #fff; padding: 10px 16px; border-radius: 10px;
       transition: top 0.18s var(--ease-out);
     }
+    /* Dark accent is a light green: white text fails contrast there */
+    :root[data-theme="dark"] .skip-link { color: #16140f; }
     .skip-link:focus { top: 12px; }
 
     /* ───────── NAV ───────── */
@@ -474,6 +476,12 @@
     .cta-row .btn-primary:hover { background: #f3ecdb; }
     .cta-row .btn-ghost { color: #fff; border-color: rgba(255,255,255,0.5); }
     .cta-row .btn-ghost:hover { border-color: #fff; background: rgba(255,255,255,0.08); color: #fff; }
+    /* Dark theme flips the CTA gradient to light greens: use dark ink on it */
+    :root[data-theme="dark"] .cta-card h2 { color: #10231a; }
+    :root[data-theme="dark"] .cta-card p { color: rgba(16, 35, 26, 0.85); }
+    :root[data-theme="dark"] .cta-row .btn-primary { color: #214733; }
+    :root[data-theme="dark"] .cta-row .btn-ghost { color: #10231a; border-color: rgba(16, 35, 26, 0.45); }
+    :root[data-theme="dark"] .cta-row .btn-ghost:hover { border-color: #10231a; background: rgba(16, 35, 26, 0.1); color: #10231a; }
 
     /* ───────── FOOTER ───────── */
     footer { padding: clamp(36px, 6vw, 56px) 0; border-top: 1px solid var(--hairline); }
