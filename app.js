@@ -1,7 +1,13 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
-const SUPABASE_URL = 'https://wvladknkebqiqutboohw.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2bGFka25rZWJxaXF1dGJvb2h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTAxMjksImV4cCI6MjA5MzEyNjEyOX0.xHIZHgUQ72XRxHtQkHBJ4AbI7M9shejCPR5iv5SmqJ4'
+// Supabase is self-hosted (vendor/supabase.js, loaded as a classic script before
+// this module), so createClient comes off the global it exposes. No third-party
+// CDN at runtime: better supply-chain safety and full offline support.
+const { createClient } = window.supabase
+const SUPABASE_URL = window.GS_CONFIG.SUPABASE_URL
+const SUPABASE_KEY = window.GS_CONFIG.SUPABASE_KEY
 const PHOTO_BUCKET = 'book-photos'
+// Allowed upload types. Blocks SVG (can carry scripts) and anything exotic;
+// the storage key extension comes from this map, never from the client filename.
+const PHOTO_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
 const BASE_SUBJECTS = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business']
 const AREAS_MUSCAT = ['Al Khoud', 'Al Khuwair', 'Al Hail', 'Al Mabela', 'Al Mawaleh', 'Azaiba', 'Bausher', 'Ghubra', 'Madinat Qaboos', 'Mutrah', 'Qurum', 'Ruwi', 'Seeb']
 const AREAS_OTHER_OMAN = ['Bahla', 'Barka', 'Buraimi', 'Ibri', 'Khasab', 'Liwa', 'Nizwa', 'Rustaq', 'Saham', 'Salalah', 'Sohar', 'Sur', 'Suwaiq']
@@ -31,6 +37,29 @@ let currentProfile = null
 let isAdmin = false
 let siteSettings = { show_live_counter: false }
 const BOOK_ICON_SVG = `<svg class="ph-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v13"/><path d="M3 18a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>`
+// Small leaf mark (matches the brand logo) used as the imprint on generated covers.
+const LEAF_MARK_SVG = `<svg class="bc-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" fill="currentColor" fill-opacity="0.16"/><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>`
+// Deterministic 0..N-1 index from a string, so a given subject always gets the
+// same cover colourway (a muted publisher-series look, not random per render).
+function coverIndex(str, n) {
+  let h = 0
+  const s = String(str || '')
+  for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0 }
+  return h % n
+}
+// Generated typographic book cover for listings without a photo. Turns an empty
+// placeholder box into a real, distinct "book on a shelf".
+function bookCoverHTML(l) {
+  const idx = coverIndex(l.subject || l.title || '', 5)
+  const foot = [l.grade_level, l.subject].filter(Boolean).join(' · ')
+  return `<div class="book-cover cover-${idx}" aria-hidden="true">
+      <div class="bc-head">
+        <span class="bc-mark">${LEAF_MARK_SVG}</span>
+        <span class="bc-title">${escapeHtml(l.title)}</span>
+      </div>
+      ${foot ? `<span class="bc-foot">${escapeHtml(foot)}</span>` : ''}
+    </div>`
+}
 let currentView = 'browse'
 let currentPage = 1
 let currentFilteredListings = []
@@ -356,26 +385,98 @@ supabase.auth.onAuthStateChange((event, session) => {
     showBrowseView()
   }
 })
+// Draft fields we accept back from localStorage, with hard length caps.
+// localStorage is same-origin but treat it as untrusted anyway: another tab,
+// an old bug, or a devtools paste could leave arbitrary content in it.
+const DRAFT_LIMITS = {
+  title: 120, subject: 60, grade_level: 20, area: 60, school: 120,
+  condition: 30, description: 500, owner_name: 60, contact_method: 20, contact_value: 60,
+}
 function resumePendingListingIfAny() {
   let draft = null
   try {
     const raw = localStorage.getItem('gs_pending_listing')
     if (raw) draft = JSON.parse(raw)
   } catch (_) {}
-  if (!draft) return
+  if (!draft || typeof draft !== 'object') return
   localStorage.removeItem('gs_pending_listing')
+  // Drafts expire after 24h so an abandoned draft's PII never lingers
+  if (!draft._ts || (Date.now() - draft._ts) > 864e5) return
+  const clean = {}
+  for (const key in DRAFT_LIMITS) {
+    if (typeof draft[key] === 'string') clean[key] = draft[key].slice(0, DRAFT_LIMITS[key])
+  }
+  if (Array.isArray(draft.photos)) {
+    const safePhotos = draft.photos.filter(p => typeof p === 'string' && /^https:\/\//.test(p)).slice(0, 5)
+    if (safePhotos.length) clean.photos = safePhotos
+  }
   // Give the auth modal a beat to close
   setTimeout(() => {
     const hadFiles = !!draft._guestHadFiles
-    delete draft._guestHadFiles
-    showCreateListingModal(null, draft)
+    showCreateListingModal(null, clean)
     if (hadFiles) showToast("You'll need to re-add your photos, sorry!", 'info')
     else showToast("Welcome 🌿 Your listing is ready. Click Post to publish.", 'success')
   }, 250)
 }
+// ---- SAVED BOOKS (favourites: no account, localStorage, offline-safe) ----
+// Visitors keep a private shortlist without signing up. We store just the listing
+// ids in localStorage, so it survives reloads, works fully offline, and never
+// leaves the device. Fits the no-account, privacy-first nature of GreenShelf.
+const SAVED_KEY = 'gs_saved'
+let savedOnly = false
+function getSavedIds() {
+  try { return JSON.parse(localStorage.getItem(SAVED_KEY)) || [] } catch (e) { return [] }
+}
+function isSaved(id) { return getSavedIds().includes(String(id)) }
+function savedCount() { return getSavedIds().length }
+function toggleSaved(id) {
+  id = String(id)
+  const ids = getSavedIds()
+  const at = ids.indexOf(id)
+  if (at === -1) ids.push(id)
+  else ids.splice(at, 1)
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(ids)) } catch (e) {}
+  return at === -1 // true when it is now saved
+}
+// Keep every control bound to this listing (card heart + modal button) in sync
+// after a toggle, so the heart fills everywhere at once.
+function reflectSavedState(id, nowSaved) {
+  document.querySelectorAll(`[data-save="${CSS.escape(String(id))}"]`).forEach(b => {
+    b.classList.toggle('is-saved', nowSaved)
+    b.setAttribute('aria-pressed', String(nowSaved))
+    if (b.classList.contains('card-save')) {
+      b.setAttribute('aria-label', nowSaved ? 'Remove from saved' : 'Save this book')
+      b.title = nowSaved ? 'Saved' : 'Save'
+    }
+    const lbl = b.querySelector('.save-btn-label')
+    if (lbl) lbl.textContent = nowSaved ? 'Saved' : 'Save'
+  })
+}
+function handleSaveToggle(id, originBtn) {
+  const nowSaved = toggleSaved(id)
+  reflectSavedState(id, nowSaved)
+  if (originBtn && !reduceMotion) {
+    originBtn.classList.remove('pop'); void originBtn.offsetWidth; originBtn.classList.add('pop')
+  }
+  updateSavedToggle()
+  showToast(nowSaved ? 'Saved to your list' : 'Removed from saved', nowSaved ? 'success' : 'info')
+  if (savedOnly) applyFilters() // re-filter so an un-saved book drops out of the saved view
+}
+function updateSavedToggle() {
+  const btn = document.getElementById('saved-toggle')
+  if (!btn) return
+  const count = savedCount()
+  if (count === 0 && savedOnly) savedOnly = false
+  const countEl = document.getElementById('saved-count')
+  if (countEl) countEl.textContent = count
+  btn.hidden = count === 0
+  btn.classList.toggle('is-active', savedOnly)
+  btn.setAttribute('aria-pressed', String(savedOnly))
+}
+
 // ---- VIEW SWITCHING ----
 // Home view = hero + browse + how + why. Hide all of those when switching to profile/about/faq/admin.
-const HOME_SECTIONS = ['.intro', '.impact', '.browse', '.how', '.sdg', '.why', '.cta-band']
+const HOME_SECTIONS = ['.intro', '.impact', '.browse', '.how', '.sdg', '.partners', '.why', '.cta-band']
 function hideAllSections() {
   HOME_SECTIONS.forEach(sel => {
     const el = document.querySelector(sel)
@@ -445,11 +546,11 @@ function ensureProfileSection() {
       <h3>Your details</h3>
       <form id="profile-form" class="profile-form">
         <label class="auth-label">Name
-          <input type="text" name="full_name" placeholder="What should we call you?">
+          <input type="text" name="full_name" maxlength="60" placeholder="What should we call you?">
         </label>
         <div class="profile-row">
           <label class="auth-label">School (optional)
-            <input type="text" name="school" placeholder="e.g. British School Muscat">
+            <input type="text" name="school" maxlength="120" placeholder="e.g. British School Muscat">
           </label>
           <label class="auth-label">Grade (optional)
             <select name="grade_level">
@@ -496,7 +597,7 @@ function ensureAboutSection() {
     <div class="about-grid">
       <div class="about-person">
         <div class="about-photo">
-          <img src="hitesh.jpeg" alt="Hitesh Gurnani, co-founder of GreenShelf" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="hitesh.jpeg" alt="Hitesh Gurnani, co-founder of GreenShelf" loading="lazy">
           <div class="about-photo-fallback" style="display:none;">H</div>
         </div>
         <h3>Hitesh Gurnani</h3>
@@ -504,7 +605,7 @@ function ensureAboutSection() {
       </div>
       <div class="about-person">
         <div class="about-photo">
-          <img src="anshul.jpeg" alt="Anshul Date, co-founder of GreenShelf" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="anshul.jpeg" alt="Anshul Date, co-founder of GreenShelf" loading="lazy">
           <div class="about-photo-fallback" style="display:none;">A</div>
         </div>
         <h3>Anshul Date</h3>
@@ -517,6 +618,14 @@ function ensureAboutSection() {
       <p>We thought: surely there's a calmer way. So we built GreenShelf, a small, free site to make book-sharing simple, searchable, and human. Pass it on, don't bin it.</p>
     </div>
   `
+  // Photo fallback wired in JS: inline onerror attributes are blocked by our CSP
+  section.querySelectorAll('.about-photo img').forEach((img) => {
+    img.addEventListener('error', () => {
+      img.style.display = 'none'
+      const fallback = img.nextElementSibling
+      if (fallback) fallback.style.display = 'flex'
+    })
+  })
   document.querySelector('main').appendChild(section)
   return section
 }
@@ -664,7 +773,7 @@ async function loadAdminStats() {
                 <td>${escapeHtml(l.title)}</td>
                 <td>${escapeHtml(l.area || '-')}</td>
                 <td>${escapeHtml(l.subject || '-')}</td>
-                <td><span class="admin-status-chip ${l.status}">${l.status}</span></td>
+                <td><span class="admin-status-chip ${escapeHtml(l.status)}">${escapeHtml(l.status)}</span></td>
                 <td class="muted">${formatRelativeTime(l.created_at)}</td>
               </tr>
             `).join('')}
@@ -954,8 +1063,8 @@ async function saveProfile(e) {
   btn.disabled = true
   btn.textContent = 'Saving…'
   const updates = {
-    full_name: form.full_name.value.trim() || null,
-    school: form.school.value.trim() || null,
+    full_name: form.full_name.value.trim().slice(0, 60) || null,
+    school: form.school.value.trim().slice(0, 120) || null,
     grade_level: form.grade_level.value || null,
   }
   const { error } = await supabase.from('profiles').update(updates).eq('id', currentUser.id)
@@ -1038,10 +1147,10 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
         <form id="create-form">
           <label class="auth-label">Photos (optional, up to ${MAX_PHOTOS})
             <div class="photos-grid" id="photos-grid"></div>
-            <input type="file" id="photos-input" accept="image/*" style="display: none;">
+            <input type="file" id="photos-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display: none;">
           </label>
           <label class="auth-label">Book title
-            <input type="text" name="title" required value="${escapeHtml(d.title || '')}">
+            <input type="text" name="title" required maxlength="120" value="${escapeHtml(d.title || '')}">
           </label>
           <div class="form-row">
             <label class="auth-label">Subject
@@ -1058,7 +1167,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
             </label>
           </div>
           <label class="auth-label" id="custom-subject-wrap" style="display: ${isCustomSubject ? '' : 'none'};">Specify subject
-            <input type="text" name="custom_subject" placeholder="e.g. Geography, Computer Science" value="${escapeHtml(customSubjectValue)}" ${isCustomSubject ? 'required' : ''}>
+            <input type="text" name="custom_subject" maxlength="60" placeholder="e.g. Geography, Computer Science" value="${escapeHtml(customSubjectValue)}" ${isCustomSubject ? 'required' : ''}>
           </label>
           <label class="auth-label">Pickup area
             <select name="area" required>
@@ -1074,10 +1183,10 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
             <small style="display:block; margin-top:4px; color: var(--text-muted); font-size: 0.85rem;">Just the general area, please. Never share your full address.</small>
           </label>
           <label class="auth-label" id="custom-area-wrap" style="display: ${isCustomArea ? '' : 'none'};">Specify area
-            <input type="text" name="custom_area" placeholder="Type the area only, not your address" value="${escapeHtml(customAreaValue)}" ${isCustomArea ? 'required' : ''}>
+            <input type="text" name="custom_area" maxlength="60" placeholder="Type the area only, not your address" value="${escapeHtml(customAreaValue)}" ${isCustomArea ? 'required' : ''}>
           </label>
           <label class="auth-label">School (optional)
-            <input type="text" name="school" placeholder="e.g. British School Muscat" value="${escapeHtml(schoolValue)}">
+            <input type="text" name="school" maxlength="120" placeholder="e.g. British School Muscat" value="${escapeHtml(schoolValue)}">
           </label>
           <label class="auth-label">Condition
             <select name="condition" required>
@@ -1088,10 +1197,10 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
             </select>
           </label>
           <label class="auth-label">About this book (optional)
-            <textarea name="description" rows="3" placeholder="Anything worth mentioning: highlighting, missing pages, etc.">${escapeHtml(d.description || '')}</textarea>
+            <textarea name="description" rows="3" maxlength="500" placeholder="Anything worth mentioning: highlighting, missing pages, etc.">${escapeHtml(d.description || '')}</textarea>
           </label>
           <label class="auth-label">Your name (shown on the listing)
-            <input type="text" name="owner_name" required value="${escapeHtml(ownerNameValue)}">
+            <input type="text" name="owner_name" required maxlength="60" value="${escapeHtml(ownerNameValue)}">
           </label>
           <div class="form-row">
             <label class="auth-label">Contact via
@@ -1102,7 +1211,8 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
               </select>
             </label>
             <label class="auth-label">Contact details
-              <input type="text" name="contact_value" required placeholder="96891234567" value="${escapeHtml(d.contact_value || '')}">
+              <input type="text" name="contact_value" required maxlength="60" placeholder="96891234567" value="${escapeHtml(d.contact_value || '')}">
+              <small style="display:block; margin-top:4px; color: var(--text-muted); font-size: 0.85rem;">Shown on your listing so people can reach you directly. For phone or WhatsApp, include the 968 country code.</small>
             </label>
           </div>
           <div class="auth-error" id="create-error"></div>
@@ -1140,7 +1250,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
   document.getElementById('photos-input').addEventListener('change', (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { showToast('Please pick an image.', 'error'); e.target.value = ''; return }
+    if (!PHOTO_TYPES[file.type]) { showToast('Please pick a JPG, PNG, WebP, or GIF image.', 'error'); e.target.value = ''; return }
     if (file.size > 5 * 1024 * 1024) { showToast('Image is over 5MB.', 'error'); e.target.value = ''; return }
     photoSlots.push({ url: null, file })
     e.target.value = ''
@@ -1181,6 +1291,21 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
     const submitBtn = modal.querySelector('#create-submit')
     const errorDiv = modal.querySelector('#create-error')
     errorDiv.textContent = ''
+    // Whitespace-only values satisfy the HTML required attribute but are junk data
+    if (!form.title.value.trim() || !form.owner_name.value.trim() || !form.contact_value.value.trim()) {
+      errorDiv.textContent = 'Please fill in the book title, your name, and your contact details.'
+      return
+    }
+    const contactMethod = form.contact_method.value
+    const contactValue = form.contact_value.value.trim()
+    if (contactMethod === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactValue)) {
+      errorDiv.textContent = "That email address doesn't look right. Double-check it?"
+      return
+    }
+    if ((contactMethod === 'phone' || contactMethod === 'whatsapp') && !/^\+?[0-9 ()-]{7,20}$/.test(contactValue)) {
+      errorDiv.textContent = "That number doesn't look right. Use digits with the 968 country code, e.g. 96891234567."
+      return
+    }
     const finalSubject = (form.subject.value === 'Other' && form.custom_subject && form.custom_subject.value.trim())
       ? form.custom_subject.value.trim()
       : form.subject.value
@@ -1205,6 +1330,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
         contact_value: form.contact_value.value.trim(),
         photos: photoUrlsSurvive.length ? photoUrlsSurvive : null,
         _guestHadFiles: photoSlots.some(s => s.file),
+        _ts: Date.now(),
       }
       try { localStorage.setItem('gs_pending_listing', JSON.stringify(draft)) } catch (_) {}
       closeCreateModal()
@@ -1218,7 +1344,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       if (slot.url && !slot.file) { photoUrls.push(slot.url); continue }
       if (slot.file) {
         if (!uploadingShown) { submitBtn.textContent = 'Uploading photos…'; uploadingShown = true }
-        const ext = (slot.file.name.split('.').pop() || 'jpg').toLowerCase()
+        const ext = PHOTO_TYPES[slot.file.type] || 'jpg'
         const fileName = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2,7)}.${ext}`
         const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(fileName, slot.file)
         if (uploadError) {
@@ -1291,7 +1417,7 @@ function showReportModal(listing) {
             </select>
           </label>
           <label class="auth-label">Notes (optional)
-            <textarea name="notes" rows="3" placeholder="Anything else we should know?"></textarea>
+            <textarea name="notes" rows="3" maxlength="500" placeholder="Anything else we should know?"></textarea>
           </label>
           <div class="auth-error" id="report-error"></div>
           <button type="submit" class="btn-primary auth-submit" id="report-submit">Submit report</button>
@@ -1316,7 +1442,7 @@ function showReportModal(listing) {
       listing_id: listing.id,
       reporter_id: currentUser.id,
       reason: form.reason.value,
-      notes: form.notes.value.trim() || null,
+      notes: form.notes.value.trim().slice(0, 500) || null,
     })
     if (error) {
       errorDiv.textContent = error.message
@@ -1379,6 +1505,7 @@ function ensureAreaFilter() {
   if (!filterGrid) return
   const select = document.createElement('select')
   select.id = 'area-filter'
+  select.setAttribute('aria-label', 'Filter by area')
   filterGrid.appendChild(select)
   select.addEventListener('change', applyFilters)
 }
@@ -1405,12 +1532,15 @@ function renderCard(l, i = 0) {
   const moreCount = (l.photos && l.photos.length > 1) ? l.photos.length - 1 : 0
   const isNew = l.created_at && (Date.now() - new Date(l.created_at).getTime() < 7 * 24 * 60 * 60 * 1000)
   const claimed = l.status === 'claimed'
+  const saved = isSaved(l.id)
+  const heartSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>`
   const pinSvg = `<svg class="card-location-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`
   return `
     <article class="card${claimed ? ' is-claimed' : ''}" data-id="${escapeHtml(l.id)}" style="--i:${i}">
       <div class="card-image${firstPhoto ? '' : ' no-photo'}">
         ${isNew && !claimed ? `<div class="card-new-badge">New</div>` : ''}
-        ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}" loading="lazy">` : BOOK_ICON_SVG}
+        <button type="button" class="card-save${saved ? ' is-saved' : ''}" data-save="${escapeHtml(l.id)}" aria-pressed="${saved}" aria-label="${saved ? 'Remove from saved' : 'Save this book'}" title="${saved ? 'Saved' : 'Save'}">${heartSvg}</button>
+        ${firstPhoto ? `<img src="${escapeHtml(firstPhoto)}" alt="${escapeHtml(l.title)}" loading="lazy">` : bookCoverHTML(l)}
         ${moreCount > 0 ? `<div class="photo-count">+${moreCount}</div>` : ''}
       </div>
       <div class="card-body">
@@ -1418,7 +1548,7 @@ function renderCard(l, i = 0) {
         <div class="card-meta">
           <span class="tag tag-grade">${escapeHtml(l.grade_level)}</span>
           <span class="tag tag-subject">${escapeHtml(l.subject)}</span>
-          <span class="tag tag-condition ${l.condition}">${escapeHtml(l.condition)}</span>
+          <span class="tag tag-condition ${escapeHtml(l.condition)}">${escapeHtml(l.condition)}</span>
         </div>
         ${l.area || l.school ? `<div class="card-location">${pinSvg}<span>${escapeHtml([l.area, l.school].filter(Boolean).join(' · '))}</span></div>` : ''}
       </div>
@@ -1432,11 +1562,27 @@ function renderListings(listings) {
   const totalPages = Math.max(1, Math.ceil(listings.length / PAGE_SIZE))
   if (currentPage > totalPages) currentPage = 1
   renderFilterChips()
+  updateSavedToggle()
 
   if (listings.length === 0) {
     const hasFilters = anyFiltersActive()
     const hasAnyListings = allListings.length > 0
     meta.textContent = '0 books'
+    if (savedOnly) {
+      const noneSaved = savedCount() === 0
+      grid.innerHTML = `
+        <div class="empty">
+          <div class="empty-title">${noneSaved ? 'No saved books yet.' : 'None of your saved books match these filters.'}</div>
+          <div class="empty-msg">${noneSaved ? 'Tap the heart on any book to keep it here for later. Your saves stay on this device, no account needed.' : 'Try clearing the search or filters.'}</div>
+          <div class="empty-cta">
+            <button type="button" class="btn btn-secondary" id="empty-saved-off">Browse all books</button>
+          </div>
+        </div>`
+      const savedOffBtn = document.getElementById('empty-saved-off')
+      if (savedOffBtn) savedOffBtn.addEventListener('click', () => { savedOnly = false; updateSavedToggle(); applyFilters() })
+      renderPagination(1)
+      return
+    }
     if (hasFilters) {
       grid.innerHTML = `
         <div class="empty">
@@ -1473,7 +1619,7 @@ function renderListings(listings) {
     ? '1 book'
     : totalPages === 1
       ? `${listings.length} books`
-      : `${listings.length} books · showing ${start + 1}–${end}`
+      : `${listings.length} books · showing ${start + 1} to ${end}`
   grid.innerHTML = pageItems.map(renderCard).join('')
   renderPagination(totalPages)
 }
@@ -1598,7 +1744,9 @@ function applyFilters() {
   const subject = document.getElementById('subject-filter').value
   const condition = document.getElementById('condition-filter').value
   const area = document.getElementById('area-filter') ? document.getElementById('area-filter').value : ''
+  const savedSet = savedOnly ? new Set(getSavedIds()) : null
   const filtered = allListings.filter(l => {
+    if (savedSet && !savedSet.has(String(l.id))) return false
     if (search && !l.title.toLowerCase().includes(search) && !l.subject.toLowerCase().includes(search)) return false
     if (grade && l.grade_level !== grade) return false
     if (subject && l.subject !== subject) return false
@@ -1656,7 +1804,7 @@ function showModal(listing) {
   const photos = Array.isArray(listing.photos) ? listing.photos : []
   let photoBlockHtml
   if (photos.length === 0) {
-    photoBlockHtml = `<div class="modal-image no-photo">${BOOK_ICON_SVG}</div>`
+    photoBlockHtml = `<div class="modal-image no-photo">${bookCoverHTML(listing)}</div>`
   } else {
     photoBlockHtml = `
       <div class="photo-carousel" data-index="0">
@@ -1671,8 +1819,11 @@ function showModal(listing) {
       </div>
     `
   }
+  const savedNow = isSaved(listing.id)
+  const modalHeartSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>`
   let actionsHtml = `
     <div class="owner-actions">
+      <button class="btn-secondary action-save${savedNow ? ' is-saved' : ''}" id="save-btn" data-save="${escapeHtml(listing.id)}" aria-pressed="${savedNow}">${modalHeartSvg}<span class="save-btn-label">${savedNow ? 'Saved' : 'Save'}</span></button>
       <button class="btn-secondary action-share" id="share-btn">Share</button>
       ${isOwner ? `
         <button class="btn-secondary" id="edit-btn">Edit</button>
@@ -1699,7 +1850,7 @@ function showModal(listing) {
           ${isClaimed ? `<span class="tag tag-status claimed">Claimed</span>` : ''}
           <span class="tag tag-grade">${escapeHtml(listing.grade_level)}</span>
           <span class="tag tag-subject">${escapeHtml(listing.subject)}</span>
-          <span class="tag tag-condition ${listing.condition}">${escapeHtml(listing.condition)}</span>
+          <span class="tag tag-condition ${escapeHtml(listing.condition)}">${escapeHtml(listing.condition)}</span>
         </div>
         ${listing.area ? `<div class="modal-section"><h3>Pickup area</h3><div>${escapeHtml(listing.area)}</div></div>` : ''}
         ${listing.school ? `<div class="modal-section"><h3>School</h3><div>${escapeHtml(listing.school)}</div></div>` : ''}
@@ -1708,7 +1859,7 @@ function showModal(listing) {
           <h3>Get in touch</h3>
           <div class="contact-card">
             <div class="contact-name">${escapeHtml(listing.owner_name)}</div>
-            <a href="${contactLink}" class="contact-link" target="_blank" rel="noopener">${contactLabel} ${escapeHtml(listing.contact_value)}</a>
+            <a href="${escapeHtml(contactLink)}" class="contact-link" target="_blank" rel="noopener noreferrer">${contactLabel} ${escapeHtml(listing.contact_value)}</a>
           </div>
         </div>
         ${actionsHtml}
@@ -1724,6 +1875,8 @@ function showModal(listing) {
   modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
   modal.addEventListener('click', closeModal)
   modal.querySelector('#share-btn').addEventListener('click', () => shareListing(listing))
+  const saveBtnModal = modal.querySelector('#save-btn')
+  if (saveBtnModal) saveBtnModal.addEventListener('click', () => handleSaveToggle(listing.id, saveBtnModal))
   const reportBtn = modal.querySelector('#report-btn')
   if (reportBtn) reportBtn.addEventListener('click', () => showReportModal(listing))
   if (photos.length > 1) {
@@ -1732,7 +1885,7 @@ function showModal(listing) {
     const dots = modal.querySelectorAll('.carousel-dot')
     function setIdx(i) {
       idx = (i + photos.length) % photos.length
-      img.src = photos[idx]
+      img.src = /^https:\/\//.test(photos[idx]) ? photos[idx] : ''
       dots.forEach((d, j) => d.classList.toggle('active', j === idx))
     }
     modal.querySelector('#carousel-prev').addEventListener('click', (e) => { e.stopPropagation(); setIdx(idx - 1) })
@@ -1798,11 +1951,23 @@ function closeModal() {
     history.replaceState(null, '', window.location.pathname)
   }
 }
+// Normalise an Omani number to full international digits (968 + 8 local digits),
+// however the lister typed it. Without this, a bare local number like "91234567"
+// becomes tel:+91234567 (which dials India, +91) and wa.me/91234567 (which fails),
+// so the one thing the whole site exists for, getting in touch, silently breaks.
+function normalizeOmanDigits(value) {
+  let d = String(value).replace(/\D/g, '')
+  if (d.startsWith('00')) d = d.slice(2)            // drop 00 international prefix
+  if (d.startsWith('968')) return d                 // already carries the Oman code
+  if (d.startsWith('0')) d = d.replace(/^0+/, '')   // drop any domestic trunk zero
+  if (d.length === 8) return '968' + d              // bare local number, add the code
+  return d                                          // already qualified or foreign, leave as is
+}
 function getContactLink(method, value) {
-  const digits = String(value).replace(/\D/g, '')
+  if (method === 'email') return `mailto:${encodeURIComponent(value)}`
+  const digits = normalizeOmanDigits(value)
   if (method === 'whatsapp') return `https://wa.me/${digits}`
   if (method === 'phone') return `tel:+${digits}`
-  if (method === 'email') return `mailto:${value}`
   return '#'
 }
 function contactLabelFor(method) {
@@ -1816,6 +1981,8 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
 function handleCardClick(e) {
+  const saveBtn = e.target.closest('.card-save')
+  if (saveBtn) { e.stopPropagation(); e.preventDefault(); handleSaveToggle(saveBtn.dataset.save, saveBtn); return }
   const card = e.target.closest('.card')
   if (!card) return
   const list = currentView === 'browse' ? allListings : myListings
@@ -1827,6 +1994,13 @@ document.getElementById('grade-filter').addEventListener('change', applyFilters)
 document.getElementById('subject-filter').addEventListener('change', applyFilters)
 document.getElementById('condition-filter').addEventListener('change', applyFilters)
 document.getElementById('listings-grid').addEventListener('click', handleCardClick)
+const savedToggleEl = document.getElementById('saved-toggle')
+if (savedToggleEl) savedToggleEl.addEventListener('click', () => {
+  savedOnly = !savedOnly
+  currentPage = 1
+  updateSavedToggle()
+  applyFilters()
+})
 const searchClearBtn = document.getElementById('search-clear')
 if (searchClearBtn) searchClearBtn.addEventListener('click', () => {
   const input = document.getElementById('search')
@@ -1848,7 +2022,13 @@ if (popularRow) popularRow.addEventListener('click', (e) => {
   updateSearchClearBtn()
   document.getElementById('browse')?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
 })
-document.getElementById('logo-link').addEventListener('click', () => showBrowseView())
+const logoLink = document.getElementById('logo-link')
+if (logoLink) {
+  logoLink.addEventListener('click', () => showBrowseView())
+  logoLink.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showBrowseView() }
+  })
+}
 document.getElementById('footer-about').addEventListener('click', (e) => { e.preventDefault(); showAboutView() })
 document.getElementById('footer-faq').addEventListener('click', (e) => { e.preventDefault(); showFaqView() })
 const ctaListBtn = document.getElementById('cta-list-btn')
@@ -1964,6 +2144,7 @@ let impactBaseTotal = 0
 function setImpact(total) {
   if (!total || total <= 0) return
   impactTargets = {
+    books: total,
     co2: Math.round(total * IMPACT_CO2_PER_BOOK),
     paper: Math.round(total * IMPACT_PAPER_PER_BOOK),
   }
@@ -1991,6 +2172,7 @@ function initImpactCounters() {
     if (impactCountersStarted) return
     impactCountersStarted = true
     if (onScroll) window.removeEventListener('scroll', onScroll)
+    animateCount(document.getElementById('impact-books'), impactTargets.books)
     animateCount(document.getElementById('impact-co2'), impactTargets.co2)
     animateCount(document.getElementById('impact-paper'), impactTargets.paper)
   }
@@ -2526,6 +2708,32 @@ function initFirstPaint() {
   setTimeout(done, 2400)   // backstop: clear even if animationend never fires (e.g. backgrounded tab)
 }
 
+// ---- READING-PROGRESS LINE (Motion) ----
+// Drives the top hairline's scaleX from page scroll. Uses Motion's scroll()
+// (self-hosted at /motion.js, exposed as window.Motion) so the fill tracks the
+// scrollbar precisely instead of a hand-rolled scroll listener. Degrades to a
+// plain scroll listener if Motion is unavailable, and does nothing under reduced
+// motion (the bar is display:none there anyway).
+function initScrollProgress() {
+  const bar = document.querySelector('.scroll-progress')
+  if (!bar || reduceMotion) return
+  const M = window.Motion
+  if (M && typeof M.scroll === 'function' && typeof M.animate === 'function') {
+    M.scroll(M.animate(bar, { scaleX: [0, 1] }, { ease: 'linear' }))
+    return
+  }
+  // Fallback: no Motion, track scroll manually.
+  const update = () => {
+    const doc = document.documentElement
+    const max = doc.scrollHeight - doc.clientHeight
+    bar.style.transform = `scaleX(${max > 0 ? Math.min(1, window.scrollY / max) : 0})`
+  }
+  window.addEventListener('scroll', update, { passive: true })
+  window.addEventListener('resize', update, { passive: true })
+  update()
+}
+
+initScrollProgress()
 initFirstPaint()
 initHeroMotion()
 initMagnetic()

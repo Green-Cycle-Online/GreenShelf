@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-A3g8gJThtxzbczBXbSXQOAEI2eLpFSrcHvw9xJeVb4w='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>GreenShelf: Pass on your school books</title>
   <meta name="description" content="A free, friendly way for students, parents, and schools in Oman to share textbooks at the end of the year.">
   <link rel="manifest" href="/manifest.json">
@@ -70,14 +72,20 @@
       window.__revealFailsafe = setTimeout(function () { d.classList.remove('js-reveal'); }, 2500);
     })();
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,0,700;9..144,1,400;9..144,1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Self-hosted fonts (see styles.css @font-face). Preload the two most used
+       latin files so headings and body text paint without a flash. -->
+  <link rel="preload" href="/fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
   <a href="#main-content" class="skip-link">Skip to content</a>
+
+  <!-- Reading-progress line. Fills as you move down the page; driven by Motion's
+       scroll() so it tracks the scrollbar exactly. Purely informational and
+       pointer-inert; hidden under prefers-reduced-motion. -->
+  <div class="scroll-progress" aria-hidden="true"></div>
 
   <!-- First-paint reveal: a brand curtain that lifts to unveil the canopy. Pure-CSS so it
        plays (and auto-clears itself) even if app.js never boots; app.js only makes it
@@ -91,7 +99,7 @@
 
   <header>
     <nav>
-      <div class="logo" id="logo-link">
+      <div class="logo" id="logo-link" role="button" tabindex="0" aria-label="GreenShelf, go to home">
         <svg class="logo-leaf" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" fill="currentColor" fill-opacity="0.14"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
         <span>GreenShelf</span>
       </div>
@@ -199,10 +207,14 @@
       </div>
       <div class="impact-grid">
         <div class="impact-tile reveal" style="--i:0">
+          <div class="impact-num"><span class="impact-val" id="impact-books">0</span></div>
+          <div class="impact-label">Books passed on</div>
+        </div>
+        <div class="impact-tile reveal" style="--i:1">
           <div class="impact-num"><span class="impact-val" id="impact-co2">0</span><span class="impact-unit">kg</span></div>
           <div class="impact-label">CO₂ avoided</div>
         </div>
-        <div class="impact-tile reveal" style="--i:1">
+        <div class="impact-tile reveal" style="--i:2">
           <div class="impact-num"><span class="impact-val" id="impact-paper">0</span><span class="impact-unit">kg</span></div>
           <div class="impact-label">Paper saved</div>
         </div>
@@ -221,20 +233,20 @@
         <div class="filter-grid">
           <div class="search-wrap">
             <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg>
-            <input type="search" id="search" placeholder="Search by title or subject…" autocomplete="off">
+            <input type="search" id="search" placeholder="Search by title or subject…" aria-label="Search books by title or subject" autocomplete="off">
             <button type="button" class="search-clear" id="search-clear" aria-label="Clear search" hidden>×</button>
           </div>
-          <select id="grade-filter">
+          <select id="grade-filter" aria-label="Filter by grade">
             <option value="">All grades</option>
             <option>Grade 1</option><option>Grade 2</option><option>Grade 3</option>
             <option>Grade 4</option><option>Grade 5</option><option>Grade 6</option>
             <option>Grade 7</option><option>Grade 8</option><option>Grade 9</option>
             <option>Grade 10</option><option>Grade 11</option><option>Grade 12</option>
           </select>
-          <select id="subject-filter">
+          <select id="subject-filter" aria-label="Filter by subject">
             <option value="">All subjects</option>
           </select>
-          <select id="condition-filter">
+          <select id="condition-filter" aria-label="Filter by condition">
             <option value="">All conditions</option>
             <option value="new">New</option>
             <option value="good">Good</option>
@@ -253,7 +265,14 @@
 
       <div class="filter-meta" id="filter-meta">
         <div class="filter-chips" id="filter-chips" aria-live="polite"></div>
-        <div class="listings-meta" id="listings-meta">Loading…</div>
+        <div class="filter-meta-right">
+          <button type="button" class="saved-toggle" id="saved-toggle" aria-pressed="false" aria-label="Show only books you have saved" hidden>
+            <svg class="saved-toggle-heart" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            <span>Saved</span>
+            <span class="saved-count" id="saved-count">0</span>
+          </button>
+          <div class="listings-meta" id="listings-meta">Loading…</div>
+        </div>
       </div>
 
       <div class="grid" id="listings-grid">
@@ -337,6 +356,16 @@
       </div>
     </section>
 
+    <!-- ───────── SCHOOLS & ORGANISATIONS (the institutional on-ramp) ───────── -->
+    <section class="partners" id="partners">
+      <div class="partners-inner reveal">
+        <h2>For schools and organisations</h2>
+        <p>Run a school, a library, or a community group? GreenShelf is built for you too. Organise an end-of-term book drive, set up a shared drop-off point for families, or simply help more people in Oman find us.</p>
+        <p class="partners-note">We are building GreenShelf from Muscat, and we would genuinely love to work with people who care about the same thing.</p>
+        <a class="btn btn-primary" href="mailto:greenshelf1320@gmail.com?subject=Schools%20and%20organisations">Get in touch →</a>
+      </div>
+    </section>
+
     <!-- ───────── WHY (compact, brief story) ───────── -->
     <section class="why">
       <div class="why-inner reveal">
@@ -375,19 +404,19 @@
         <p class="footer-mission">A free book exchange for Oman. Pass your school books on, keep them out of the bin and in a student's hands.</p>
       </div>
       <div class="footer-col reveal" style="--i:1">
-        <h4>Explore</h4>
+        <h3>Explore</h3>
         <a href="#browse">Browse books</a>
         <a href="#" id="footer-about">About</a>
         <a href="#" id="footer-faq">FAQ</a>
       </div>
       <div class="footer-col reveal" style="--i:2">
-        <h4>Legal</h4>
+        <h3>Legal</h3>
         <a href="/privacy.html">Privacy</a>
         <a href="/terms.html">Terms</a>
       </div>
       <div class="footer-col reveal" style="--i:3">
-        <h4>Connect</h4>
-        <a href="https://instagram.com/greenshelf.om" target="_blank" rel="noopener">Instagram</a>
+        <h3>Connect</h3>
+        <a href="https://instagram.com/greenshelf.om" target="_blank" rel="noopener noreferrer">Instagram</a>
         <a href="mailto:greenshelf1320@gmail.com">Email us</a>
       </div>
     </div>
@@ -397,6 +426,14 @@
     </div>
   </footer>
 
+  <!-- Motion (motion.dev) self-hosted standalone build. Exposes window.Motion.
+       Classic script so it runs before the deferred app.js module. Vendored
+       locally and cached by the service worker so the PWA still animates offline. -->
+  <script src="/motion.js"></script>
+  <!-- Shared runtime config (public values) and self-hosted Supabase, both classic
+       scripts so they run before the deferred app.js module and expose their globals. -->
+  <script src="/config.js"></script>
+  <script src="/vendor/supabase.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

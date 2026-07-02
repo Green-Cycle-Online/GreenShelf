@@ -1,9 +1,15 @@
-const CACHE_NAME = 'greenshelf-v24';
+const CACHE_NAME = 'greenshelf-v33';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/config.js',
+  '/vendor/supabase.js',
+  '/fonts/fraunces-latin.woff2',
+  '/fonts/fraunces-italic-latin.woff2',
+  '/fonts/inter-latin.woff2',
+  '/motion.js',
   '/404.html',
   '/icon-192.png',
   '/icon-512.png',
@@ -32,10 +38,13 @@ self.addEventListener('activate', (event) => {
 
 // Fetch: network first for API/Supabase, cache first for static
 self.addEventListener('fetch', (event) => {
+  // The cache only ever holds GET responses; let everything else pass through
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
-  // Always go to network for Supabase calls
-  if (url.hostname.includes('supabase.co')) {
+  // Always go to network for Supabase calls (exact host match, not substring)
+  if (url.hostname === 'supabase.co' || url.hostname.endsWith('.supabase.co')) {
     return; // let browser handle normally
   }
 
@@ -47,8 +56,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for everything else (CSS, JS, images)
+  // Cache-first with background revalidation: serve instantly from cache,
+  // then quietly refresh the stored copy from the network. Updates (including
+  // security fixes) reach returning visitors even between CACHE_NAME bumps.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.match(event.request).then((cached) => {
+      const fresh = fetch(event.request)
+        .then((resp) => {
+          if (resp && resp.ok && resp.type === 'basic') {
+            const copy = resp.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return resp;
+        })
+        .catch(() => cached);
+      return cached || fresh;
+    })
   );
 });
