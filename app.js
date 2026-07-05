@@ -4,10 +4,30 @@
 const { createClient } = window.supabase
 const SUPABASE_URL = window.GS_CONFIG.SUPABASE_URL
 const SUPABASE_KEY = window.GS_CONFIG.SUPABASE_KEY
+// Native (Capacitor iOS) vs web. Inside the app the origin is capacitor://localhost,
+// which is useless as an email-confirm target, so auth links point at the real site;
+// the link opens in the browser, confirms the account, then the user returns to the app.
+const IS_NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform())
+const SITE_URL = 'https://greenshelf.online'
+const AUTH_REDIRECT = IS_NATIVE ? SITE_URL : window.location.origin
 const PHOTO_BUCKET = 'book-photos'
 // Allowed upload types. Blocks SVG (can carry scripts) and anything exotic;
 // the storage key extension comes from this map, never from the client filename.
-const PHOTO_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
+const PHOTO_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'heic', 'image/heif': 'heif' }
+// Only SVG is a real upload risk (it can carry scripts); every other image is fine,
+// including phone photos that arrive with an empty MIME type. Derive the storage
+// extension from a whitelist, never straight from the untrusted filename.
+function isSafePhoto(file) {
+  const t = (file.type || '').toLowerCase()
+  if (t === 'image/svg+xml') return false
+  if (t && !t.startsWith('image/')) return false
+  return true
+}
+function safePhotoExt(file) {
+  if (PHOTO_TYPES[file.type]) return PHOTO_TYPES[file.type]
+  const e = ((file.name || '').split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  return /^(jpg|jpeg|png|webp|gif|heic|heif)$/.test(e) ? e : 'jpg'
+}
 const BASE_SUBJECTS = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business']
 const AREAS_MUSCAT = ['Al Khoud', 'Al Khuwair', 'Al Hail', 'Al Mabela', 'Al Mawaleh', 'Azaiba', 'Bausher', 'Ghubra', 'Madinat Qaboos', 'Mutrah', 'Qurum', 'Ruwi', 'Seeb']
 const AREAS_OTHER_OMAN = ['Bahla', 'Barka', 'Buraimi', 'Ibri', 'Khasab', 'Liwa', 'Nizwa', 'Rustaq', 'Saham', 'Salalah', 'Sohar', 'Sur', 'Suwaiq']
@@ -21,11 +41,24 @@ const REPORT_REASONS = {
   wrong_info: 'Wrong information',
   other: 'Other',
 }
+// Session storage. On the web, localStorage is fine. Inside the iOS app, WKWebView
+// can evict Web Storage under memory pressure and silently sign the user out, so we
+// route the session through Capacitor Preferences (native UserDefaults, persists
+// until the app is uninstalled). The Preferences plugin is reached through the
+// Capacitor bridge proxy, so no bundler/import is needed.
+const AUTH_STORAGE = (IS_NATIVE && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences)
+  ? {
+      getItem: async (key) => (await window.Capacitor.Plugins.Preferences.get({ key })).value,
+      setItem: async (key, value) => { await window.Capacitor.Plugins.Preferences.set({ key, value }) },
+      removeItem: async (key) => { await window.Capacitor.Plugins.Preferences.remove({ key }) },
+    }
+  : window.localStorage
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    storage: window.localStorage,
+    storage: AUTH_STORAGE,
+    detectSessionInUrl: !IS_NATIVE,
     lock: async (name, acquireTimeout, fn) => await fn(),
   }
 })
@@ -264,7 +297,7 @@ function showAuthModal(opts = {}) {
         } else if (mode === 'signup') {
           const { data, error } = await supabase.auth.signUp({
             email, password,
-            options: { emailRedirectTo: window.location.origin }
+            options: { emailRedirectTo: AUTH_REDIRECT }
           })
           if (error) throw error
           if (data?.session) {
@@ -277,7 +310,7 @@ function showAuthModal(opts = {}) {
           }
           closeAuthModal()
         } else if (mode === 'forgot') {
-          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: AUTH_REDIRECT })
           if (error) throw error
           showToast('Check your inbox for a reset link.', 'success')
           closeAuthModal()
@@ -1150,10 +1183,10 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
         <h2 class="auth-title">${isEditing ? 'Edit listing' : 'List a book'}</h2>
         <p class="auth-subtitle">${isEditing ? 'Update the details below.' : (isGuest ? "Fill this in, then we'll have you create a quick account to publish." : 'Pass it on to another student. No money, no fuss.')}</p>
         <form id="create-form">
-          <label class="auth-label">Photos (optional, up to ${MAX_PHOTOS})
+          <div class="auth-label">Photos (optional, up to ${MAX_PHOTOS})
             <div class="photos-grid" id="photos-grid"></div>
-            <input type="file" id="photos-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display: none;">
-          </label>
+            <input type="file" id="photos-input" accept="image/*" class="visually-hidden-input">
+          </div>
           <label class="auth-label">Book title
             <input type="text" name="title" required maxlength="120" value="${escapeHtml(d.title || '')}">
           </label>
@@ -1239,7 +1272,9 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       `
     }).join('')
     if (photoSlots.length < MAX_PHOTOS) {
-      html += `<div class="photo-slot empty" id="add-photo-slot"><span>+ Add photo</span></div>`
+      // A real <label for> opens the picker natively. iOS Safari blocks a
+      // programmatic input.click(), which made "tap does nothing" on phones.
+      html += `<label class="photo-slot empty" id="add-photo-slot" for="photos-input"><span>+ Add photo</span></label>`
     }
     grid.innerHTML = html
     grid.querySelectorAll('.photo-remove').forEach(btn => {
@@ -1248,14 +1283,14 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
         renderPhotosGrid()
       })
     })
-    const addSlot = grid.querySelector('#add-photo-slot')
-    if (addSlot) addSlot.addEventListener('click', () => document.getElementById('photos-input').click())
+    // No click handler needed: the label[for] opens the file picker natively,
+    // which is the only reliable way on iOS Safari.
   }
   renderPhotosGrid()
   document.getElementById('photos-input').addEventListener('change', (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!PHOTO_TYPES[file.type]) { showToast('Please pick a JPG, PNG, WebP, or GIF image.', 'error'); e.target.value = ''; return }
+    if (!isSafePhoto(file)) { showToast('That file is not a supported photo. Try a JPG, PNG, or HEIC.', 'error'); e.target.value = ''; return }
     if (file.size > 5 * 1024 * 1024) { showToast('Image is over 5MB.', 'error'); e.target.value = ''; return }
     photoSlots.push({ url: null, file })
     e.target.value = ''
@@ -1349,11 +1384,16 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       if (slot.url && !slot.file) { photoUrls.push(slot.url); continue }
       if (slot.file) {
         if (!uploadingShown) { submitBtn.textContent = 'Uploading photos…'; uploadingShown = true }
-        const ext = PHOTO_TYPES[slot.file.type] || 'jpg'
+        const ext = safePhotoExt(slot.file)
         const fileName = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2,7)}.${ext}`
-        const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(fileName, slot.file)
+        const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(fileName, slot.file, {
+          contentType: slot.file.type || 'image/jpeg',
+        })
         if (uploadError) {
+          console.error('Photo upload failed:', uploadError)
+          recordError('upload', uploadError.message, 'storage:' + PHOTO_BUCKET)
           errorDiv.textContent = `Couldn't upload photo: ${uploadError.message}`
+          showToast(`Photo upload failed: ${uploadError.message}`, 'error')
           submitBtn.disabled = false
           submitBtn.textContent = isEditing ? 'Save changes' : 'Post listing'
           return
@@ -1810,7 +1850,14 @@ function showModal(listing) {
     .filter(p => typeof p === 'string' && /^https:\/\//.test(p))
   let photoBlockHtml
   if (photos.length === 0) {
-    photoBlockHtml = `<div class="modal-image no-photo">${bookCoverHTML(listing)}</div>`
+    // Owners get a clear prompt to add photos to their own photoless listing.
+    const addPhotoBtn = isOwner
+      ? `<button type="button" class="add-photos-cta" id="add-photos-btn">
+           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+           Add photos
+         </button>`
+      : ''
+    photoBlockHtml = `<div class="modal-image no-photo">${bookCoverHTML(listing)}${addPhotoBtn}</div>`
   } else {
     photoBlockHtml = `
       <div class="photo-carousel" data-index="0">
@@ -1900,6 +1947,8 @@ function showModal(listing) {
   }
   if (isOwner) {
     modal.querySelector('#edit-btn').addEventListener('click', () => { closeModal(); showCreateListingModal(listing) })
+    const addPhotosBtn = modal.querySelector('#add-photos-btn')
+    if (addPhotosBtn) addPhotosBtn.addEventListener('click', () => { closeModal(); showCreateListingModal(listing) })
     if (isClaimed) {
       modal.querySelector('#unclaim-btn').addEventListener('click', () => markAsAvailable(listing.id))
     } else {
@@ -2774,8 +2823,10 @@ loadImpact()
     console.error('getSession failed:', e)
   }
 })()
-// Register service worker (PWA)
-if ('serviceWorker' in navigator) {
+// Register service worker (PWA). Skipped in the native app: assets are already
+// bundled in the binary, and a service worker under the capacitor:// scheme just
+// adds noise without benefit.
+if (!IS_NATIVE && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
       console.error('SW registration failed:', err);

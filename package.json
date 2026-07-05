@@ -1,0 +1,24 @@
+{
+  "name": "greenshelf-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GreenShelf iOS app shell (Capacitor wrapper around the GreenShelf web app).",
+  "scripts": {
+    "build:www": "node scripts/build-www.mjs",
+    "sync": "npm run build:www && cap sync ios",
+    "icons": "capacitor-assets generate --ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
+  }
+}

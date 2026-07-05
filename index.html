@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-A3g8gJThtxzbczBXbSXQOAEI2eLpFSrcHvw9xJeVb4w='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' capacitor://localhost https://localhost; script-src 'self' 'sha256-A3g8gJThtxzbczBXbSXQOAEI2eLpFSrcHvw9xJeVb4w='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co capacitor://localhost https://localhost; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>GreenShelf: Pass on your school books</title>
   <meta name="description" content="A free, friendly way for students, parents, and schools in Oman to share textbooks at the end of the year.">
@@ -435,5 +435,8 @@
   <script src="/config.js"></script>
   <script src="/vendor/supabase.js"></script>
   <script type="module" src="app.js"></script>
+  <!-- Native (Capacitor iOS) glue. Inert on the website: it no-ops unless it
+       detects the native runtime. Safe to ship to both. -->
+  <script type="module" src="/native.js"></script>
 </body>
 </html>

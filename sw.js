@@ -1,9 +1,10 @@
-const CACHE_NAME = 'greenshelf-v34';
+const CACHE_NAME = 'greenshelf-v37';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/native.js',
   '/config.js',
   '/vendor/supabase.js',
   '/fonts/fraunces-latin.woff2',

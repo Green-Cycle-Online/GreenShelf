@@ -1,7 +1,10 @@
 # Overnight security + hardening report
 
 Session date: 2026-07-02 (overnight). All changes are LOCAL ONLY, nothing committed or pushed.
-Service worker cache is at `greenshelf-v34` (one bump per wave: v32 security, v33 a11y, v34 wave 4).
+Service worker cache is at `greenshelf-v35` (v32 security, v33 a11y, v34 wave 4, v35 iOS-app native guards).
+
+An iOS app wrapper was also built this session. See the dedicated section near the end and
+the full IOS-LAUNCH-GUIDE.md.
 
 ## The short version
 
@@ -171,6 +174,39 @@ console output on both pages. node --check passes on all three JS files; no em/e
   400-500; the browser synthesizes the weight. This was equally true with the old Google
   Fonts CSS, so nothing regressed; a taller declared range may work if the subset file
   really is variable to 700, but I could not verify that safely overnight.
+
+## iOS app (Capacitor wrapper)
+
+Built the App Store wrapper around the existing site. Full click-by-click submission steps are
+in IOS-LAUNCH-GUIDE.md; this is what changed in the repo.
+
+New web-side files (these ship to the WEBSITE too, and are harmless there):
+- `native.js`: native-only glue (status bar theme, push registration). No-ops on the web.
+- `scripts/build-www.mjs`: copies the site into `www/` for bundling. `scripts/make-icons.cjs`:
+  generates the app icon + splash from the leaf logo.
+- `package.json`, `capacitor.config.json`: Capacitor project config.
+
+Edits to shared web files (all verified to leave the website working, cache v35):
+- `app.js`: added `IS_NATIVE` detection; on native the service worker is skipped, auth email
+  links point at https://greenshelf.online, and the Supabase session is stored in native
+  Preferences (so iOS cannot silently log users out). On the web, behaviour is unchanged.
+- `index.html`: CSP now also allows `capacitor://localhost` (needed in-app, harmless on web);
+  loads `native.js`.
+- `sw.js`: cache bumped to v35, `native.js` precached.
+
+The `ios/` folder is a complete Xcode project (bundle id `com.greenshelf.app`, name GreenShelf,
+camera + photo Info.plist strings, privacy manifest, push entitlement code, app icon + splash
+generated from the leaf). It is committed EXCEPT the regenerated bits: `.gitignore` excludes
+`node_modules/`, `www/`, `ios/App/Pods/`, and `ios/App/App/public/`.
+
+What is NOT done (needs your Mac, all in the guide): install full Xcode + CocoaPods, run
+`npx cap sync ios` (which does `pod install`), sign with your Apple account, add screenshots,
+submit. The CocoaPods step is required because macOS system Ruby (2.6) is too old to run modern
+CocoaPods here; the guide has a two-command Homebrew fix.
+
+Verified locally: website still works (v35, cards + hearts + saved toggle, Supabase reachable,
+zero console errors), all plists/JSON well-formed, app icon is 1024x1024 with no alpha (Apple
+requirement), no em/en dashes anywhere.
 
 ## Final status
 

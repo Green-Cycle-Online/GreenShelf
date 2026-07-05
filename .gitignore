@@ -12,3 +12,14 @@ PRODUCT.md
 
 # OS junk
 .DS_Store
+
+# Capacitor / iOS app build cruft (never commit these)
+node_modules/
+www/
+ios/App/Pods/
+ios/App/App/public/
+ios/App/build/
+ios/DerivedData/
+ios/capacitor-cordova-ios-plugins/
+*.xcuserstate
+.sourcemaps/
