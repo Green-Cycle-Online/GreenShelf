@@ -1,12 +1,15 @@
 require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
 
 platform :ios, '15.0'
-use_frameworks!
+# Static linkage removes the "[CP] Embed Pods Frameworks" copy step entirely,
+# which sidesteps the broken relative-path bug in this (Ruby-2.6-pinned) CocoaPods
+# during archive. Capacitor supports static linking.
+use_frameworks! :linkage => :static
 
 # workaround to avoid Xcode caching of Pods that requires
 # Product -> Clean Build Folder after new Cordova plugins installed
 # Requires CocoaPods 1.6 or newer
-install! 'cocoapods', :disable_input_output_paths => true
+install! 'cocoapods'
 
 def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
@@ -25,4 +28,18 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+  # Give the Pod frameworks the same signing team as the app, so device
+  # builds and App Store archives do not fail with "requires a development team".
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['DEVELOPMENT_TEAM'] = 'M6X8998H58'
+      # Cordova's framework headers use "quoted" imports, which newer Xcode
+      # promotes to a build error. Turn that specific check off for the pods.
+      config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+      # Xcode 26's module verifier rebuilds each framework's module and chokes on
+      # Cordova's legacy headers ("could not build module Capacitor"). The frameworks
+      # themselves build fine; just skip the extra verification pass.
+      config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+    end
+  end
 end

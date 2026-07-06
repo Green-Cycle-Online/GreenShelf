@@ -208,6 +208,40 @@ Verified locally: website still works (v35, cards + hearts + saved toggle, Supab
 zero console errors), all plists/JSON well-formed, app icon is 1024x1024 with no alpha (Apple
 requirement), no em/en dashes anywhere.
 
+## iOS archive (second overnight session): DONE, ready to upload
+
+The app now ARCHIVES cleanly and is signed and submittable. The archive is at
+`~/Library/Developer/Xcode/Archives/2026-07-06/GreenShelf.xcarchive` and appears in Xcode's
+Organizer. Verified: bundle id com.greenshelf.app, version 1.0, team M6X8998H58, code-signed,
+web app (v37, with the fixed photo picker) and app icon bundled inside.
+
+Six build-setup problems were fixed to get here (the app code compiled cleanly the whole time,
+these were all iOS project config gaps from hand-assembling the project):
+1. Created the missing `ios/App/App/config.xml` (Capacitor Cordova file).
+2. Set the signing team on the Pod frameworks (Podfile post_install, team M6X8998H58).
+3. Disabled the quoted-include-in-framework-header error for pods (Cordova legacy headers).
+4. Turned off `ENABLE_USER_SCRIPT_SANDBOXING` on the App target (was blocking the pod scripts).
+5. Disabled the Xcode 26 module verifier for pods (could not rebuild Capacitor's module).
+6. Switched the pods to **static linking** (`use_frameworks! :linkage => :static`), which
+   removes the framework-copy build phase entirely. The pinned-to-Ruby-2.6 CocoaPods (1.11.3)
+   has a relative-path bug in that copy step during archive; static linking sidesteps it.
+Also added a shared scheme (`App.xcscheme`) so the build config is stable and shared.
+
+The final upload could NOT be done headless (it needs the Apple ID login, which only exists in
+the user's GUI session). That is the one manual step, documented in FINAL-UPLOAD-STEPS.md:
+Xcode > Window > Organizer > Distribute App > App Store Connect > Upload. About 6 clicks.
+
+NEEDS MY REVIEW (iOS):
+- **Test the app on a real iPhone once.** Static linking is well supported by Capacitor and the
+  archive is valid, but I could not run the app headless to confirm every plugin registers at
+  runtime. Run it on the phone (Xcode > select your iPhone > Run) and check photos + listings
+  load. Very likely fine; flag me if any feature is dead.
+- Screenshots still needed on the App Store Connect version page before submit (fastest via the
+  iPhone 16 Pro Max Simulator + Cmd+S).
+- Tonight's iOS file changes to commit: ios/App/Podfile, ios/App/Podfile.lock,
+  ios/App/App.xcodeproj/project.pbxproj, ios/App/App/config.xml, the new App.xcscheme,
+  and FINAL-UPLOAD-STEPS.md.
+
 ## Final status
 
 Waves: 1 (agent panel, 19 raw findings), 2 and 3 (inline, both dry), 4 (agent panel on the
