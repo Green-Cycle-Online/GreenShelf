@@ -1,0 +1,4 @@
+[2026-07-08T01:16:52.275Z] [uncaughtException] pid=72563 write EPIPE
+Error: write EPIPE
+    at WriteWrap.onWriteComplete [as oncomplete] (node:internal/stream_base_commons:87:19)
+---

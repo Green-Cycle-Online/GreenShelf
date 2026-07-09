@@ -10,9 +10,23 @@
 
   const P = Cap.Plugins || {}
 
+  // ---- Edge-to-edge: kill the white status-bar strip ----
+  // On the website the viewport meta stays plain; here (native only) we opt into
+  // viewport-fit=cover so env(safe-area-inset-*) becomes real, then let the status
+  // bar overlay the WebView. The header pads itself with env() so the clock never
+  // sits on the logo. Without this, iOS reserves a white inset bar up top.
+  try {
+    const vp = document.querySelector('meta[name="viewport"]')
+    if (vp && !/viewport-fit/.test(vp.getAttribute('content') || '')) {
+      vp.setAttribute('content', vp.getAttribute('content') + ', viewport-fit=cover')
+    }
+  } catch (e) {}
+
   // ---- Status bar: match the current theme so the clock/battery stay legible ----
   function syncStatusBar() {
     if (!P.StatusBar) return
+    // Overlay the WebView so content runs edge-to-edge under the status bar.
+    P.StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {})
     const dark = document.documentElement.getAttribute('data-theme') === 'dark'
     // Style.Dark = light text (for dark backgrounds), Style.Light = dark text.
     P.StatusBar.setStyle({ style: dark ? 'DARK' : 'LIGHT' }).catch(() => {})

@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-07-08T01:16:52.242Z",
+  "projectRoot": "/Users/hitesh/Documents/GreenShelf",
+  "structure": {
+    "hasPackageJson": true,
+    "hasTsConfig": false,
+    "hasClaudeConfig": true,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1783473412242
+}

@@ -13,7 +13,14 @@ PRODUCT.md
 # OS junk
 .DS_Store
 
-# Capacitor / iOS app build cruft (never commit these)
+# Signing secrets — NEVER commit these
+android-signing/
+*.jks
+*.keystore
+keystore.properties
+
+# Capacitor / Android app build cruft (never commit these)
+android/
 node_modules/
 www/
 ios/App/Pods/
@@ -23,3 +30,7 @@ ios/DerivedData/
 ios/capacitor-cordova-ios-plugins/
 *.xcuserstate
 .sourcemaps/
+
+# Obsidian vault personal settings (keep the notes, ignore per-user config)
+GreenShelf/.obsidian/
+greenshelf/
