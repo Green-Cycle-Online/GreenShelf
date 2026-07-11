@@ -1183,7 +1183,9 @@ label.photo-slot.empty { cursor: pointer; -webkit-tap-highlight-color: transpare
 /* ───────── TOUCH TARGETS ─────────
    Expand small icon controls to a comfortable ≥44px tap area without changing
    their visual size (invisible ::after hit-zone). */
-.theme-toggle, .nav-search-toggle, .modal-close, .carousel-nav, .fchip-x { position: relative; }
+/* .modal-close and .carousel-nav are already position: absolute; forcing
+   relative here would knock them out of their corners. */
+.theme-toggle, .nav-search-toggle, .fchip-x { position: relative; }
 .theme-toggle::after, .nav-search-toggle::after, .modal-close::after, .carousel-nav::after {
   content: ''; position: absolute; inset: -5px;
 }

@@ -183,7 +183,7 @@ function updateNav() {
       : `<a href="#" id="browse-link">Browse</a>`
     navAuth.innerHTML = `
       ${viewLink}
-      <button class="btn-primary" id="new-listing-btn">+ List<span class="cta-extra">&nbsp;a book</span></button>
+      <button class="btn-primary" id="new-listing-btn"><span>+ List<span class="cta-extra">&nbsp;a book</span></span></button>
       <span class="nav-user">${escapeHtml(displayEmail)}</span>
       ${isAdmin ? '<a href="#" class="admin-badge admin-link" id="admin-link">ADMIN</a>' : ''}
       <button class="btn-secondary" id="signout-btn">Sign out</button>
@@ -199,7 +199,7 @@ function updateNav() {
   } else {
     navAuth.innerHTML = `
       <a href="#browse" id="browse-anchor">Browse</a>
-      <button class="btn-secondary" id="nav-list-btn">+ List<span class="cta-extra">&nbsp;a book</span></button>
+      <button class="btn-secondary" id="nav-list-btn"><span>+ List<span class="cta-extra">&nbsp;a book</span></span></button>
       <button class="btn-primary" id="signin-btn">Sign in</button>
     `
     document.getElementById('signin-btn').addEventListener('click', showAuthModal)
@@ -1154,6 +1154,26 @@ function renderMyListings(listings) {
   grid.innerHTML = listings.map(renderCard).join('')
 }
 // ---- CREATE / EDIT LISTING ----
+// Remembered so repeat posters never retype name/contact for every listing
+function loadPosterDefaults() {
+  try {
+    const raw = localStorage.getItem('gs_poster_defaults')
+    if (!raw) return {}
+    const d = JSON.parse(raw)
+    return {
+      owner_name: typeof d.owner_name === 'string' ? d.owner_name : '',
+      contact_method: ['whatsapp', 'phone', 'email'].includes(d.contact_method) ? d.contact_method : undefined,
+      contact_value: typeof d.contact_value === 'string' ? d.contact_value : '',
+    }
+  } catch (_) { return {} }
+}
+function savePosterDefaults(ownerName, contactMethod, contactValue) {
+  try {
+    localStorage.setItem('gs_poster_defaults', JSON.stringify({
+      owner_name: ownerName, contact_method: contactMethod, contact_value: contactValue,
+    }))
+  } catch (_) {}
+}
 function showCreateListingModal(editingListing = null, prefillDraft = null) {
   const isEditing = !!editingListing
   const isGuest = !currentUser && !isEditing
@@ -1166,7 +1186,8 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
   }
   const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
   const subjects = [...BASE_SUBJECTS, 'Other']
-  const d = isEditing ? editingListing : (prefillDraft || {})
+  // Saved poster defaults fill name/contact; an in-flight draft still wins
+  const d = isEditing ? editingListing : Object.assign({}, loadPosterDefaults(), prefillDraft || {})
   const isCustomSubject = isEditing && d.subject && !BASE_SUBJECTS.includes(d.subject)
   const subjectValue = isCustomSubject ? 'Other' : (d.subject || '')
   const customSubjectValue = isCustomSubject ? d.subject : ''
@@ -1346,6 +1367,8 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       errorDiv.textContent = "That number doesn't look right. Use digits with the 968 country code, e.g. 96891234567."
       return
     }
+    // Details passed validation: remember them for the next listing
+    savePosterDefaults(form.owner_name.value.trim(), contactMethod, contactValue)
     const finalSubject = (form.subject.value === 'Other' && form.custom_subject && form.custom_subject.value.trim())
       ? form.custom_subject.value.trim()
       : form.subject.value
