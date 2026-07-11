@@ -33,6 +33,7 @@ import { useAuth } from '../lib/auth';
 import { useToast } from '../components/Toast';
 import { haptic } from '../lib/haptics';
 import { fetchListingById, insertListing, updateListing, uploadPhoto } from '../lib/api';
+import { loadPosterDefaults, savePosterDefaults } from '../lib/posterDefaults';
 import { ContactMethod } from '../lib/types';
 
 interface PhotoSlot {
@@ -97,8 +98,19 @@ export default function CreateModal() {
         })
         .finally(() => setLoadingEdit(false));
     } else {
-      setOwnerName((prev) => prev || profile?.full_name || '');
-      setSchool((prev) => prev || profile?.school || '');
+      // Saved poster defaults fill name/contact/area/school; anything the user
+      // already typed in this session wins, then profile as a last fallback.
+      loadPosterDefaults().then((d) => {
+        setOwnerName((prev) => prev || d.owner_name || profile?.full_name || '');
+        setSchool((prev) => prev || d.school || profile?.school || '');
+        if (d.contact_method) setContactMethod((prev) => (prev === 'whatsapp' ? d.contact_method! : prev));
+        setContactValue((prev) => prev || d.contact_value || '');
+        if (d.area) {
+          const allAreas = [...AREAS_MUSCAT, ...AREAS_OTHER_OMAN];
+          setArea((prev) => prev || (allAreas.includes(d.area!) ? d.area! : OTHER));
+          if (!allAreas.includes(d.area)) setCustomArea((prev) => prev || d.area!);
+        }
+      });
     }
   }, [isEditing, profile?.full_name]);
 
@@ -219,6 +231,15 @@ export default function CreateModal() {
 
       if (isEditing) await updateListing(params.editId!, draft);
       else await insertListing(draft, user.id);
+
+      // Posted successfully: remember these details for the next listing.
+      savePosterDefaults({
+        owner_name: draft.owner_name,
+        contact_method: draft.contact_method,
+        contact_value: draft.contact_value,
+        area: draft.area,
+        school: draft.school || undefined,
+      });
 
       haptic.success();
       await refreshProfile();

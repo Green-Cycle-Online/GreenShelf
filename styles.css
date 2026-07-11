@@ -1336,6 +1336,9 @@ label.photo-slot.empty { cursor: pointer; -webkit-tap-highlight-color: transpare
 .confirm-title { font-family: 'Fraunces', serif; font-size: 1.35rem; color: var(--ink); margin-bottom: 8px; font-weight: 700; letter-spacing: -0.02em; }
 .confirm-message { color: var(--ink-soft); margin-bottom: 22px; font-size: 0.95rem; line-height: 1.55; }
 .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+/* Three-way choice dialogs: stack the buttons full-width so no option looks minor. */
+.confirm-actions-stacked { flex-direction: column; align-items: stretch; }
+.confirm-actions-stacked button { width: 100%; }
 
 /* Skeletons */
 @keyframes shimmer { 0% { background-position: -800px 0; } 100% { background-position: 800px 0; } }

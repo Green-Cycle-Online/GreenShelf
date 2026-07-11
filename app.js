@@ -172,6 +172,34 @@ function customConfirm({ title, message, confirmText = 'Confirm', cancelText = '
     setTimeout(() => overlay.querySelector('#confirm-btn').focus(), 50)
   })
 }
+// Three-way dialog: resolves with the chosen option's value, or null on cancel.
+// options: [{ text, value, kind: 'primary' | 'secondary' | 'danger' }]
+function customChoice({ title, message, options }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div')
+    overlay.className = 'modal-backdrop'
+    const buttonsHtml = options.map((o, i) => {
+      const cls = o.kind === 'danger' ? 'btn-danger' : (o.kind === 'primary' ? 'btn-primary' : 'btn-secondary')
+      return `<button class="${cls}" data-choice="${i}">${escapeHtml(o.text)}</button>`
+    }).join('')
+    overlay.innerHTML = `
+      <div class="modal confirm-modal">
+        <div class="confirm-body">
+          <div class="confirm-title">${escapeHtml(title)}</div>
+          <p class="confirm-message">${escapeHtml(message)}</p>
+          <div class="confirm-actions confirm-actions-stacked">${buttonsHtml}</div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(overlay)
+    const close = (result) => { overlay.remove(); resolve(result) }
+    overlay.querySelectorAll('[data-choice]').forEach((btn) => {
+      btn.addEventListener('click', () => close(options[Number(btn.dataset.choice)].value))
+    })
+    overlay.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null) })
+  })
+}
 // ---- AUTH ----
 function updateNav() {
   const navAuth = document.getElementById('nav-auth')
@@ -1154,7 +1182,7 @@ function renderMyListings(listings) {
   grid.innerHTML = listings.map(renderCard).join('')
 }
 // ---- CREATE / EDIT LISTING ----
-// Remembered so repeat posters never retype name/contact for every listing
+// Remembered so repeat posters never retype name/contact/area/school for every listing
 function loadPosterDefaults() {
   try {
     const raw = localStorage.getItem('gs_poster_defaults')
@@ -1164,13 +1192,16 @@ function loadPosterDefaults() {
       owner_name: typeof d.owner_name === 'string' ? d.owner_name : '',
       contact_method: ['whatsapp', 'phone', 'email'].includes(d.contact_method) ? d.contact_method : undefined,
       contact_value: typeof d.contact_value === 'string' ? d.contact_value : '',
+      area: typeof d.area === 'string' ? d.area : undefined,
+      school: typeof d.school === 'string' ? d.school : undefined,
     }
   } catch (_) { return {} }
 }
-function savePosterDefaults(ownerName, contactMethod, contactValue) {
+function savePosterDefaults(ownerName, contactMethod, contactValue, area, school) {
   try {
     localStorage.setItem('gs_poster_defaults', JSON.stringify({
       owner_name: ownerName, contact_method: contactMethod, contact_value: contactValue,
+      area: area || undefined, school: school || undefined,
     }))
   } catch (_) {}
 }
@@ -1191,7 +1222,9 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
   const isCustomSubject = isEditing && d.subject && !BASE_SUBJECTS.includes(d.subject)
   const subjectValue = isCustomSubject ? 'Other' : (d.subject || '')
   const customSubjectValue = isCustomSubject ? d.subject : ''
-  const isCustomArea = isEditing && d.area && !ALL_AREAS.includes(d.area)
+  // Custom area applies whenever the value (edit, draft or saved default) is not
+  // in the picker list, so a remembered "Other" area round-trips correctly.
+  const isCustomArea = !!(d.area && !ALL_AREAS.includes(d.area))
   const areaValue = isCustomArea ? 'Other' : (d.area || '')
   const customAreaValue = isCustomArea ? d.area : ''
   const ownerNameValue = d.owner_name || (currentProfile && currentProfile.full_name) || ''
@@ -1367,14 +1400,14 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       errorDiv.textContent = "That number doesn't look right. Use digits with the 968 country code, e.g. 96891234567."
       return
     }
-    // Details passed validation: remember them for the next listing
-    savePosterDefaults(form.owner_name.value.trim(), contactMethod, contactValue)
     const finalSubject = (form.subject.value === 'Other' && form.custom_subject && form.custom_subject.value.trim())
       ? form.custom_subject.value.trim()
       : form.subject.value
     const finalArea = (form.area.value === 'Other' && form.custom_area && form.custom_area.value.trim())
       ? form.custom_area.value.trim()
       : form.area.value
+    // Details passed validation: remember them for the next listing
+    savePosterDefaults(form.owner_name.value.trim(), contactMethod, contactValue, finalArea, form.school.value.trim())
     // ---- GUEST PATH: save draft, prompt signup, auto-publish after auth ----
     if (isGuest) {
       // photos can't survive the redirect/storage round-trip easily, so we keep them in-memory
@@ -2003,19 +2036,45 @@ async function markAsAvailable(id) {
   await refreshCurrentView()
 }
 async function deleteListing(id, asAdmin = false) {
-  const ok = await customConfirm({
-    title: asAdmin ? 'Delete this listing as admin?' : 'Delete this listing?',
-    message: asAdmin
-      ? "You're deleting someone else's listing. This can't be undone."
-      : "This can't be undone. The listing will be permanently removed.",
-    confirmText: 'Delete',
-    danger: true,
+  if (asAdmin) {
+    const ok = await customConfirm({
+      title: 'Delete this listing as admin?',
+      message: "You're deleting someone else's listing. This can't be undone.",
+      confirmText: 'Delete',
+      danger: true,
+    })
+    if (!ok) return
+    const { error } = await supabase.from('listings').delete().eq('id', id)
+    if (error) { showToast("Couldn't delete: " + error.message, 'error'); return }
+    closeModal()
+    showToast('Listing removed.', 'success')
+    await refreshCurrentView()
+    return
+  }
+  // Impact tracking: a book that found a new home should count as claimed,
+  // not vanish. Ask once before the row (and the stat) is gone forever.
+  const choice = await customChoice({
+    title: 'Before this goes',
+    message: 'Did the book go to someone? "It was taken" counts it toward books passed on and removes it from the feed. Delete removes it completely.',
+    options: [
+      { text: 'It was taken', value: 'claimed', kind: 'primary' },
+      { text: 'Delete it', value: 'delete', kind: 'danger' },
+      { text: 'Cancel', value: null, kind: 'secondary' },
+    ],
   })
-  if (!ok) return
+  if (choice === 'claimed') {
+    const { error } = await supabase.from('listings').update({ status: 'claimed' }).eq('id', id)
+    if (error) { showToast("Couldn't update: " + error.message, 'error'); return }
+    closeModal()
+    showToast('Great. It counts toward books passed on.', 'success')
+    await refreshCurrentView()
+    return
+  }
+  if (choice !== 'delete') return
   const { error } = await supabase.from('listings').delete().eq('id', id)
   if (error) { showToast("Couldn't delete: " + error.message, 'error'); return }
   closeModal()
-  showToast(asAdmin ? 'Listing removed.' : 'Listing deleted.', 'success')
+  showToast('Listing deleted.', 'success')
   await refreshCurrentView()
 }
 async function refreshCurrentView() {

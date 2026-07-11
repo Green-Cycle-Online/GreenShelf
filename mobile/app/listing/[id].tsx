@@ -118,26 +118,46 @@ export default function ListingDetailScreen() {
     toast(now ? 'Saved to your list' : 'Removed from saved', now ? 'success' : 'info');
   };
 
+  const reallyDelete = async () => {
+    try {
+      await deleteListing(listing.id);
+      haptic.success();
+      toast('Listing deleted.', 'success');
+      router.back();
+    } catch (e: any) {
+      toast(e.message || 'Could not delete.', 'error');
+    }
+  };
+
   const doDelete = () => {
-    Alert.alert(
-      isOwner ? 'Delete this listing?' : 'Delete this listing as admin?',
-      "This cannot be undone.",
-      [
+    if (!isOwner) {
+      Alert.alert('Delete this listing as admin?', 'This cannot be undone.', [
         { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: reallyDelete },
+      ]);
+      return;
+    }
+    // Impact tracking: a book that found a new home should count as claimed,
+    // not vanish. Ask once before the row (and the stat) is gone forever.
+    Alert.alert(
+      'Before this goes',
+      'Did the book go to someone? "It was taken" counts it toward books passed on and removes it from the feed. Delete removes it completely.',
+      [
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: 'It was taken',
           onPress: async () => {
             try {
-              await deleteListing(listing.id);
+              await setListingStatus(listing.id, 'claimed');
               haptic.success();
-              toast('Listing deleted.', 'success');
-              router.back();
+              setListing({ ...listing, status: 'claimed' });
+              toast('Great. It counts toward books passed on.', 'success');
             } catch (e: any) {
-              toast(e.message || 'Could not delete.', 'error');
+              toast(e.message || 'Could not update.', 'error');
             }
           },
         },
+        { text: 'Delete it', style: 'destructive', onPress: reallyDelete },
+        { text: 'Cancel', style: 'cancel' },
       ],
     );
   };
