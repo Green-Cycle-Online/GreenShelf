@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local portable node toolchain (session workaround, not project source)
+.toolchain/

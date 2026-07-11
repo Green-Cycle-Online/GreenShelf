@@ -8,7 +8,7 @@ export default function CreateTabRedirect() {
   useFocusEffect(
     React.useCallback(() => {
       router.replace('/');
-      router.push('/create');
+      router.push('/create-listing');
     }, []),
   );
   return <View />;

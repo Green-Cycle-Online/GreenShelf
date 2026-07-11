@@ -38,7 +38,7 @@ function ThemedStack() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="listing/[id]" options={{ title: '' }} />
         <Stack.Screen
-          name="create"
+          name="create-listing"
           options={{ presentation: 'modal', title: 'List a book' }}
         />
         <Stack.Screen name="auth" options={{ presentation: 'modal', title: '' }} />

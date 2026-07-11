@@ -1,6 +1,7 @@
 # Tooling / agent scratch
 .claude/
 .impeccable/
+.claude-flow/
 
 # Local design previews (not part of the live site)
 book-preview.html

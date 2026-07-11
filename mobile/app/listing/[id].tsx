@@ -273,7 +273,7 @@ export default function ListingDetailScreen() {
               <Button
                 title="Edit listing"
                 variant="secondary"
-                onPress={() => router.push({ pathname: '/create', params: { editId: listing.id } })}
+                onPress={() => router.push({ pathname: '/create-listing', params: { editId: listing.id } })}
               />
               <Button
                 title={isClaimed ? 'Mark available' : 'Mark claimed'}

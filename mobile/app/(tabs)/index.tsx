@@ -179,14 +179,14 @@ export default function BrowseScreen() {
                 setSearch('');
               }}
               secondaryLabel="List a book"
-              onSecondary={() => router.push('/create')}
+              onSecondary={() => router.push('/create-listing')}
             />
           ) : (
             <EmptyState
               title="No books yet"
               message="GreenShelf is brand new. Be the first family in Oman to pass a textbook on. It takes under a minute."
               actionLabel="List a book"
-              onAction={() => router.push('/create')}
+              onAction={() => router.push('/create-listing')}
             />
           )
         }

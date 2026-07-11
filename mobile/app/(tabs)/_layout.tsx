@@ -49,7 +49,7 @@ export default function TabsLayout() {
           tabPress: (e) => {
             e.preventDefault();
             haptic.light();
-            router.push('/create');
+            router.push('/create-listing');
           },
         }}
       />
