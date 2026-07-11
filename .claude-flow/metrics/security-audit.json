@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-07-10T10:08:53.255Z",
+  "mode": "headless",
+  "workerType": "audit",
+  "model": "haiku",
+  "durationMs": 45692,
+  "executionId": "audit_1783678087563_t2ewb9",
+  "success": true,
+  "findings": {
+    "vulnerabilities": [
+      {
+        "severity": "low",
+        "file": "config.js, android/app/src/main/assets/public/config.js, ios/App/App/public/config.js",
+        "line": "5-8",
+        "description": "Hardcoded Supabase anon key visible in client code. Note: This is intentional by design (comments confirm), as the key is public and protected by Row Level Security (RLS) on the backend. However, if the RLS policies are misconfigured, this could expose sensitive data."
+      },
+      {
+        "severity": "low",
+        "file": "app.js, landing.js (and copies)",
+        "line": "N/A",
+        "description": "No visible HTTPS enforcement or secure flag enforcement for API communication. While Supabase URLs use HTTPS, the frontend doesn't explicitly enforce HTTPS-only communication or set secure cookie flags (if applicable)."
+      },
+      {
+        "severity": "low",
+        "file": "app.js, ios/App/App/public/app.js, android/app/src/main/assets/public/app.js",
+        "line": "50+",
+        "description": "localStorage used for storing push notification tokens and theme preferences. While these are non-sensitive, using localStorage is vulnerable to XSS attacks. Consider adding additional protections or using more restrictive storage mechanisms."
+      },
+      {
+        "severity": "low",
+        "file": "sw.js, ios/App/App/public/sw.js",
+        "line": "38-50",
+        "description": "Service worker network error fallback to /index.html could potentially serve stale cached HTML. While acceptable for navigation, network errors aren't explicitly distinguished from actual failures."
+      },
+      {
+        "severity": "medium",
+        "file": "app.js, landing.js (all copies)",
+        "line": "20-30",
+        "description": "HTML escaping function exists but need to verify ALL user-generated content (book titles, descriptions, subject fields, area names) is properly escaped before DOM insertion. The code shows escapeHtml() function but its consistent application across all user inputs needs verification."
+      },
+      {
+        "severity": "low",
+        "file": "native.js, ios/App/App/public/native.js",
+        "line": "30-45",
+        "description": "Viewport-fit=cover and status bar overlay could potentially be exploited for tapjacking attacks on native iOS app, though risk is minimal due to OS-level protections."
+      }
+    ],
+    "riskScore": 32,
+    "recommendations": [
+      "CRITICAL: Audit all Supabase Row Level Security (RLS) policies in supabase-security-policies.sql to ensure anon keys cannot access unauthorized data. This is the PRIMARY defense for the public credentials.",
+      "Implement Content Security Policy (CSP) headers with script-src, style-src restrictions to prevent inline script execution and further mitigate XSS",
+      "Add comprehensive HTML/URL escaping validation for ALL user-generated content fields before rendering, not just in escapeHtml(). Use a library like DOMPurify if rendering rich content.",
+      "Implement Subresource Integrity (SRI) for vendor/supabase.js to detect tampering with the self-hosted library",
+      "Add HTTPS-only enforcement via HSTS headers (server-side) and secure flag on any cookies/auth tokens",
+      "Verify Auth storage security: Review Supabase's session token rotation mechanism and ensure detectSessionInUrl is false on native to prevent URL-based token leaks",
+      "Add rate limiting on sensitive operations (auth, uploads, reports) via backend Supabase RLS or edge functions",
+      "Implement certificate pinning in native iOS/Android apps if sensitive data flows through them",
+      "Regular security audit of npm dependencies in mobile/ folder (check mobile/package.json for vulnerabilities)",
+      "Implement logging/monitoring for unauthorized RLS policy bypass attempts at the Supabase level"
+    ]
+  },
+  "rawOutputPreview": "# GreenShelf Security Audit Report\n\n```json\n{\n  \"vulnerabilities\": [\n    {\n      \"severity\": \"low\",\n      \"file\": \"config.js, android/app/src/main/assets/public/config.js, ios/App/App/public/config.js\",\n      \"line\": \"5-8\",\n      \"description\": \"Hardcoded Supabase anon key visible in client code. Note: This is intentional by design (comments confirm), as the key is public and protected by Row Level Security (RLS) on the backend. However, if the RLS policies are misconfigured, this could expose sensitive data.\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"app.js, landing.js (and copies)\",\n      \"line\": \"N/A\",\n      \"description\": \"No visible HTTPS enforcement or secure flag enforcement for API communication. While Supabase URLs use HTTPS, the frontend doesn't explicitly enforce HTTPS-only communication or set secure cookie flags (if applicable).\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"app.js, ios/App/App/public/app.js, android/app/src/main/assets/public/app.js\",\n      \"line\": \"50+\",\n      \"description\": \"localStorage used for storing push notification tokens and theme preferences. While these are non-sensitive, using localStorage is vulnerable to XSS attacks. Consider adding additional protections or using more restrictive storage mechanisms.\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"sw.js, ios/App/App/public/sw.js\",\n      \"line\": \"38-50\",\n      \"description\": \"Service worker network error fallback to /index.html could potentially serve stale cached HTML. While acceptable for navigation, network errors aren't explicitly distinguished from actual failures.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"app.js, landing.js (all copies)\",\n      \"line\": \"20-30\",\n      \"description\": \"HTML escaping function exists but need to verify ALL user-generated content (book titles, descriptions, subject fields, area names) is properly escaped before DOM insertion. The code shows escapeHtml() function but its consistent application across ",
+  "rawOutputLength": 4631
+}

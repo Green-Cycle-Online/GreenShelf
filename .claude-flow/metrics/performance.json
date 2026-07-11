@@ -1,0 +1,92 @@
+{
+  "timestamp": "2026-07-10T10:11:28.776Z",
+  "mode": "headless",
+  "workerType": "optimize",
+  "model": "sonnet",
+  "durationMs": 155511,
+  "executionId": "optimize_1783678133265_b5rdmt",
+  "success": true,
+  "findings": {
+    "sections": [
+      {
+        "title": "Performance Audit: `mobile/`",
+        "content": "\n",
+        "level": 2
+      },
+      {
+        "title": "1. N+1 Query Patterns",
+        "content": "\n**A. Profile screen refetches listings on every focus** (`app/(tabs)/profile.tsx:44-52`)\n\n`fetchMyListings()` makes a separate Supabase call every time the tab gains focus, even though the full listings array is already in memory.\n\n```typescript\n// BAD - extra query on every focus\nuseFocusEffect(useCallback(() => {\n  refreshProfile();\n  loadMine(); // hits Supabase every time\n}, [loadMine]));\n\n// GOOD - filter what you already have\nconst mine = useMemo(\n  () => listings.filter((l) => l.owner_id === user?.id),\n  [listings, user?.id]\n);\nuseFocusEffect(useCallback(() => { refreshProfile(); }, []));\n```\n\n**B. Admin screen reloads everything on every focus** (`app/admin.tsx:35-46`)\n\n```typescript\n// Add a timestamp guard\nconst [lastFetch, setLastFetch] = useState(0);\nconst CACHE_TTL = 5 * 60 * 1000;\n\nconst load = useCallback(() => {\n  if (Date.now() - lastFetch < CACHE_TTL) return;\n  // ... fetch, then: setLastFetch(Date.now())\n}, [lastFetch]);\n```\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "2. Unnecessary Re-renders",
+        "content": "\n**C. `ListingCard` not memoized** (`components/ListingCard.tsx:25-29`)\n\nThe card recomputes location string, photo count, and `isNew` flag on every render in a potentially long list.\n\n```typescript\nexport const ListingCard = React.memo(({ listing, onPress, width }) => {\n  const location = useMemo(\n    () => [listing.area, listing.school].filter(Boolean).join(' · '),\n    [listing.area, listing.school]\n  );\n  const firstPhoto = listing.photos?.[0] ?? null;\n  const isNew = useMemo(() => isNewListing(listing.created_at), [listing.created_at]);\n  // ...\n});\n```\n\n**D. `ChipRow` in `FilterSheet` not memoized** (`components/FilterSheet.tsx:24-65`)\n\n```typescript\nconst ChipRow = React.memo(({ options, value, onChange }) => {\n  // ... same body\n});\n```\n\n**E. Theme option callbacks recreated every render** (`app/(tabs)/profile.tsx:107-129`)\n\n```typescript\nconst handleThemePress = useCallback((value: ThemePref) => {\n  haptic.selection();\n  setPref(value);\n}, [setPref]);\n```\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "3. Caching Opportunities",
+        "content": "\n**F. `useListings` refetches on every mount** (`lib/useListings.ts`) - biggest win\n\nEvery navigation to Browse or Saved fires a full Supabase fetch. Add a module-level cache:\n\n```typescript\nlet cachedListings: Listing[] | null = null;\nlet lastFetchTime = 0;\nconst CACHE_TTL = 5 * 60 * 1000;\n\nexport function useListings() {\n  const [listings, setListings] = useState<Listing[]>(cachedListings ?? []);\n  const [loading, setLoading] = useState(!cachedListings);\n\n  const load = useCallback(async (forceRefresh = false) => {\n    const now = Date.now();\n    if (!forceRefresh && cachedListings && now - lastFetchTime < CACHE_TTL) {\n      setListings(cachedListings);\n      return;\n    }\n    setLoading(true);\n    try {\n      const data = await fetchListings();\n      cachedListings = data;\n      lastFetchTime = now;\n      setListings(data);\n    } finally {\n      setLoading(false);\n    }\n  }, []);\n\n  useEffect(() => { load(); }, [load]);\n  return { listings, loading, refresh: () => load(true) };\n}\n```\n\n**G. Expo Image cache policy** - wherever listing photos are displayed:\n\n```typescript\n<Image source={{ uri: photoUrl }} cachePolicy=\"memory-disk\" />\n```\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "4. Memory Leaks",
+        "content": "\nThe three animation/subscription patterns checked (OfflineBanner, Toast, Skeleton) **all have correct cleanup** - no leaks found there.\n\n**H. Saved hook - all cards subscribe to full updates** (`lib/saved.ts:49-60`)\n\nWhen a FlatList renders 20 cards, each calls `useSavedIds()` and adds a subscriber. Toggle any one save, and all 20 subscribers fire. Fix: make `useSaved(id)` subscribe only to its own ID's changes:\n\n```typescript\nexport function useSaved(id: string): [boolean, () => boolean] {\n  const [saved, setSaved] = useState(() => ids.includes(String(id)));\n\n  useEffect(() => {\n    const update = () => setSaved(ids.includes(String(id)));\n    subs.add(update);\n    ensureLoaded().then(update);\n    return () => subs.delete(update);\n  }, [id]);\n\n  const toggle = useCallback(() => toggleSaved(id), [id]);\n  return [saved, toggle];\n}\n```\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "5. Redundant Computations",
+        "content": "\n**I. Admin stats object created inline every render** (`app/admin.tsx:56-63`)\n\n```typescript\nconst stats = useMemo(() => {\n  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\n  return {\n    total: listings.length,\n    available: listings.filter((l) => l.status === 'available').length,\n    claimed: listings.filter((l) => l.status === 'claimed').length,\n    last7: listings.filter((l) => new Date(l.created_at).getTime() > sevenDaysAgo).length,\n    photos: listings.reduce((s, l) => s + (l.photos?.length ?? 0), 0),\n  };\n}, [listings]);\n```\n\n**J. `countBy()` called 3x per render** (`app/admin.tsx:162-164`)\n\n```typescript\nconst areaBreakdown    = useMemo(() => countBy(listings, 'area'), [listings]);\nconst subjectBreakdown = useMemo(() => countBy(listings, 'subject'), [listings]);\nconst gradeBreakdown   = useMemo(() => countBy(listings, 'grade_level'), [listings]);\n```\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "Priority",
+        "content": "| # | Issue | Severity | File |\n|---|-------|----------|------|\n| 1 | `useListings` no cache between navigations | **High** | `lib/useListings.ts` |\n| 2 | Saved hook - all cards re-render on any toggle | **High** | `lib/saved.ts` |\n| 3 | Admin reloads all data on every focus | **High** | `app/admin.tsx` |\n| 4 | Profile fetches listings instead of filtering | **Medium** | `app/(tabs)/profile.tsx` |\n| 5 | `ListingCard` not memoized | **Medium** | `components/ListingCard.tsx` |\n| 6 | Admin stats/countBy inline computations | **Medium** | `app/admin.tsx` |\n| 7 | `ChipRow` not memoized | **Low** | `components/FilterSheet.tsx` |\n| 8 | Image `cachePolicy` not set | **Low** | anywhere photos render |\n\nThe `useListings` cache (item 1) is the single highest-leverage fix since it cuts a Supabase round-trip on every tab switch.",
+        "level": 3
+      }
+    ],
+    "codeBlocks": [
+      {
+        "language": "typescript",
+        "code": "// BAD - extra query on every focus\nuseFocusEffect(useCallback(() => {\n  refreshProfile();\n  loadMine(); // hits Supabase every time\n}, [loadMine]));\n\n// GOOD - filter what you already have\nconst mine = useMemo(\n  () => listings.filter((l) => l.owner_id === user?.id),\n  [listings, user?.id]\n);\nuseFocusEffect(useCallback(() => { refreshProfile(); }, []));"
+      },
+      {
+        "language": "typescript",
+        "code": "// Add a timestamp guard\nconst [lastFetch, setLastFetch] = useState(0);\nconst CACHE_TTL = 5 * 60 * 1000;\n\nconst load = useCallback(() => {\n  if (Date.now() - lastFetch < CACHE_TTL) return;\n  // ... fetch, then: setLastFetch(Date.now())\n}, [lastFetch]);"
+      },
+      {
+        "language": "typescript",
+        "code": "export const ListingCard = React.memo(({ listing, onPress, width }) => {\n  const location = useMemo(\n    () => [listing.area, listing.school].filter(Boolean).join(' · '),\n    [listing.area, listing.school]\n  );\n  const firstPhoto = listing.photos?.[0] ?? null;\n  const isNew = useMemo(() => isNewListing(listing.created_at), [listing.created_at]);\n  // ...\n});"
+      },
+      {
+        "language": "typescript",
+        "code": "const ChipRow = React.memo(({ options, value, onChange }) => {\n  // ... same body\n});"
+      },
+      {
+        "language": "typescript",
+        "code": "const handleThemePress = useCallback((value: ThemePref) => {\n  haptic.selection();\n  setPref(value);\n}, [setPref]);"
+      },
+      {
+        "language": "typescript",
+        "code": "let cachedListings: Listing[] | null = null;\nlet lastFetchTime = 0;\nconst CACHE_TTL = 5 * 60 * 1000;\n\nexport function useListings() {\n  const [listings, setListings] = useState<Listing[]>(cachedListings ?? []);\n  const [loading, setLoading] = useState(!cachedListings);\n\n  const load = useCallback(async (forceRefresh = false) => {\n    const now = Date.now();\n    if (!forceRefresh && cachedListings && now - lastFetchTime < CACHE_TTL) {\n      setListings(cachedListings);\n      return;\n    }\n    setLoading(true);\n    try {\n      const data = await fetchListings();\n      cachedListings = data;\n      lastFetchTime = now;\n      setListings(data);\n    } finally {\n      setLoading(false);\n    }\n  }, []);\n\n  useEffect(() => { load(); }, [load]);\n  return { listings, loading, refresh: () => load(true) };\n}"
+      },
+      {
+        "language": "typescript",
+        "code": "<Image source={{ uri: photoUrl }} cachePolicy=\"memory-disk\" />"
+      },
+      {
+        "language": "typescript",
+        "code": "export function useSaved(id: string): [boolean, () => boolean] {\n  const [saved, setSaved] = useState(() => ids.includes(String(id)));\n\n  useEffect(() => {\n    const update = () => setSaved(ids.includes(String(id)));\n    subs.add(update);\n    ensureLoaded().then(update);\n    return () => subs.delete(update);\n  }, [id]);\n\n  const toggle = useCallback(() => toggleSaved(id), [id]);\n  return [saved, toggle];\n}"
+      },
+      {
+        "language": "typescript",
+        "code": "const stats = useMemo(() => {\n  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\n  return {\n    total: listings.length,\n    available: listings.filter((l) => l.status === 'available').length,\n    claimed: listings.filter((l) => l.status === 'claimed').length,\n    last7: listings.filter((l) => new Date(l.created_at).getTime() > sevenDaysAgo).length,\n    photos: listings.reduce((s, l) => s + (l.photos?.length ?? 0), 0),\n  };\n}, [listings]);"
+      },
+      {
+        "language": "typescript",
+        "code": "const areaBreakdown    = useMemo(() => countBy(listings, 'area'), [listings]);\nconst subjectBreakdown = useMemo(() => countBy(listings, 'subject'), [listings]);\nconst gradeBreakdown   = useMemo(() => countBy(listings, 'grade_level'), [listings]);"
+      }
+    ]
+  },
+  "rawOutputPreview": "Here's the full performance audit of the GreenShelf mobile app:\n\n---\n\n## Performance Audit: `mobile/`\n\n### 1. N+1 Query Patterns\n\n**A. Profile screen refetches listings on every focus** (`app/(tabs)/profile.tsx:44-52`)\n\n`fetchMyListings()` makes a separate Supabase call every time the tab gains focus, even though the full listings array is already in memory.\n\n```typescript\n// BAD - extra query on every focus\nuseFocusEffect(useCallback(() => {\n  refreshProfile();\n  loadMine(); // hits Supabase every time\n}, [loadMine]));\n\n// GOOD - filter what you already have\nconst mine = useMemo(\n  () => listings.filter((l) => l.owner_id === user?.id),\n  [listings, user?.id]\n);\nuseFocusEffect(useCallback(() => { refreshProfile(); }, []));\n```\n\n**B. Admin screen reloads everything on every focus** (`app/admin.tsx:35-46`)\n\n```typescript\n// Add a timestamp guard\nconst [lastFetch, setLastFetch] = useState(0);\nconst CACHE_TTL = 5 * 60 * 1000;\n\nconst load = useCallback(() => {\n  if (Date.now() - lastFetch < CACHE_TTL) return;\n  // ... fetch, then: setLastFetch(Date.now())\n}, [lastFetch]);\n```\n\n---\n\n### 2. Unnecessary Re-renders\n\n**C. `ListingCard` not memoized** (`components/ListingCard.tsx:25-29`)\n\nThe card recomputes location string, photo count, and `isNew` flag on every render in a potentially long list.\n\n```typescript\nexport const ListingCard = React.memo(({ listing, onPress, width }) => {\n  const location = useMemo(\n    () => [listing.area, listing.school].filter(Boolean).join(' · '),\n    [listing.area, listing.school]\n  );\n  const firstPhoto = listing.photos?.[0] ?? null;\n  const isNew = useMemo(() => isNewListing(listing.created_at), [listing.created_at]);\n  // ...\n});\n```\n\n**D. `ChipRow` in `FilterSheet` not memoized** (`components/FilterSheet.tsx:24-65`)\n\n```typescript\nconst ChipRow = React.memo(({ options, value, onChange }) => {\n  // ... same body\n});\n```\n\n**E. Theme option callbacks recreated every render** (`app/(tabs)/profile.tsx:107-129`)\n\n```typescript\nconst handleThemeP",
+  "rawOutputLength": 5934
+}
