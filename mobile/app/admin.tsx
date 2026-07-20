@@ -7,7 +7,7 @@ import { font, radius, spacing, type } from '../theme/tokens';
 import { useAuth } from '../lib/auth';
 import { useToast } from '../components/Toast';
 import { Button } from '../components/Button';
-import { fetchAllListings, fetchPendingReports, dismissReport, PendingReport } from '../lib/api';
+import { fetchAllListings, fetchPendingReports, dismissReport, deleteListing, deleteListingsByOwner, PendingReport } from '../lib/api';
 import { Listing } from '../lib/types';
 import { REPORT_REASONS } from '../lib/constants';
 import { formatRelativeTime } from '../lib/format';
@@ -78,6 +78,57 @@ export default function AdminScreen() {
         },
       },
     ]);
+  }
+
+  function doRemoveListing(report: PendingReport) {
+    if (!report.listing) return;
+    const listingId = report.listing.id;
+    Alert.alert('Remove this listing?', 'The listing will be permanently deleted and the report resolved.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove listing',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteListing(listingId);
+            await dismissReport(report.id);
+            toast('Listing removed.', 'success');
+            load();
+          } catch (e: any) {
+            toast(e.message || 'Could not remove.', 'error');
+          }
+        },
+      },
+    ]);
+  }
+
+  function doEjectUser(report: PendingReport) {
+    const ownerId = report.listing?.owner_id;
+    if (!ownerId) {
+      toast('This listing has no owner to eject.', 'info');
+      return;
+    }
+    Alert.alert(
+      'Eject this user?',
+      `Every listing by ${report.listing?.owner_name || 'this user'} will be permanently deleted and the report resolved.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Eject user',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteListingsByOwner(ownerId);
+              await dismissReport(report.id);
+              toast('User ejected. Their listings were removed.', 'success');
+              load();
+            } catch (e: any) {
+              toast(e.message || 'Could not eject.', 'error');
+            }
+          },
+        },
+      ],
+    );
   }
 
   const StatCard = ({ n, label }: { n: number; label: string }) => (
@@ -154,6 +205,12 @@ export default function AdminScreen() {
                   )}
                   <Button title="Dismiss" variant="secondary" fullWidth={false} onPress={() => doDismiss(r.id)} style={{ flex: 1 }} />
                 </View>
+                {r.listing && (
+                  <View style={styles.reportActions}>
+                    <Button title="Remove listing" variant="danger" fullWidth={false} onPress={() => doRemoveListing(r)} style={{ flex: 1 }} />
+                    <Button title="Eject user" variant="danger" fullWidth={false} onPress={() => doEjectUser(r)} style={{ flex: 1 }} />
+                  </View>
+                )}
               </View>
             ))
           )}

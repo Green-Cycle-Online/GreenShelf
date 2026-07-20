@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/theme';
 import { font, radius, spacing, type } from '../../theme/tokens';
 import { Listing } from '../../lib/types';
-import { fetchListingById, deleteListing, setListingStatus, submitReport } from '../../lib/api';
+import { fetchListingById, deleteListing, setListingStatus, submitReport, blockUser } from '../../lib/api';
 import { getContactLink, contactLabelFor } from '../../lib/format';
 import { useAuth } from '../../lib/auth';
 import { useSaved } from '../../lib/saved';
@@ -37,7 +37,7 @@ export default function ListingDetailScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, addBlocked } = useAuth();
   const toast = useToast();
   const navigation = useNavigation();
 
@@ -118,6 +118,40 @@ export default function ListingDetailScreen() {
     toast(now ? 'Saved to your list' : 'Removed from saved', now ? 'success' : 'info');
   };
 
+  const onBlock = () => {
+    if (!user) {
+      toast('Sign in to block a user.', 'info');
+      router.push('/auth');
+      return;
+    }
+    if (!listing.owner_id) {
+      toast('This user cannot be blocked.', 'error');
+      return;
+    }
+    Alert.alert(
+      `Block ${listing.owner_name}?`,
+      'You will no longer see their listings, and their listing will be reported to our team for review. You can unblock them later from your profile.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block user',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockUser(user.id, listing.owner_id!, listing.owner_name, listing.id);
+              addBlocked(listing.owner_id!);
+              haptic.success();
+              toast('User blocked. Their listings are now hidden.', 'success');
+              router.back();
+            } catch (e: any) {
+              toast(e.message || 'Could not block this user.', 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const reallyDelete = async () => {
     try {
       await deleteListing(listing.id);
@@ -195,7 +229,15 @@ export default function ListingDetailScreen() {
           title: '',
           headerTransparent: photos.length > 0,
           headerRight: () => (
-            <Pressable onPress={onShare} hitSlop={10} accessibilityLabel="Share this listing">
+            <Pressable
+              onPress={onShare}
+              hitSlop={10}
+              accessibilityLabel="Share this listing"
+              // Over a photo the header is transparent, so a bare icon can vanish
+              // on light images. Sit it in a translucent scrim for guaranteed
+              // contrast; on the paper header (no photos) use plain ink.
+              style={photos.length > 0 ? styles.headerBtnScrim : undefined}
+            >
               <Ionicons name="share-outline" size={22} color={photos.length ? '#fff' : colors.ink} />
             </Pressable>
           ),
@@ -309,22 +351,28 @@ export default function ListingDetailScreen() {
             </View>
           )}
 
-          {/* Report */}
+          {/* Report + block */}
           {!isOwner && (
-            <Pressable
-              onPress={() => {
-                if (!user) {
-                  toast('Sign in to report a listing.', 'info');
-                  router.push('/auth');
-                  return;
-                }
-                setReportOpen(true);
-              }}
-              style={styles.reportRow}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.reportText, { color: colors.inkFaint }]}>Report this listing</Text>
-            </Pressable>
+            <View style={styles.safetyRow}>
+              <Pressable
+                onPress={() => {
+                  if (!user) {
+                    toast('Sign in to report a listing.', 'info');
+                    router.push('/auth');
+                    return;
+                  }
+                  setReportOpen(true);
+                }}
+                style={styles.reportRow}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.reportText, { color: colors.inkFaint }]}>Report this listing</Text>
+              </Pressable>
+              <Text style={{ color: colors.inkFaint, fontFamily: font.bodyMedium, fontSize: type.sm }}> · </Text>
+              <Pressable onPress={onBlock} style={styles.reportRow} accessibilityRole="button">
+                <Text style={[styles.reportText, { color: colors.inkFaint }]}>Block this user</Text>
+              </Pressable>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -359,6 +407,14 @@ function Section({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  headerBtnScrim: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
   dots: { position: 'absolute', bottom: spacing.lg, alignSelf: 'center', flexDirection: 'row', gap: 6 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   body: { padding: spacing.lg, gap: spacing.md },
@@ -381,6 +437,7 @@ const styles = StyleSheet.create({
   contactBtnText: { fontFamily: font.bodySemi, fontSize: type.base },
   actionRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   ownerActions: { gap: spacing.sm, marginTop: spacing.md },
-  reportRow: { alignItems: 'center', paddingVertical: spacing.lg, marginTop: spacing.sm },
+  safetyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
+  reportRow: { alignItems: 'center', paddingVertical: spacing.lg },
   reportText: { fontFamily: font.bodyMedium, fontSize: type.sm, textDecorationLine: 'underline' },
 });

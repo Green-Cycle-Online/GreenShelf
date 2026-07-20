@@ -43,6 +43,14 @@ export interface Report {
   created_at: string;
 }
 
+export interface BlockedUser {
+  id: string;
+  blocker_id: string;
+  blocked_id: string;
+  blocked_name: string | null;
+  created_at: string;
+}
+
 // Draft used by the create-listing form before it becomes a Listing row.
 export interface ListingDraft {
   title: string;

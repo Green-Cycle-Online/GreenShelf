@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchListings } from './api';
 import { Listing } from './types';
+import { useAuth } from './auth';
 
 // Loads the browse feed with the four states the UI needs: initial loading,
-// error, the data itself, and a pull-to-refresh flag.
+// error, the data itself, and a pull-to-refresh flag. Listings from users the
+// viewer has blocked are hidden instantly (Apple Guideline 1.2).
 export function useListings() {
+  const { blockedIds } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -29,8 +32,13 @@ export function useListings() {
     load();
   }, [load]);
 
+  const visible = useMemo(
+    () => (blockedIds.size === 0 ? listings : listings.filter((l) => !l.owner_id || !blockedIds.has(l.owner_id))),
+    [listings, blockedIds],
+  );
+
   return {
-    listings,
+    listings: visible,
     loading,
     error,
     refreshing,

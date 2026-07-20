@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { fetchProfile } from './api';
+import { fetchProfile, fetchBlockedIds } from './api';
 import { Profile } from './types';
 import { SITE_URL } from './constants';
 
@@ -10,7 +10,10 @@ interface AuthCtx {
   profile: Profile | null;
   isAdmin: boolean;
   loading: boolean;
+  blockedIds: Set<string>;
   refreshProfile: () => Promise<void>;
+  refreshBlocked: () => Promise<void>;
+  addBlocked: (userId: string) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ needsConfirm: boolean }>;
   resetPassword: (email: string) => Promise<void>;
@@ -33,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
 
   async function loadProfile(u: User | null) {
     if (!u) {
@@ -46,16 +50,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function loadBlocked(u: User | null) {
+    if (!u) {
+      setBlockedIds(new Set());
+      return;
+    }
+    try {
+      setBlockedIds(new Set(await fetchBlockedIds(u.id)));
+    } catch {
+      setBlockedIds(new Set());
+    }
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const u = data.session?.user ?? null;
       setUser(u);
+      loadBlocked(u);
       loadProfile(u).finally(() => setLoading(false));
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session: Session | null) => {
       const u = session?.user ?? null;
       setUser(u);
       loadProfile(u);
+      loadBlocked(u);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -91,13 +109,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       isAdmin: !!profile?.is_admin,
       loading,
+      blockedIds,
       refreshProfile: () => loadProfile(user),
+      refreshBlocked: () => loadBlocked(user),
+      addBlocked: (userId: string) => setBlockedIds((prev) => new Set(prev).add(userId)),
       signIn,
       signUp,
       resetPassword,
       signOut,
     }),
-    [user, profile, loading],
+    [user, profile, loading, blockedIds],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

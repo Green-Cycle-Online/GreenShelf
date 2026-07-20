@@ -36,6 +36,7 @@ export default function AuthModal() {
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [agreed, setAgreed] = useState(false);
 
   const title =
     mode === 'forgot'
@@ -59,6 +60,10 @@ export default function AuthModal() {
     }
     if (mode !== 'forgot' && password.length < 6) {
       setError('Password needs to be at least 6 characters.');
+      return;
+    }
+    if (mode === 'signup' && !agreed) {
+      setError('Please agree to the Terms of Use to create an account.');
       return;
     }
     setBusy(true);
@@ -178,12 +183,43 @@ export default function AuthModal() {
           </>
         )}
 
+        {mode === 'signup' && (
+          <Pressable
+            onPress={() => {
+              haptic.selection();
+              setAgreed((a) => !a);
+              setError('');
+            }}
+            style={styles.agreeRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreed }}
+            accessibilityLabel="Agree to the Terms of Use"
+          >
+            <Ionicons
+              name={agreed ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={agreed ? colors.accent : colors.inkFaint}
+            />
+            <Text style={[styles.agreeText, { color: colors.inkSoft }]}>
+              I agree to the{' '}
+              <Text
+                style={{ color: colors.accent, fontFamily: font.bodySemi }}
+                onPress={() => router.push('/info/terms')}
+              >
+                Terms of Use
+              </Text>
+              , and I understand GreenShelf has zero tolerance for objectionable content or abusive users.
+            </Text>
+          </Pressable>
+        )}
+
         {!!error && <Text style={[styles.error, { color: colors.error }]}>{error}</Text>}
 
         <Button
           title={mode === 'forgot' ? 'Send reset link' : mode === 'signin' ? 'Sign in' : 'Create account'}
           onPress={submit}
           loading={busy}
+          disabled={mode === 'signup' && !agreed}
           style={{ marginTop: spacing.lg }}
         />
 
@@ -232,4 +268,6 @@ const styles = StyleSheet.create({
   back: { alignItems: 'center', marginTop: spacing.lg },
   error: { fontFamily: font.bodyMedium, fontSize: type.sm, marginTop: spacing.md },
   fineprint: { fontFamily: font.body, fontSize: type.xs, textAlign: 'center', marginTop: spacing.xxl, lineHeight: type.xs * 1.5 },
+  agreeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.lg },
+  agreeText: { flex: 1, fontFamily: font.body, fontSize: type.sm, lineHeight: type.sm * 1.5 },
 });

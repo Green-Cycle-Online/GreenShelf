@@ -34,6 +34,7 @@ import { useToast } from '../components/Toast';
 import { haptic } from '../lib/haptics';
 import { fetchListingById, insertListing, updateListing, uploadPhoto } from '../lib/api';
 import { loadPosterDefaults, savePosterDefaults } from '../lib/posterDefaults';
+import { findObjectionable } from '../lib/moderation';
 import { ContactMethod } from '../lib/types';
 
 interface PhotoSlot {
@@ -185,6 +186,8 @@ export default function CreateModal() {
       !/^\+?[0-9 ()-]{7,20}$/.test(contactValue.trim())
     )
       return 'That number does not look right. Include the 968 country code.';
+    if (findObjectionable(title, description, customSubject, school))
+      return 'Please remove inappropriate language before posting. GreenShelf has zero tolerance for objectionable content.';
     return null;
   }
 

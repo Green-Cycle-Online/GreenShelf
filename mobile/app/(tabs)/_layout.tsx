@@ -1,15 +1,41 @@
 import React from 'react';
 import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/theme';
 import { font } from '../../theme/tokens';
 import { haptic } from '../../lib/haptics';
+
+// Tab screens have no header, so scrolled content slides under the transparent
+// status bar and clashes with the clock. A near-opaque paper scrim gives the
+// bar a floor without hiding what passes beneath it.
+function StatusBarScrim() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  if (!insets.top) return null;
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: insets.top,
+        backgroundColor: colors.paper,
+        opacity: 0.92,
+        zIndex: 10,
+      }}
+    />
+  );
+}
 
 export default function TabsLayout() {
   const { colors } = useTheme();
 
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -61,5 +87,7 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    <StatusBarScrim />
+    </View>
   );
 }

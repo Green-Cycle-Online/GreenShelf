@@ -21,6 +21,7 @@ const INFO_LINKS: { label: string; icon: keyof typeof Ionicons.glyphMap; route: 
   { label: 'About GreenShelf', icon: 'people-outline', route: '/info/about' },
   { label: 'FAQ', icon: 'chatbubble-ellipses-outline', route: '/info/faq' },
   { label: 'Privacy', icon: 'lock-closed-outline', route: '/info/privacy' },
+  { label: 'Terms of Use', icon: 'document-text-outline', route: '/info/terms' },
 ];
 
 export default function ProfileScreen() {
@@ -208,6 +209,16 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color={colors.accent} />
             </Pressable>
           )}
+
+          <Pressable
+            onPress={() => router.push('/blocked')}
+            style={[styles.adminRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+            accessibilityRole="button"
+          >
+            <Ionicons name="person-remove-outline" size={20} color={colors.inkSoft} />
+            <Text style={[styles.rowLabel, { color: colors.ink }]}>Blocked users</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+          </Pressable>
 
           <View style={styles.myListingsHead}>
             <Text style={[styles.cardTitle, { color: colors.ink }]}>Your listings</Text>
