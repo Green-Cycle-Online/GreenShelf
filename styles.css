@@ -1980,7 +1980,7 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
 
 /* Admin: schools */
 .school-form { display: grid; grid-template-columns: 2fr 1fr auto; gap: 8px; margin: 10px 0 14px; }
-.school-form input { padding: 10px 12px; border: 1px solid var(--hairline); border-radius: var(--r-md); font-family: 'Inter', sans-serif; font-size: 0.92rem; background: var(--paper); color: var(--ink); }
+.school-form input, .school-form select { padding: 10px 12px; border: 1px solid var(--hairline); border-radius: var(--r-md); font-family: 'Inter', sans-serif; font-size: 0.92rem; background: var(--paper); color: var(--ink); }
 @media (max-width: 640px) { .school-form { grid-template-columns: 1fr; } }
 .school-list { display: flex; flex-direction: column; }
 .school-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--hairline); }

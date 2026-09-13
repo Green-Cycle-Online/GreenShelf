@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/theme';
 import { font, radius, spacing, type } from '../theme/tokens';
-import { GRADES, AGE_BANDS, GENRES, CONDITIONS, ALL_AREAS, BASE_SUBJECTS, SORT_OPTIONS, SortKey } from '../lib/constants';
+import { GRADES, AGE_BANDS, GENRES, CONDITIONS, BASE_SUBJECTS, SORT_OPTIONS, SortKey } from '../lib/constants';
+import { useAreas } from '../lib/useAreas';
 import { Category } from '../lib/types';
 import { useI18n } from '../lib/i18n';
 import { Button } from './Button';
@@ -96,6 +97,7 @@ export function FilterSheet({
   const { colors } = useTheme();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
+  const { names: areaNames } = useAreas();
   const [draft, setDraft] = useState<Filters>(initial);
 
   // Re-sync the draft each time the sheet opens.
@@ -109,7 +111,7 @@ export function FilterSheet({
     : GRADES.map((g) => ({ label: g.replace('Grade ', 'G'), value: g }));
   const base = isReading ? GENRES : BASE_SUBJECTS;
   const subjectOpts = [...new Set([...base, ...subjects])].sort().map((s) => ({ label: s, value: s }));
-  const areaOpts = [...new Set([...ALL_AREAS, ...areas])].sort().map((a) => ({ label: a, value: a }));
+  const areaOpts = [...new Set([...areaNames, ...areas])].sort().map((a) => ({ label: a, value: a }));
   const schoolOpts = [...new Set(schools)].sort().map((s) => ({ label: s, value: s }));
   const sortOpts = SORT_OPTIONS.map((s) => ({ label: t(`sort.${s.value}` as const), value: s.value }));
   const conditionOpts = CONDITIONS.map((c) => ({ label: t(`condition.${c.value}` as const), value: c.value }));

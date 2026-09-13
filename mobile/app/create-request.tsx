@@ -11,7 +11,8 @@ import { Button } from '../components/Button';
 import { Option, Select } from '../components/Select';
 import { CategoryToggle } from '../components/CategoryToggle';
 import { SchoolSelect } from '../components/SchoolSelect';
-import { AGE_BANDS, AREAS_MUSCAT, AREAS_OTHER_OMAN, BASE_SUBJECTS, GENRES, GRADES } from '../lib/constants';
+import { AGE_BANDS, BASE_SUBJECTS, GENRES, GRADES } from '../lib/constants';
+import { useAreas } from '../lib/useAreas';
 import { insertRequest } from '../lib/api';
 import { Category } from '../lib/types';
 import { loadPosterDefaults } from '../lib/posterDefaults';
@@ -24,6 +25,7 @@ export default function CreateRequestModal() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
   const toast = useToast();
+  const { active: areaList } = useAreas();
 
   const [category, setCategory] = useState<Category>('school');
   const [title, setTitle] = useState('');
@@ -46,17 +48,18 @@ export default function CreateRequestModal() {
   }, [profile?.full_name]);
 
   const isReading = category === 'reading';
-  const subjectOptions: Option[] = [{ label: t('common.all'), value: '' }, ...(isReading ? GENRES : BASE_SUBJECTS).map((s) => ({ label: s, value: s }))];
-  const levelOptions: Option[] = [{ label: t('common.all'), value: '' }, ...(isReading ? AGE_BANDS : GRADES).map((g) => ({ label: g, value: g }))];
-  const areaOptions: Option[] = [
-    { label: t('common.all'), value: '' },
-    ...AREAS_MUSCAT.map((a) => ({ label: a, value: a, group: 'Muscat' })),
-    ...AREAS_OTHER_OMAN.map((a) => ({ label: a, value: a, group: 'Outside Muscat' })),
-  ];
+  // Subject and grade are optional descriptors on a request, so "Any" (not the
+  // filter word "All") is the blank choice.
+  const subjectOptions: Option[] = [{ label: t('common.any'), value: '' }, ...(isReading ? GENRES : BASE_SUBJECTS).map((s) => ({ label: s, value: s }))];
+  const levelOptions: Option[] = [{ label: t('common.any'), value: '' }, ...(isReading ? AGE_BANDS : GRADES).map((g) => ({ label: g, value: g }))];
+  // A request needs a real area (where the handoff would happen), so there is
+  // no "any" choice here; the saved poster default preselects it.
+  const areaOptions: Option[] = areaList.map((a) => ({ label: a.name, value: a.name, group: a.region }));
 
   async function submit() {
     setError('');
     if (!title.trim()) return setError(t('request.needTitle'));
+    if (!area) return setError(t('request.needArea'));
     if (!name.trim()) return setError(t('request.needName'));
     if (findObjectionable(title, note, subject, schoolName)) {
       return setError('Please remove inappropriate language before posting.');
@@ -105,12 +108,12 @@ export default function CreateRequestModal() {
         </View>
 
         <Field label={t('request.bookTitle')} required>
-          <Input value={title} onChangeText={setTitle} placeholder="e.g. Grade 9 Physics, Cambridge" maxLength={120} />
+          <Input value={title} onChangeText={setTitle} placeholder={isReading ? 'e.g. Diary of a Wimpy Kid' : 'e.g. Grade 9 Physics, Cambridge'} maxLength={120} />
         </Field>
 
         <Select label={isReading ? t('create.genre') : t('filters.subject')} value={subject} options={subjectOptions} onChange={setSubject} />
         <Select label={isReading ? t('create.ageBand') : t('filters.grade')} value={grade} options={levelOptions} onChange={setGrade} />
-        <Select label={t('filters.area')} value={area} options={areaOptions} onChange={setArea} />
+        <Select label={t('filters.area')} value={area} options={areaOptions} onChange={setArea} placeholder={t('create.chooseArea')} required />
         {!isReading && (
           <SchoolSelect
             label={t('create.school')}

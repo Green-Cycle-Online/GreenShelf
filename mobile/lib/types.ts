@@ -69,6 +69,17 @@ export interface School {
   created_at: string;
 }
 
+// Admin-managed list of pickup areas (public.areas), grouped by region
+// ('Muscat' | 'Outside Muscat') in the pickers.
+export interface Area {
+  id: string;
+  name: string;
+  region: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
 // Wanted board: a family posts a book they need (public.book_requests).
 export type RequestStatus = 'open' | 'fulfilled';
 

@@ -1,6 +1,6 @@
 import { supabase, PHOTO_BUCKET } from './supabase';
 import {
-  Listing, Profile, Report, ListingDraft, BlockedUser, School, BookRequest, RequestResponse,
+  Listing, Profile, Report, ListingDraft, BlockedUser, School, Area, BookRequest, RequestResponse,
   RequestDraft, BookAlert, AlertDraft, Notification, ContactMethod,
 } from './types';
 
@@ -153,6 +153,37 @@ export async function updateSchool(
   updates: Partial<Pick<School, 'name' | 'area' | 'is_active' | 'sort_order'>>,
 ): Promise<void> {
   const { error } = await supabase.from('schools').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+// ---- AREAS (admin-managed pickup areas, same pattern as schools) ----
+
+export async function fetchAreas(): Promise<Area[]> {
+  const { data, error } = await supabase
+    .from('areas')
+    .select('*')
+    .order('region', { ascending: true })
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return (data as Area[]) ?? [];
+}
+
+export async function addArea(name: string, region: string): Promise<Area> {
+  const { data, error } = await supabase
+    .from('areas')
+    .insert({ name: name.trim(), region })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Area;
+}
+
+export async function updateArea(
+  id: string,
+  updates: Partial<Pick<Area, 'name' | 'region' | 'is_active' | 'sort_order'>>,
+): Promise<void> {
+  const { error } = await supabase.from('areas').update(updates).eq('id', id);
   if (error) throw error;
 }
 

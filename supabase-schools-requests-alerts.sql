@@ -8,6 +8,8 @@
 -- What it adds:
 --   schools            admin-managed list every client reads for the school dropdown
 --                      and filter. Public read of active rows; admin-only writes.
+--   areas              admin-managed pickup areas, same pattern as schools. Seeded
+--                      with the list the clients always had built in.
 --   listings.category  'school' (default) or 'reading'. Reading books store their
 --                      genre in `subject` and an age band in `grade_level`, so every
 --                      existing query, filter and card keeps working.
@@ -101,6 +103,60 @@ insert into public.schools (name, area) values
   ('Pakistan School Muscat', 'Ruwi'),
   ('Sri Lankan School Muscat', 'Ghubra'),
   ('Azzan Bin Qais International School', 'Seeb')
+on conflict (name) do nothing;
+
+-- ===========================================================================
+-- 1b. AREAS (admin-managed pickup areas; same shape and policies as schools)
+-- ===========================================================================
+create table if not exists public.areas (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null unique,
+  region      text not null default 'Muscat',   -- 'Muscat' | 'Outside Muscat'
+  is_active   boolean not null default true,
+  sort_order  integer not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists areas_active_idx on public.areas (is_active, region, sort_order, name);
+
+alter table public.areas enable row level security;
+
+drop policy if exists areas_select_active_or_admin on public.areas;
+create policy areas_select_active_or_admin
+  on public.areas for select
+  to anon, authenticated
+  using (is_active = true or public.is_admin());
+
+drop policy if exists areas_insert_admin on public.areas;
+create policy areas_insert_admin
+  on public.areas for insert
+  to authenticated
+  with check (public.is_admin());
+
+drop policy if exists areas_update_admin on public.areas;
+create policy areas_update_admin
+  on public.areas for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists areas_delete_admin on public.areas;
+create policy areas_delete_admin
+  on public.areas for delete
+  to authenticated
+  using (public.is_admin());
+
+-- Starter list: the areas the website and the app have always offered.
+insert into public.areas (name, region) values
+  ('Al Khoud', 'Muscat'), ('Al Khuwair', 'Muscat'), ('Al Hail', 'Muscat'), ('Al Mabela', 'Muscat'),
+  ('Al Mawaleh', 'Muscat'), ('Azaiba', 'Muscat'), ('Bausher', 'Muscat'), ('Ghubra', 'Muscat'),
+  ('Madinat Qaboos', 'Muscat'), ('Mutrah', 'Muscat'), ('Qurum', 'Muscat'), ('Ruwi', 'Muscat'),
+  ('Seeb', 'Muscat'),
+  ('Bahla', 'Outside Muscat'), ('Barka', 'Outside Muscat'), ('Buraimi', 'Outside Muscat'),
+  ('Ibri', 'Outside Muscat'), ('Khasab', 'Outside Muscat'), ('Liwa', 'Outside Muscat'),
+  ('Nizwa', 'Outside Muscat'), ('Rustaq', 'Outside Muscat'), ('Saham', 'Outside Muscat'),
+  ('Salalah', 'Outside Muscat'), ('Sohar', 'Outside Muscat'), ('Sur', 'Outside Muscat'),
+  ('Suwaiq', 'Outside Muscat')
 on conflict (name) do nothing;
 
 -- ===========================================================================

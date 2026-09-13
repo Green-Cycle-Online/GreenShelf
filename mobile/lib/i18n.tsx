@@ -131,6 +131,8 @@ const en = {
   'create.otherSchool': 'School name',
   'create.chooseGenre': 'Choose a genre.',
   'create.chooseAge': 'Choose an age range.',
+  'create.chooseArea': 'Choose your area...',
+  'request.needArea': 'Choose your area.',
 
   'schools.other': 'Other / not listed',
   'schools.none': 'No school',
@@ -147,6 +149,14 @@ const en = {
   'admin.hidden': 'Hidden',
   'admin.schoolAdded': 'School added.',
   'admin.schoolExists': 'That school is already on the list.',
+  'admin.areas': 'Areas',
+  'admin.areasHint': 'Pickup areas offered in the area dropdowns and the filter on the website and the app.',
+  'admin.addArea': 'Add an area',
+  'admin.areaName': 'Area name',
+  'admin.areaRegion': 'Region',
+  'admin.areaAdded': 'Area added.',
+  'admin.areaExists': 'That area is already on the list.',
+  'admin.areasEmpty': 'No areas yet. Run the migration in Supabase, then add one above.',
 
   'detail.genre': 'Genre',
   'detail.ageRange': 'Age range',
@@ -162,6 +172,7 @@ const en = {
   'common.signIn': 'Sign in',
   'common.retry': 'Retry',
   'common.all': 'All',
+  'common.any': 'Any',
   'common.error': 'Something went wrong. Try again?',
   'common.loadError': 'Could not load',
 } as const;
@@ -287,6 +298,8 @@ const ar: Record<StringKey, string> = {
   'create.otherSchool': 'اسم المدرسة',
   'create.chooseGenre': 'اختر النوع.',
   'create.chooseAge': 'اختر الفئة العمرية.',
+  'create.chooseArea': 'اختر منطقتك...',
+  'request.needArea': 'اختر منطقتك.',
 
   'schools.other': 'أخرى / غير مدرجة',
   'schools.none': 'بدون مدرسة',
@@ -303,6 +316,14 @@ const ar: Record<StringKey, string> = {
   'admin.hidden': 'مخفية',
   'admin.schoolAdded': 'تمت إضافة المدرسة.',
   'admin.schoolExists': 'هذه المدرسة موجودة في القائمة.',
+  'admin.areas': 'المناطق',
+  'admin.areasHint': 'مناطق الاستلام المعروضة في قوائم المناطق والتصفية في الموقع والتطبيق.',
+  'admin.addArea': 'إضافة منطقة',
+  'admin.areaName': 'اسم المنطقة',
+  'admin.areaRegion': 'داخل مسقط أم خارجها',
+  'admin.areaAdded': 'تمت إضافة المنطقة.',
+  'admin.areaExists': 'هذه المنطقة موجودة في القائمة.',
+  'admin.areasEmpty': 'لا توجد مناطق بعد. شغّل الترحيل في Supabase ثم أضف واحدة أعلاه.',
 
   'detail.genre': 'النوع',
   'detail.ageRange': 'الفئة العمرية',
@@ -318,6 +339,7 @@ const ar: Record<StringKey, string> = {
   'common.signIn': 'تسجيل الدخول',
   'common.retry': 'إعادة المحاولة',
   'common.all': 'الكل',
+  'common.any': 'أي',
   'common.error': 'حدث خطأ ما. حاول مرة أخرى؟',
   'common.loadError': 'تعذّر التحميل',
 };

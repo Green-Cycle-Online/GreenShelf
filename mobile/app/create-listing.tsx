@@ -25,10 +25,9 @@ import {
   AGE_BANDS,
   CONDITIONS,
   CONTACT_METHODS,
-  AREAS_MUSCAT,
-  AREAS_OTHER_OMAN,
   MAX_PHOTOS,
 } from '../lib/constants';
+import { useAreas } from '../lib/useAreas';
 import { Option, Select } from '../components/Select';
 import { Button } from '../components/Button';
 import { CategoryToggle } from '../components/CategoryToggle';
@@ -80,6 +79,7 @@ export default function CreateModal() {
 
   const isReading = category === 'reading';
   const baseSubjects = isReading ? GENRES : BASE_SUBJECTS;
+  const { active: areaList, names: areaNames } = useAreas();
 
   // Prefill from profile (new listing) or from the existing listing (edit).
   useEffect(() => {
@@ -97,8 +97,7 @@ export default function CreateModal() {
             setCustomSubject(l.subject);
           }
           setGrade(l.grade_level);
-          const allAreas = [...AREAS_MUSCAT, ...AREAS_OTHER_OMAN];
-          if (l.area && allAreas.includes(l.area)) setArea(l.area);
+          if (l.area && areaNames.includes(l.area)) setArea(l.area);
           else if (l.area) {
             setArea(OTHER);
             setCustomArea(l.area);
@@ -122,9 +121,8 @@ export default function CreateModal() {
         if (d.contact_method) setContactMethod((prev) => (prev === 'whatsapp' ? d.contact_method! : prev));
         setContactValue((prev) => prev || d.contact_value || '');
         if (d.area) {
-          const allAreas = [...AREAS_MUSCAT, ...AREAS_OTHER_OMAN];
-          setArea((prev) => prev || (allAreas.includes(d.area!) ? d.area! : OTHER));
-          if (!allAreas.includes(d.area)) setCustomArea((prev) => prev || d.area!);
+          setArea((prev) => prev || (areaNames.includes(d.area!) ? d.area! : OTHER));
+          if (!areaNames.includes(d.area)) setCustomArea((prev) => prev || d.area!);
         }
       });
     }
@@ -143,10 +141,10 @@ export default function CreateModal() {
   const gradeOptions: Option[] = (isReading ? AGE_BANDS : GRADES).map((g) => ({ label: g, value: g }));
   const conditionOptions: Option[] = CONDITIONS.map((c) => ({ label: t(`condition.${c.value}` as const), value: c.value }));
   const contactOptions: Option[] = CONTACT_METHODS.map((c) => ({ label: c.label, value: c.value }));
+  // "Other" sits at the end of the last region so it renders as the final row.
   const areaOptions: Option[] = [
-    ...AREAS_MUSCAT.map((a) => ({ label: a, value: a, group: 'Muscat' })),
-    ...AREAS_OTHER_OMAN.map((a) => ({ label: a, value: a, group: 'Outside Muscat' })),
-    { label: 'Other', value: OTHER, group: 'Outside Muscat' },
+    ...areaList.map((a) => ({ label: a.name, value: a.name, group: a.region })),
+    { label: 'Other', value: OTHER, group: areaList.length ? areaList[areaList.length - 1].region : undefined },
   ];
 
   async function pickFrom(source: 'camera' | 'library') {

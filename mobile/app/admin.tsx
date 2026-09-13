@@ -8,11 +8,13 @@ import { font, radius, spacing, type } from '../theme/tokens';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { useSchools } from '../lib/useSchools';
+import { useAreas } from '../lib/useAreas';
 import { useToast } from '../components/Toast';
 import { Button } from '../components/Button';
+import { Option, Select } from '../components/Select';
 import {
   fetchAllListings, fetchPendingReports, dismissReport, deleteListing, deleteListingsByOwner, PendingReport,
-  addSchool, updateSchool, fetchShowLiveCounter, setShowLiveCounter,
+  addSchool, updateSchool, addArea, updateArea, fetchShowLiveCounter, setShowLiveCounter,
 } from '../lib/api';
 import { Listing } from '../lib/types';
 import { REPORT_REASONS } from '../lib/constants';
@@ -36,6 +38,7 @@ export default function AdminScreen() {
   const { isAdmin } = useAuth();
   const toast = useToast();
   const { schools, refresh: refreshSchools } = useSchools();
+  const { areas, refresh: refreshAreas } = useAreas();
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [reports, setReports] = useState<PendingReport[]>([]);
@@ -46,6 +49,14 @@ export default function AdminScreen() {
   const [newSchool, setNewSchool] = useState('');
   const [newArea, setNewArea] = useState('');
   const [addingSchool, setAddingSchool] = useState(false);
+
+  const [newAreaName, setNewAreaName] = useState('');
+  const [newAreaRegion, setNewAreaRegion] = useState('Muscat');
+  const [addingArea, setAddingArea] = useState(false);
+  const regionOptions: Option[] = [
+    { label: 'Muscat', value: 'Muscat' },
+    { label: 'Outside Muscat', value: 'Outside Muscat' },
+  ];
 
   const load = useCallback(() => {
     setLoading(true);
@@ -58,7 +69,8 @@ export default function AdminScreen() {
       .catch(() => toast('Could not load stats.', 'error'))
       .finally(() => setLoading(false));
     refreshSchools();
-  }, [refreshSchools]);
+    refreshAreas();
+  }, [refreshSchools, refreshAreas]);
 
   useFocusEffect(useCallback(() => { if (isAdmin) load(); }, [isAdmin, load]));
 
@@ -116,6 +128,33 @@ export default function AdminScreen() {
     try {
       await updateSchool(id, { is_active: !active });
       await refreshSchools();
+      haptic.selection();
+    } catch (e: any) {
+      toast(e.message || t('common.error'), 'error');
+    }
+  }
+
+  async function submitArea() {
+    const name = newAreaName.trim();
+    if (!name) return;
+    setAddingArea(true);
+    try {
+      await addArea(name, newAreaRegion);
+      setNewAreaName('');
+      await refreshAreas();
+      haptic.success();
+      toast(t('admin.areaAdded'), 'success');
+    } catch (e: any) {
+      toast(e?.code === '23505' ? t('admin.areaExists') : e.message || t('common.error'), 'error');
+    } finally {
+      setAddingArea(false);
+    }
+  }
+
+  async function toggleArea(id: string, active: boolean) {
+    try {
+      await updateArea(id, { is_active: !active });
+      await refreshAreas();
       haptic.selection();
     } catch (e: any) {
       toast(e.message || t('common.error'), 'error');
@@ -291,6 +330,45 @@ export default function AdminScreen() {
                   </View>
                   <Pressable onPress={() => toggleSchool(s.id, s.is_active)} hitSlop={6} accessibilityRole="button">
                     <Text style={[styles.schoolAction, { color: colors.accent }]}>{s.is_active ? t('admin.hide') : t('admin.show')}</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Areas */}
+          <Text style={[styles.sectionTitle, { color: colors.ink }]}>{t('admin.areas')} ({areas.length})</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+            <Text style={[styles.muted, { color: colors.inkFaint, marginBottom: spacing.sm }]}>{t('admin.areasHint')}</Text>
+            <Text style={[styles.label, { color: colors.inkSoft }]}>{t('admin.addArea')}</Text>
+            <TextInput
+              value={newAreaName}
+              onChangeText={setNewAreaName}
+              placeholder={t('admin.areaName')}
+              placeholderTextColor={colors.inkFaint}
+              maxLength={60}
+              style={[styles.input, { backgroundColor: colors.paper, color: colors.ink, borderColor: colors.hairline }]}
+            />
+            <Select label={t('admin.areaRegion')} value={newAreaRegion} options={regionOptions} onChange={setNewAreaRegion} />
+            <Button title={t('admin.add')} onPress={submitArea} loading={addingArea} disabled={!newAreaName.trim()} style={{ marginTop: spacing.xs }} />
+            <View style={{ marginTop: spacing.md }}>
+              {areas.length === 0 && (
+                <Text style={[styles.muted, { color: colors.inkFaint }]}>{t('admin.areasEmpty')}</Text>
+              )}
+              {areas.map((a, i) => (
+                <View
+                  key={a.id}
+                  style={[styles.schoolRow, i < areas.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline }]}
+                >
+                  <Ionicons name="location-outline" size={18} color={a.is_active ? colors.accent : colors.inkFaint} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.schoolName, { color: a.is_active ? colors.ink : colors.inkFaint }]} numberOfLines={1}>{a.name}</Text>
+                    <Text style={[styles.schoolMeta, { color: colors.inkFaint }]}>
+                      {[a.region, a.is_active ? null : t('admin.hidden')].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                  <Pressable onPress={() => toggleArea(a.id, a.is_active)} hitSlop={6} accessibilityRole="button">
+                    <Text style={[styles.schoolAction, { color: colors.accent }]}>{a.is_active ? t('admin.hide') : t('admin.show')}</Text>
                   </Pressable>
                 </View>
               ))}

@@ -31,7 +31,6 @@ function safePhotoExt(file) {
 const BASE_SUBJECTS = ['Math', 'Science', 'English', 'Arabic', 'Social Studies', 'Business']
 const AREAS_MUSCAT = ['Al Khoud', 'Al Khuwair', 'Al Hail', 'Al Mabela', 'Al Mawaleh', 'Azaiba', 'Bausher', 'Ghubra', 'Madinat Qaboos', 'Mutrah', 'Qurum', 'Ruwi', 'Seeb']
 const AREAS_OTHER_OMAN = ['Bahla', 'Barka', 'Buraimi', 'Ibri', 'Khasab', 'Liwa', 'Nizwa', 'Rustaq', 'Saham', 'Salalah', 'Sohar', 'Sur', 'Suwaiq']
-const ALL_AREAS = [...AREAS_MUSCAT, ...AREAS_OTHER_OMAN]
 const MAX_PHOTOS = 4
 const PAGE_SIZE = 24
 // Reading books reuse the subject column for a genre and grade_level for an
@@ -42,6 +41,7 @@ const AGE_BANDS = ['Ages 3-5', 'Ages 6-8', 'Ages 9-12', 'Teen (13+)', 'Adult']
 const GRADES = Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)
 let currentCategory = 'school'   // 'school' | 'reading' (the browse tab)
 let schools = []                 // rows from the admin-managed schools table
+let areas = []                   // rows from the admin-managed areas table (built-in list until migrated)
 let myAlerts = []
 let myNotifications = []
 let openRequests = []
@@ -790,6 +790,7 @@ async function loadAdminStats() {
       </label>
     </div>
     ${renderSchoolAdmin()}
+    ${renderAreaAdmin()}
     ${pendingReports.length > 0 ? `
       <div class="admin-card">
         <h3>Pending reports (${pendingReports.length})</h3>
@@ -885,6 +886,7 @@ async function loadAdminStats() {
   })
   wireDiagnostics(content)
   wireSchoolAdmin(content)
+  wireAreaAdmin(content)
   const counterToggle = content.querySelector('#toggle-live-counter')
   if (counterToggle) counterToggle.addEventListener('click', async () => {
     const next = !siteSettings.show_live_counter
@@ -1243,7 +1245,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
   const customSubjectValue = isCustomSubject ? d.subject : ''
   // Custom area applies whenever the value (edit, draft or saved default) is not
   // in the picker list, so a remembered "Other" area round-trips correctly.
-  const isCustomArea = !!(d.area && !ALL_AREAS.includes(d.area))
+  const isCustomArea = !!(d.area && !areaNames().includes(d.area))
   const areaValue = isCustomArea ? 'Other' : (d.area || '')
   const customAreaValue = isCustomArea ? d.area : ''
   const ownerNameValue = d.owner_name || (currentProfile && currentProfile.full_name) || ''
@@ -1269,7 +1271,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
             <input type="file" id="photos-input" accept="image/*" class="visually-hidden-input">
           </div>
           <label class="auth-label">Book title
-            <input type="text" name="title" required maxlength="120" value="${escapeHtml(d.title || '')}">
+            <input type="text" name="title" required maxlength="120" value="${escapeHtml(d.title || '')}" placeholder="${category === 'reading' ? 'e.g. Diary of a Wimpy Kid' : 'e.g. Grade 9 Physics, Cambridge'}">
           </label>
           <div class="form-row">
             <label class="auth-label"><span data-role="subject-label">${category === 'reading' ? 'Genre' : 'Subject'}</span>
@@ -1291,12 +1293,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
           <label class="auth-label">Pickup area
             <select name="area" required>
               <option value="">Choose your area…</option>
-              <optgroup label="Muscat">
-                ${AREAS_MUSCAT.map(a => `<option ${a === areaValue ? 'selected' : ''}>${a}</option>`).join('')}
-              </optgroup>
-              <optgroup label="Outside Muscat">
-                ${AREAS_OTHER_OMAN.map(a => `<option ${a === areaValue ? 'selected' : ''}>${a}</option>`).join('')}
-              </optgroup>
+              ${areaOptionsHtml(areaValue)}
               <option value="Other" ${areaValue === 'Other' ? 'selected' : ''}>Other</option>
             </select>
             <small style="display:block; margin-top:4px; color: var(--text-muted); font-size: 0.85rem;">Just the general area, please. Never share your full address.</small>
@@ -1422,6 +1419,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
     if (lvls.includes(keepG)) gradeSelect.value = keepG
     modal.querySelector('[data-role="subject-label"]').textContent = cat === 'reading' ? 'Genre' : 'Subject'
     modal.querySelector('[data-role="grade-label"]').textContent = cat === 'reading' ? 'Age range' : 'Grade'
+    createForm.title.placeholder = cat === 'reading' ? 'e.g. Diary of a Wimpy Kid' : 'e.g. Grade 9 Physics, Cambridge'
     modal.querySelector('#school-field').hidden = cat === 'reading'
     subjectSelect.dispatchEvent(new Event('change'))
   }
@@ -1725,7 +1723,7 @@ function updateAreaFilterOptions() {
   const select = document.getElementById('area-filter')
   if (!select) return
   const fromListings = [...new Set(allListings.map(l => l.area).filter(Boolean))]
-  const merged = [...new Set([...ALL_AREAS, ...fromListings])].sort()
+  const merged = [...new Set([...areaNames(), ...fromListings])].sort()
   const currentValue = select.value
   select.innerHTML = `<option value="">${escapeHtml(t('All areas'))}</option>` + merged.map(a => `<option>${escapeHtml(a)}</option>`).join('')
   if (currentValue && merged.includes(currentValue)) select.value = currentValue
@@ -2534,6 +2532,82 @@ function wireSchoolAdmin(content) {
   }))
 }
 
+// ---- AREAS (admin-managed pickup areas, public.areas) ----
+// Until the table exists the built-in lists above are used, so every picker
+// keeps working on an older backend.
+function activeAreas() {
+  if (areas.length) return areas.filter(a => a.is_active)
+  return [
+    ...AREAS_MUSCAT.map(name => ({ name, region: 'Muscat' })),
+    ...AREAS_OTHER_OMAN.map(name => ({ name, region: 'Outside Muscat' })),
+  ]
+}
+function areaNames() { return activeAreas().map(a => a.name) }
+// <optgroup> markup shared by the create-listing and request forms.
+function areaOptionsHtml(selected) {
+  const groups = new Map()
+  activeAreas().forEach(a => {
+    const region = a.region || 'Other'
+    if (!groups.has(region)) groups.set(region, [])
+    groups.get(region).push(a.name)
+  })
+  return [...groups].map(([region, names]) =>
+    `<optgroup label="${escapeHtml(region)}">${names.map(n => `<option ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}</optgroup>`
+  ).join('')
+}
+async function loadAreas() {
+  try {
+    const { data, error } = await supabase.from('areas').select('*').order('region').order('sort_order').order('name')
+    if (error) return   // table not migrated yet: the built-in list stays in use
+    areas = data || []
+  } catch (e) { return }
+  updateAreaFilterOptions()
+}
+function renderAreaAdmin() {
+  const rows = areas.map(a => `
+    <div class="school-row${a.is_active ? '' : ' is-hidden'}">
+      <span class="school-name">${escapeHtml(a.name)}</span>
+      <span class="school-area">${escapeHtml(a.region || '')}</span>
+      <button type="button" class="school-toggle area-toggle" data-area-id="${escapeHtml(a.id)}" data-active="${a.is_active}">${a.is_active ? 'Hide' : 'Show'}</button>
+    </div>`).join('')
+  return `
+    <div class="admin-card">
+      <h3>Areas (${areas.length})</h3>
+      <p class="admin-setting-desc">Pickup areas offered in the area dropdowns and the filter on the website and in the app. Hidden areas stay on old listings but disappear from the pickers.</p>
+      <form class="school-form" id="area-form">
+        <input type="text" name="name" maxlength="60" placeholder="Area name" required>
+        <select name="region" aria-label="Region"><option>Muscat</option><option>Outside Muscat</option></select>
+        <button type="submit" class="btn-primary">Add</button>
+      </form>
+      <div class="school-list">${rows || '<p class="muted">No areas yet. Run the migration in Supabase, then add one above.</p>'}</div>
+    </div>`
+}
+function wireAreaAdmin(content) {
+  const form = content.querySelector('#area-form')
+  if (form) form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const name = form.name.value.trim()
+    if (!name) return
+    const { error } = await supabase.from('areas').insert({ name, region: form.region.value })
+    if (error) {
+      showToast(error.code === '23505' ? 'That area is already on the list.' : error.message, 'error')
+      return
+    }
+    showToast('Area added.', 'success')
+    await loadAreas()
+    loadAdminStats()
+  })
+  content.querySelectorAll('.area-toggle').forEach(btn => btn.addEventListener('click', async () => {
+    const active = btn.dataset.active === 'true'
+    btn.disabled = true
+    const { error } = await supabase.from('areas').update({ is_active: !active }).eq('id', btn.dataset.areaId)
+    btn.disabled = false
+    if (error) { showToast(error.message, 'error'); return }
+    await loadAreas()
+    loadAdminStats()
+  }))
+}
+
 // ---- WANTED BOARD (public.book_requests + request_responses) ----
 async function loadRequests() {
   const grid = document.getElementById('wanted-grid')
@@ -2707,9 +2781,9 @@ function showCreateRequestModal() {
     document.body.appendChild(modal)
   }
   const d = loadPosterDefaults()
-  const areaOpts = `<option value="">${escapeHtml(t('Any'))}</option>` +
-    `<optgroup label="Muscat">${AREAS_MUSCAT.map(a => `<option ${a === d.area ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</optgroup>` +
-    `<optgroup label="Outside Muscat">${AREAS_OTHER_OMAN.map(a => `<option ${a === d.area ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</optgroup>`
+  // A request needs a real area (where the handoff would happen), so there is
+  // no "any" choice; the remembered poster area preselects it.
+  const areaOpts = `<option value="">${escapeHtml(t('Choose your area'))}</option>` + areaOptionsHtml(d.area)
   modal.innerHTML = `
     <div class="modal create-modal">
       <button class="modal-close" id="request-close" aria-label="${escapeHtml(t('Close'))}">×</button>
@@ -2728,7 +2802,7 @@ function showCreateRequestModal() {
             <label><span data-role="grade-label">${escapeHtml(t('Grade'))}</span><select name="grade_level"></select></label>
           </div>
           <div class="form-row">
-            <label>${escapeHtml(t('Area'))}<select name="area">${areaOpts}</select></label>
+            <label>${escapeHtml(t('Area'))} *<select name="area" required>${areaOpts}</select></label>
             <label data-role="school-wrap">${escapeHtml(t('School'))}<select name="school_id" data-school-select></select></label>
           </div>
           <div class="school-other-wrap" data-role="school-other" hidden>
@@ -2750,6 +2824,7 @@ function showCreateRequestModal() {
     form.grade_level.innerHTML = `<option value="">${escapeHtml(t('Any'))}</option>` + levels.map(g => `<option>${escapeHtml(g)}</option>`).join('')
     modal.querySelector('[data-role="subject-label"]').textContent = cat === 'reading' ? t('Genre') : t('Subject')
     modal.querySelector('[data-role="grade-label"]').textContent = cat === 'reading' ? t('Age range') : t('Grade')
+    form.title.placeholder = cat === 'reading' ? 'e.g. Diary of a Wimpy Kid' : 'e.g. Grade 9 Physics, Cambridge'
     modal.querySelector('[data-role="school-wrap"]').hidden = cat === 'reading'
     if (cat === 'reading') modal.querySelector('[data-role="school-other"]').hidden = true
   }
@@ -2776,6 +2851,7 @@ function showCreateRequestModal() {
     err.textContent = ''
     const title = form.title.value.trim(), name = form.requester_name.value.trim()
     if (!title) { err.textContent = t('Add the book title.'); return }
+    if (!form.area.value) { err.textContent = t('Choose your area.'); return }
     if (!name) { err.textContent = t('Add your name.'); return }
     const cat = form.category.value
     const schoolId = cat === 'reading' ? null : (schoolSel.value && schoolSel.value !== '__other__' ? schoolSel.value : null)
@@ -2933,6 +3009,7 @@ const AR = {
   'Your name': 'اسمك', 'Contact via': 'التواصل عبر', 'Contact details': 'بيانات التواصل', 'Message (optional)': 'رسالة (اختياري)',
   'Send': 'إرسال', 'Cancel': 'إلغاء', 'Close': 'إغلاق', 'Book title': 'عنوان الكتاب', 'Genre': 'النوع', 'Subject': 'المادة',
   'Age range': 'الفئة العمرية', 'Grade': 'الصف', 'Area': 'المنطقة', 'School': 'المدرسة', 'Any': 'أي',
+  'Choose your area': 'اختر منطقتك', 'Choose your area.': 'اختر منطقتك.',
   'Anything else (optional)': 'تفاصيل إضافية (اختياري)', 'Edition, publisher, condition you would accept...': 'الطبعة، الناشر، الحالة المقبولة...',
   'Post request': 'نشر الطلب', 'Add the book title.': 'أضف عنوان الكتاب.', 'Add your name.': 'أضف اسمك.',
   'Sign in to post a request.': 'سجّل الدخول لنشر طلب.', 'Posted. We will tell you when someone has it.': 'تم النشر. سنخبرك عندما يتوفر لدى أحد.',
@@ -3599,6 +3676,7 @@ initLanguage()
 updateNav()
 loadListings()
 loadSchools()
+loadAreas()
 loadSiteSettings()
 loadImpact()
 ;(async () => {
