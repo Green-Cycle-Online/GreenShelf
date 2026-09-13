@@ -1,11 +1,12 @@
 import React from 'react';
 import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/theme';
 import { font } from '../../theme/tokens';
 import { haptic } from '../../lib/haptics';
+import { useI18n } from '../../lib/i18n';
 
 // Tab screens have no header, so scrolled content slides under the transparent
 // status bar and clashes with the clock. A near-opaque paper scrim gives the
@@ -33,6 +34,7 @@ function StatusBarScrim() {
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const { t } = useI18n();
 
   return (
     <View style={{ flex: 1 }}>
@@ -51,22 +53,22 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Browse',
+          title: t('tabs.browse'),
           tabBarIcon: ({ color, size }) => <Ionicons name="library-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="saved"
+        name="wanted"
         options={{
-          title: 'Saved',
-          tabBarIcon: ({ color, size }) => <Ionicons name="heart-outline" size={size} color={color} />,
+          title: t('tabs.wanted'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="hand-left-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="create"
         options={{
-          title: 'List',
-          tabBarIcon: ({ color, size }) => (
+          title: t('tabs.list'),
+          tabBarIcon: ({ size }) => (
             <Ionicons name="add-circle" size={size + 8} color={colors.accent} />
           ),
         }}
@@ -80,9 +82,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="saved"
+        options={{
+          title: t('tabs.saved'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="heart-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: t('tabs.profile'),
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />

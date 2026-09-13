@@ -14,6 +14,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { ThemeProvider, useTheme } from '../theme/theme';
 import { AuthProvider } from '../lib/auth';
+import { LanguageProvider, useI18n } from '../lib/i18n';
 import { ToastProvider } from '../components/Toast';
 import { OfflineBanner } from '../components/OfflineBanner';
 
@@ -21,6 +22,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function ThemedStack() {
   const { colors, scheme } = useTheme();
+  const { t } = useI18n();
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
@@ -37,10 +39,17 @@ function ThemedStack() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="listing/[id]" options={{ title: '' }} />
+        <Stack.Screen name="request/[id]" options={{ title: t('wanted.title') }} />
         <Stack.Screen
           name="create-listing"
-          options={{ presentation: 'modal', title: 'List a book' }}
+          options={{ presentation: 'modal', title: t('browse.listABook') }}
         />
+        <Stack.Screen
+          name="create-request"
+          options={{ presentation: 'modal', title: t('request.title') }}
+        />
+        <Stack.Screen name="notifications" options={{ title: t('notif.title') }} />
+        <Stack.Screen name="alerts" options={{ title: t('alerts.title') }} />
         <Stack.Screen name="auth" options={{ presentation: 'modal', title: '' }} />
       </Stack>
     </>
@@ -67,11 +76,13 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <AuthProvider>
-            <ToastProvider>
-              <ThemedStack />
-            </ToastProvider>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <ThemedStack />
+              </ToastProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

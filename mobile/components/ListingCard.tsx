@@ -87,6 +87,7 @@ export function ListingCard({
         </Text>
         <View style={styles.tags}>
           <Tag label={listing.grade_level} kind="grade" />
+          {listing.category === 'reading' && !!listing.subject && <Tag label={listing.subject} kind="subject" />}
           <Tag label={listing.condition} kind="condition" condition={listing.condition} />
         </View>
         {!!location && (

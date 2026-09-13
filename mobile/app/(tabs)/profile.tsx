@@ -6,9 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, ThemePref } from '../../theme/theme';
 import { font, radius, spacing, type } from '../../theme/tokens';
 import { useAuth } from '../../lib/auth';
+import { useI18n, Lang } from '../../lib/i18n';
+import { useUnreadCount } from '../../lib/useNotifications';
 import { useToast } from '../../components/Toast';
 import { Button } from '../../components/Button';
 import { Select, Option } from '../../components/Select';
+import { SchoolSelect } from '../../components/SchoolSelect';
 import { Leaf } from '../../components/Logo';
 import { GRADES, SUPPORT_EMAIL } from '../../lib/constants';
 import { updateProfile, deleteAccountData, fetchMyListings } from '../../lib/api';
@@ -26,8 +29,10 @@ const INFO_LINKS: { label: string; icon: keyof typeof Ionicons.glyphMap; route: 
 
 export default function ProfileScreen() {
   const { colors, pref, setPref } = useTheme();
+  const { t, lang, setLang, needsRestart } = useI18n();
   const insets = useSafeAreaInsets();
   const { user, profile, isAdmin, signOut, refreshProfile } = useAuth();
+  const { count: unread, refresh: refreshUnread } = useUnreadCount();
   const toast = useToast();
 
   const [fullName, setFullName] = useState('');
@@ -50,7 +55,8 @@ export default function ProfileScreen() {
     useCallback(() => {
       refreshProfile();
       loadMine();
-    }, [loadMine]),
+      refreshUnread();
+    }, [loadMine, refreshUnread]),
   );
 
   const gradeOptions: Option[] = [{ label: 'Not set', value: '' }, ...GRADES.map((g) => ({ label: g, value: g }))];
@@ -58,6 +64,10 @@ export default function ProfileScreen() {
     { label: 'System', value: 'system', icon: 'phone-portrait-outline' },
     { label: 'Light', value: 'light', icon: 'sunny-outline' },
     { label: 'Dark', value: 'dark', icon: 'moon-outline' },
+  ];
+  const langOptions: { label: string; value: Lang }[] = [
+    { label: 'English', value: 'en' },
+    { label: 'العربية', value: 'ar' },
   ];
 
   async function save() {
@@ -105,14 +115,14 @@ export default function ProfileScreen() {
 
   const ThemeRow = (
     <View style={styles.themeRow}>
-      {themeOptions.map((t) => {
-        const active = pref === t.value;
+      {themeOptions.map((th) => {
+        const active = pref === th.value;
         return (
           <Pressable
-            key={t.value}
+            key={th.value}
             onPress={() => {
               haptic.selection();
-              setPref(t.value);
+              setPref(th.value);
             }}
             style={[
               styles.themeChip,
@@ -121,12 +131,42 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
           >
-            <Ionicons name={t.icon} size={16} color={active ? colors.onAccent : colors.inkSoft} />
-            <Text style={[styles.themeChipText, { color: active ? colors.onAccent : colors.inkSoft }]}>{t.label}</Text>
+            <Ionicons name={th.icon} size={16} color={active ? colors.onAccent : colors.inkSoft} />
+            <Text style={[styles.themeChipText, { color: active ? colors.onAccent : colors.inkSoft }]}>{th.label}</Text>
           </Pressable>
         );
       })}
     </View>
+  );
+
+  const LanguageRow = (
+    <>
+      <View style={styles.themeRow}>
+        {langOptions.map((l) => {
+          const active = lang === l.value;
+          return (
+            <Pressable
+              key={l.value}
+              onPress={() => {
+                haptic.selection();
+                setLang(l.value);
+              }}
+              style={[
+                styles.themeChip,
+                { backgroundColor: active ? colors.accent : colors.surface, borderColor: active ? colors.accent : colors.hairlineStrong },
+              ]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.themeChipText, { color: active ? colors.onAccent : colors.inkSoft }]}>{l.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {needsRestart && (
+        <Text style={[styles.restartNote, { color: colors.inkFaint }]}>{t('profile.restartNote')}</Text>
+      )}
+    </>
   );
 
   const InfoList = (
@@ -146,11 +186,33 @@ export default function ProfileScreen() {
     </View>
   );
 
+  const NavRow = ({
+    icon, label, route, badge, tint,
+  }: { icon: keyof typeof Ionicons.glyphMap; label: string; route: string; badge?: number; tint?: boolean }) => (
+    <Pressable
+      onPress={() => router.push(route as any)}
+      style={[styles.adminRow, tint
+        ? { backgroundColor: colors.accentTint, borderColor: colors.accent }
+        : { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+      accessibilityRole="button"
+    >
+      <Ionicons name={icon} size={20} color={tint ? colors.accent : colors.inkSoft} />
+      <Text style={[styles.rowLabel, { color: tint ? colors.accent : colors.ink }]}>{label}</Text>
+      {!!badge && (
+        <View style={[styles.badge, { backgroundColor: colors.error }]}>
+          <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      )}
+      <Ionicons name="chevron-forward" size={18} color={tint ? colors.accent : colors.inkFaint} />
+    </Pressable>
+  );
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.paper }}
       contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxxl }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <View style={styles.headerRow}>
         <Leaf size={26} color={colors.accent} />
@@ -162,10 +224,12 @@ export default function ProfileScreen() {
           <View style={[styles.signedOut, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <Text style={[styles.signedOutTitle, { color: colors.ink }]}>Sign in to list books</Text>
             <Text style={[styles.signedOutMsg, { color: colors.inkSoft }]}>
-              You can browse freely with no account. Sign in only when you want to share a book of your own.
+              You can browse freely with no account. Sign in only when you want to share a book, post a request, or get alerts.
             </Text>
             <Button title="Sign in or create account" onPress={() => router.push('/auth')} />
           </View>
+          <Text style={[styles.sectionLabel, { color: colors.inkFaint }]}>{t('profile.language')}</Text>
+          {LanguageRow}
           <Text style={[styles.sectionLabel, { color: colors.inkFaint }]}>Learn more</Text>
           {InfoList}
           <Text style={[styles.sectionLabel, { color: colors.inkFaint }]}>Appearance</Text>
@@ -175,7 +239,10 @@ export default function ProfileScreen() {
         <>
           <Text style={[styles.email, { color: colors.inkSoft }]}>{user.email}</Text>
 
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: spacing.lg }]}>
+          <NavRow icon="notifications-outline" label={t('profile.notifications')} route="/notifications" badge={unread} />
+          <NavRow icon="bookmark-outline" label={t('profile.alerts')} route="/alerts" />
+
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: spacing.lg, marginTop: spacing.lg }]}>
             <Text style={[styles.cardTitle, { color: colors.ink }]}>Your details</Text>
             <Text style={[styles.label, { color: colors.inkSoft }]}>Name</Text>
             <TextInput
@@ -186,39 +253,21 @@ export default function ProfileScreen() {
               maxLength={60}
               style={[styles.input, { backgroundColor: colors.paper, color: colors.ink, borderColor: colors.hairline }]}
             />
-            <Text style={[styles.label, { color: colors.inkSoft }]}>School (optional)</Text>
-            <TextInput
-              value={school}
-              onChangeText={setSchool}
-              placeholder="e.g. British School Muscat"
-              placeholderTextColor={colors.inkFaint}
-              maxLength={120}
-              style={[styles.input, { backgroundColor: colors.paper, color: colors.ink, borderColor: colors.hairline }]}
+            <SchoolSelect
+              label={t('profile.school')}
+              schoolId={null}
+              schoolName={school}
+              onChange={({ school: name }) => setSchool(name)}
             />
             <Select label="Grade (optional)" value={grade} options={gradeOptions} onChange={setGrade} />
             <Button title="Save changes" onPress={save} loading={saving} style={{ marginTop: spacing.sm }} />
           </View>
 
           {isAdmin && (
-            <Pressable
-              onPress={() => router.push('/admin')}
-              style={[styles.adminRow, { backgroundColor: colors.accentTint, borderColor: colors.accent }]}
-            >
-              <Ionicons name="shield-checkmark-outline" size={20} color={colors.accent} />
-              <Text style={[styles.rowLabel, { color: colors.accent }]}>Admin dashboard</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.accent} />
-            </Pressable>
+            <NavRow icon="shield-checkmark-outline" label="Admin dashboard" route="/admin" tint />
           )}
 
-          <Pressable
-            onPress={() => router.push('/blocked')}
-            style={[styles.adminRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-            accessibilityRole="button"
-          >
-            <Ionicons name="person-remove-outline" size={20} color={colors.inkSoft} />
-            <Text style={[styles.rowLabel, { color: colors.ink }]}>Blocked users</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
-          </Pressable>
+          <NavRow icon="person-remove-outline" label="Blocked users" route="/blocked" />
 
           <View style={styles.myListingsHead}>
             <Text style={[styles.cardTitle, { color: colors.ink }]}>Your listings</Text>
@@ -239,7 +288,7 @@ export default function ProfileScreen() {
                   style={[styles.row, i < mine.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline }]}
                 >
                   <Ionicons
-                    name={l.status === 'claimed' ? 'checkmark-done-outline' : 'book-outline'}
+                    name={l.status === 'claimed' ? 'checkmark-done-outline' : l.category === 'reading' ? 'book-outline' : 'school-outline'}
                     size={20}
                     color={l.status === 'claimed' ? colors.inkFaint : colors.accent}
                   />
@@ -255,6 +304,8 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          <Text style={[styles.sectionLabel, { color: colors.inkFaint }]}>{t('profile.language')}</Text>
+          {LanguageRow}
           <Text style={[styles.sectionLabel, { color: colors.inkFaint }]}>Learn more</Text>
           {InfoList}
           <Text style={[styles.sectionLabel, { color: colors.inkFaint }]}>Appearance</Text>
@@ -286,17 +337,20 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   cardTitle: { fontFamily: font.displayBold, fontSize: type.lg, marginBottom: spacing.sm },
   label: { fontFamily: font.bodySemi, fontSize: type.sm, marginBottom: spacing.xs, marginTop: spacing.sm },
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, paddingHorizontal: spacing.lg, height: 48, fontFamily: font.body, fontSize: type.base, marginBottom: spacing.xs },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, paddingHorizontal: spacing.lg, height: 48, fontFamily: font.body, fontSize: type.base, marginBottom: spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, minHeight: 56 },
   rowLabel: { flex: 1, fontFamily: font.bodyMedium, fontSize: type.base },
   rowSub: { fontFamily: font.body, fontSize: type.xs, marginTop: 1 },
-  adminRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, marginTop: spacing.lg },
+  adminRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, marginTop: spacing.sm },
+  badge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { color: '#fff', fontFamily: font.bodyBold, fontSize: 11 },
   myListingsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: spacing.xl, marginBottom: spacing.sm },
   count: { fontFamily: font.bodyMedium, fontSize: type.sm },
   emptyMine: { fontFamily: font.body, fontSize: type.base, lineHeight: type.base * 1.4 },
   themeRow: { flexDirection: 'row', gap: spacing.sm },
   themeChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.md, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth },
   themeChipText: { fontFamily: font.bodySemi, fontSize: type.sm },
+  restartNote: { fontFamily: font.body, fontSize: type.xs, marginTop: spacing.sm },
   danger: { borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, padding: spacing.lg, gap: spacing.md, marginTop: spacing.xl },
   dangerTitle: { fontFamily: font.displayBold, fontSize: type.md },
   dangerMsg: { fontFamily: font.body, fontSize: type.sm, lineHeight: type.sm * 1.5 },

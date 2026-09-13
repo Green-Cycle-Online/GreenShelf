@@ -20,7 +20,9 @@ import { useTheme } from '../theme/theme';
 import { font, radius, spacing, type } from '../theme/tokens';
 import {
   BASE_SUBJECTS,
+  GENRES,
   GRADES,
+  AGE_BANDS,
   CONDITIONS,
   CONTACT_METHODS,
   AREAS_MUSCAT,
@@ -29,13 +31,16 @@ import {
 } from '../lib/constants';
 import { Option, Select } from '../components/Select';
 import { Button } from '../components/Button';
+import { CategoryToggle } from '../components/CategoryToggle';
+import { SchoolSelect } from '../components/SchoolSelect';
 import { useAuth } from '../lib/auth';
+import { useI18n } from '../lib/i18n';
 import { useToast } from '../components/Toast';
 import { haptic } from '../lib/haptics';
 import { fetchListingById, insertListing, updateListing, uploadPhoto } from '../lib/api';
 import { loadPosterDefaults, savePosterDefaults } from '../lib/posterDefaults';
 import { findObjectionable } from '../lib/moderation';
-import { ContactMethod } from '../lib/types';
+import { Category, ContactMethod } from '../lib/types';
 
 interface PhotoSlot {
   uri: string;
@@ -46,12 +51,14 @@ const OTHER = 'Other';
 
 export default function CreateModal() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const { user, profile, refreshProfile } = useAuth();
   const toast = useToast();
   const params = useLocalSearchParams<{ editId?: string }>();
   const isEditing = !!params.editId;
 
+  const [category, setCategory] = useState<Category>('school');
   const [photos, setPhotos] = useState<PhotoSlot[]>([]);
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
@@ -60,6 +67,7 @@ export default function CreateModal() {
   const [area, setArea] = useState('');
   const [customArea, setCustomArea] = useState('');
   const [school, setSchool] = useState('');
+  const [schoolId, setSchoolId] = useState<string | null>(null);
   const [condition, setCondition] = useState('');
   const [description, setDescription] = useState('');
   const [ownerName, setOwnerName] = useState('');
@@ -70,14 +78,20 @@ export default function CreateModal() {
   const [error, setError] = useState('');
   const [loadingEdit, setLoadingEdit] = useState(isEditing);
 
+  const isReading = category === 'reading';
+  const baseSubjects = isReading ? GENRES : BASE_SUBJECTS;
+
   // Prefill from profile (new listing) or from the existing listing (edit).
   useEffect(() => {
     if (isEditing) {
       fetchListingById(params.editId!)
         .then((l) => {
           if (!l) return;
+          const cat: Category = l.category === 'reading' ? 'reading' : 'school';
+          setCategory(cat);
           setTitle(l.title);
-          if (BASE_SUBJECTS.includes(l.subject)) setSubject(l.subject);
+          const known = cat === 'reading' ? GENRES : BASE_SUBJECTS;
+          if (known.includes(l.subject)) setSubject(l.subject);
           else {
             setSubject(OTHER);
             setCustomSubject(l.subject);
@@ -90,6 +104,7 @@ export default function CreateModal() {
             setCustomArea(l.area);
           }
           setSchool(l.school || '');
+          setSchoolId(l.school_id || null);
           setCondition(l.condition);
           setDescription(l.description || '');
           setOwnerName(l.owner_name);
@@ -115,9 +130,18 @@ export default function CreateModal() {
     }
   }, [isEditing, profile?.full_name]);
 
-  const subjectOptions: Option[] = [...BASE_SUBJECTS, OTHER].map((s) => ({ label: s, value: s }));
-  const gradeOptions: Option[] = GRADES.map((g) => ({ label: g, value: g }));
-  const conditionOptions: Option[] = CONDITIONS.map((c) => ({ label: c.label, value: c.value }));
+  function switchCategory(c: Category) {
+    if (c === category) return;
+    setCategory(c);
+    // Subject/genre and grade/age band are different vocabularies.
+    setSubject('');
+    setCustomSubject('');
+    setGrade('');
+  }
+
+  const subjectOptions: Option[] = [...baseSubjects, OTHER].map((s) => ({ label: s, value: s }));
+  const gradeOptions: Option[] = (isReading ? AGE_BANDS : GRADES).map((g) => ({ label: g, value: g }));
+  const conditionOptions: Option[] = CONDITIONS.map((c) => ({ label: t(`condition.${c.value}` as const), value: c.value }));
   const contactOptions: Option[] = CONTACT_METHODS.map((c) => ({ label: c.label, value: c.value }));
   const areaOptions: Option[] = [
     ...AREAS_MUSCAT.map((a) => ({ label: a, value: a, group: 'Muscat' })),
@@ -171,9 +195,9 @@ export default function CreateModal() {
 
   function validate(): string | null {
     if (!title.trim()) return 'Add the book title.';
-    if (!subject) return 'Choose a subject.';
-    if (subject === OTHER && !customSubject.trim()) return 'Specify the subject.';
-    if (!grade) return 'Choose a grade.';
+    if (!subject) return isReading ? t('create.chooseGenre') : 'Choose a subject.';
+    if (subject === OTHER && !customSubject.trim()) return isReading ? 'Specify the genre.' : 'Specify the subject.';
+    if (!grade) return isReading ? t('create.chooseAge') : 'Choose a grade.';
     if (!area) return 'Choose a pickup area.';
     if (area === OTHER && !customArea.trim()) return 'Specify the area.';
     if (!condition) return 'Choose a condition.';
@@ -223,7 +247,9 @@ export default function CreateModal() {
         subject: finalSubject,
         grade_level: grade,
         area: finalArea,
-        school: school.trim() || null,
+        school: isReading ? null : school.trim() || null,
+        school_id: isReading ? null : schoolId,
+        category,
         condition: condition as any,
         description: description.trim() || null,
         owner_name: ownerName.trim(),
@@ -267,7 +293,7 @@ export default function CreateModal() {
       style={{ flex: 1, backgroundColor: colors.paper }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Stack.Screen options={{ title: isEditing ? 'Edit listing' : 'List a book' }} />
+      <Stack.Screen options={{ title: isEditing ? 'Edit listing' : t('browse.listABook') }} />
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xxxl }}
         keyboardShouldPersistTaps="handled"
@@ -276,9 +302,14 @@ export default function CreateModal() {
           {isEditing
             ? 'Update the details below.'
             : user
-              ? 'Pass it on to another student. No money, no fuss.'
+              ? 'Pass it on to another family. No money, no fuss.'
               : 'Fill this in, then create a quick account to publish.'}
         </Text>
+
+        <Text style={[styles.label, { color: colors.inkSoft }]}>{t('create.category')}</Text>
+        <View style={{ marginBottom: spacing.lg }}>
+          <CategoryToggle value={category} onChange={switchCategory} />
+        </View>
 
         {/* Photos */}
         <Text style={[styles.label, { color: colors.inkSoft }]}>Photos (optional, up to {MAX_PHOTOS})</Text>
@@ -310,17 +341,17 @@ export default function CreateModal() {
         </View>
 
         <Field label="Book title" required>
-          <Input value={title} onChangeText={setTitle} placeholder="e.g. Grade 9 Math textbook" maxLength={120} />
+          <Input value={title} onChangeText={setTitle} placeholder={isReading ? 'e.g. Diary of a Wimpy Kid' : 'e.g. Grade 9 Math textbook'} maxLength={120} />
         </Field>
 
-        <Select label="Subject" value={subject} options={subjectOptions} onChange={setSubject} required />
+        <Select label={isReading ? t('create.genre') : 'Subject'} value={subject} options={subjectOptions} onChange={setSubject} required />
         {subject === OTHER && (
-          <Field label="Specify subject" required>
-            <Input value={customSubject} onChangeText={setCustomSubject} placeholder="e.g. Geography" maxLength={60} />
+          <Field label={isReading ? 'Specify genre' : 'Specify subject'} required>
+            <Input value={customSubject} onChangeText={setCustomSubject} placeholder={isReading ? 'e.g. Cookbook' : 'e.g. Geography'} maxLength={60} />
           </Field>
         )}
 
-        <Select label="Grade" value={grade} options={gradeOptions} onChange={setGrade} required />
+        <Select label={isReading ? t('create.ageBand') : 'Grade'} value={grade} options={gradeOptions} onChange={setGrade} required />
 
         <Select label="Pickup area" value={area} options={areaOptions} onChange={setArea} required />
         {area === OTHER && (
@@ -332,9 +363,17 @@ export default function CreateModal() {
           Just the general area, please. Never share your full address.
         </Text>
 
-        <Field label="School (optional)">
-          <Input value={school} onChangeText={setSchool} placeholder="e.g. British School Muscat" maxLength={120} />
-        </Field>
+        {!isReading && (
+          <SchoolSelect
+            label={t('create.school')}
+            schoolId={schoolId}
+            schoolName={school}
+            onChange={({ school_id, school: name }) => {
+              setSchoolId(school_id);
+              setSchool(name);
+            }}
+          />
+        )}
 
         <Select label="Condition" value={condition} options={conditionOptions} onChange={setCondition} required />
 

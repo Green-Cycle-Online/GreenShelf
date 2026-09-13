@@ -22,6 +22,7 @@ import { Listing } from '../../lib/types';
 import { fetchListingById, deleteListing, setListingStatus, submitReport, blockUser } from '../../lib/api';
 import { getContactLink, contactLabelFor } from '../../lib/format';
 import { useAuth } from '../../lib/auth';
+import { useI18n } from '../../lib/i18n';
 import { useSaved } from '../../lib/saved';
 import { haptic } from '../../lib/haptics';
 import { useToast } from '../../components/Toast';
@@ -38,6 +39,7 @@ export default function ListingDetailScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { user, isAdmin, addBlocked } = useAuth();
+  const { t } = useI18n();
   const toast = useToast();
   const navigation = useNavigation();
 
@@ -285,13 +287,16 @@ export default function ListingDetailScreen() {
             <Tag label={listing.condition} kind="condition" condition={listing.condition} />
           </View>
 
-          {!!listing.area && <Section label="Pickup area" value={listing.area} />}
-          {!!listing.school && <Section label="School" value={listing.school} />}
-          {!!listing.description && <Section label="About this book" value={listing.description} />}
+          {listing.category === 'reading' && (
+            <Section label={t('detail.genre')} value={`${listing.subject} · ${listing.grade_level}`} />
+          )}
+          {!!listing.area && <Section label={t('detail.area')} value={listing.area} />}
+          {!!listing.school && listing.category !== 'reading' && <Section label={t('detail.school')} value={listing.school} />}
+          {!!listing.description && <Section label={t('detail.about')} value={listing.description} />}
 
           {/* Contact */}
           <View style={[styles.contactCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <Text style={[styles.sectionLabel, { color: colors.inkFaint }]}>Get in touch</Text>
+            <Text style={[styles.sectionLabel, { color: colors.inkFaint }]}>{t('detail.contact')}</Text>
             <Text style={[styles.ownerName, { color: colors.ink }]}>{listing.owner_name}</Text>
             <Pressable
               onPress={openContact}

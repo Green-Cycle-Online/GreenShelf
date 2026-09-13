@@ -34,6 +34,18 @@ const AREAS_OTHER_OMAN = ['Bahla', 'Barka', 'Buraimi', 'Ibri', 'Khasab', 'Liwa',
 const ALL_AREAS = [...AREAS_MUSCAT, ...AREAS_OTHER_OMAN]
 const MAX_PHOTOS = 4
 const PAGE_SIZE = 24
+// Reading books reuse the subject column for a genre and grade_level for an
+// age band, so every existing filter and card keeps working. Same lists as
+// mobile/lib/constants.ts.
+const GENRES = ['Fiction', 'Non-fiction', 'Picture books', 'Early readers', 'Comics & graphic novels', 'Fantasy & adventure', 'Mystery', 'Science & nature', 'History & biography', 'Poetry', 'Religion', 'Self-help', 'Exam prep']
+const AGE_BANDS = ['Ages 3-5', 'Ages 6-8', 'Ages 9-12', 'Teen (13+)', 'Adult']
+const GRADES = Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)
+let currentCategory = 'school'   // 'school' | 'reading' (the browse tab)
+let schools = []                 // rows from the admin-managed schools table
+let myAlerts = []
+let myNotifications = []
+let openRequests = []
+let currentLang = 'en'
 const REPORT_REASONS = {
   spam: 'Spam or scam',
   inappropriate: 'Inappropriate content',
@@ -207,14 +219,14 @@ function updateNav() {
     const email = currentUser.email
     const displayEmail = email.length > 22 ? email.slice(0, 20) + '…' : email
     const viewLink = currentView === 'browse'
-      ? `<a href="#" id="profile-link">My profile</a>`
-      : `<a href="#" id="browse-link">Browse</a>`
+      ? `<a href="#" id="profile-link">${escapeHtml(t('My profile'))}</a>`
+      : `<a href="#" id="browse-link">${escapeHtml(t('Browse'))}</a>`
     navAuth.innerHTML = `
       ${viewLink}
-      <button class="btn-primary" id="new-listing-btn"><span>+ List<span class="cta-extra">&nbsp;a book</span></span></button>
+      <button class="btn-primary" id="new-listing-btn"><span>${escapeHtml(t('+ List'))}<span class="cta-extra">&nbsp;${escapeHtml(t('a book'))}</span></span></button>
       <span class="nav-user">${escapeHtml(displayEmail)}</span>
       ${isAdmin ? '<a href="#" class="admin-badge admin-link" id="admin-link">ADMIN</a>' : ''}
-      <button class="btn-secondary" id="signout-btn">Sign out</button>
+      <button class="btn-secondary" id="signout-btn">${escapeHtml(t('Sign out'))}</button>
     `
     document.getElementById('signout-btn').addEventListener('click', signOut)
     document.getElementById('new-listing-btn').addEventListener('click', () => showCreateListingModal())
@@ -226,9 +238,9 @@ function updateNav() {
     if (adminLink) adminLink.addEventListener('click', (e) => { e.preventDefault(); showAdminView() })
   } else {
     navAuth.innerHTML = `
-      <a href="#browse" id="browse-anchor">Browse</a>
-      <button class="btn-secondary" id="nav-list-btn"><span>+ List<span class="cta-extra">&nbsp;a book</span></span></button>
-      <button class="btn-primary" id="signin-btn">Sign in</button>
+      <a href="#browse" id="browse-anchor">${escapeHtml(t('Browse'))}</a>
+      <button class="btn-secondary" id="nav-list-btn"><span>${escapeHtml(t('+ List'))}<span class="cta-extra">&nbsp;${escapeHtml(t('a book'))}</span></span></button>
+      <button class="btn-primary" id="signin-btn">${escapeHtml(t('Sign in'))}</button>
     `
     document.getElementById('signin-btn').addEventListener('click', showAuthModal)
     document.getElementById('nav-list-btn').addEventListener('click', () => showCreateListingModal())
@@ -440,6 +452,8 @@ supabase.auth.onAuthStateChange((event, session) => {
   updateNav()
   loadCurrentUserProfile().then(() => {
     updateNav()
+    refreshInbox()
+    renderRequests()
     if (currentUser && wasUnauth) resumePendingListingIfAny()
   }).catch(console.error)
   if (!currentUser && currentView !== 'browse' && currentView !== 'about' && currentView !== 'faq') {
@@ -450,7 +464,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 // localStorage is same-origin but treat it as untrusted anyway: another tab,
 // an old bug, or a devtools paste could leave arbitrary content in it.
 const DRAFT_LIMITS = {
-  title: 120, subject: 60, grade_level: 20, area: 60, school: 120,
+  title: 120, subject: 60, grade_level: 20, area: 60, school: 120, category: 20, school_id: 40,
   condition: 30, description: 500, owner_name: 60, contact_method: 20, contact_value: 60,
 }
 function resumePendingListingIfAny() {
@@ -540,7 +554,7 @@ function updateSavedToggle() {
 
 // ---- VIEW SWITCHING ----
 // Home view = hero + browse + how + why. Hide all of those when switching to profile/about/faq/admin.
-const HOME_SECTIONS = ['.intro', '.impact', '.browse', '.how', '.sdg', '.partners', '.why', '.cta-band']
+const HOME_SECTIONS = ['.intro', '.impact', '.browse', '.wanted', '.how', '.sdg', '.partners', '.why', '.cta-band']
 function hideAllSections() {
   HOME_SECTIONS.forEach(sel => {
     const el = document.querySelector(sel)
@@ -775,6 +789,7 @@ async function loadAdminStats() {
         </button>
       </label>
     </div>
+    ${renderSchoolAdmin()}
     ${pendingReports.length > 0 ? `
       <div class="admin-card">
         <h3>Pending reports (${pendingReports.length})</h3>
@@ -869,6 +884,7 @@ async function loadAdminStats() {
     btn.addEventListener('click', () => handleReportAction(btn.dataset.reportId, btn.dataset.reportAction, btn.dataset.listingId))
   })
   wireDiagnostics(content)
+  wireSchoolAdmin(content)
   const counterToggle = content.querySelector('#toggle-live-counter')
   if (counterToggle) counterToggle.addEventListener('click', async () => {
     const next = !siteSettings.show_live_counter
@@ -1215,11 +1231,14 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
     modal.className = 'modal-backdrop hidden'
     document.body.appendChild(modal)
   }
-  const grades = Array.from({length: 12}, (_, i) => `Grade ${i + 1}`)
-  const subjects = [...BASE_SUBJECTS, 'Other']
   // Saved poster defaults fill name/contact; an in-flight draft still wins
   const d = isEditing ? editingListing : Object.assign({}, loadPosterDefaults(), prefillDraft || {})
-  const isCustomSubject = isEditing && d.subject && !BASE_SUBJECTS.includes(d.subject)
+  // Reading books use genres + age bands in the same two columns.
+  const category = d.category === 'reading' ? 'reading' : 'school'
+  const grades = category === 'reading' ? AGE_BANDS : GRADES
+  const baseSubjects = category === 'reading' ? GENRES : BASE_SUBJECTS
+  const subjects = [...baseSubjects, 'Other']
+  const isCustomSubject = isEditing && d.subject && !baseSubjects.includes(d.subject)
   const subjectValue = isCustomSubject ? 'Other' : (d.subject || '')
   const customSubjectValue = isCustomSubject ? d.subject : ''
   // Custom area applies whenever the value (edit, draft or saved default) is not
@@ -1229,6 +1248,7 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
   const customAreaValue = isCustomArea ? d.area : ''
   const ownerNameValue = d.owner_name || (currentProfile && currentProfile.full_name) || ''
   const schoolValue = d.school || (currentProfile && currentProfile.school) || ''
+  const schoolIdValue = d.school_id || ''
   let photoSlots = (isEditing && Array.isArray(d.photos)) ? d.photos.map(url => ({ url, file: null })) : []
   modal.innerHTML = `
     <div class="modal create-modal">
@@ -1237,6 +1257,13 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
         <h2 class="auth-title">${isEditing ? 'Edit listing' : 'List a book'}</h2>
         <p class="auth-subtitle">${isEditing ? 'Update the details below.' : (isGuest ? "Fill this in, then we'll have you create a quick account to publish." : 'Pass it on to another student. No money, no fuss.')}</p>
         <form id="create-form">
+          <div class="auth-label">${escapeHtml(t('What kind of book?'))}
+            <div class="category-toggle" role="tablist" style="margin-top:6px; margin-bottom:0">
+              <button type="button" class="cat-btn${category === 'school' ? ' is-active' : ''}" data-category="school">${escapeHtml(t('School books'))}</button>
+              <button type="button" class="cat-btn${category === 'reading' ? ' is-active' : ''}" data-category="reading">${escapeHtml(t('Reading books'))}</button>
+            </div>
+            <input type="hidden" name="category" value="${category}">
+          </div>
           <div class="auth-label">Photos (optional, up to ${MAX_PHOTOS})
             <div class="photos-grid" id="photos-grid"></div>
             <input type="file" id="photos-input" accept="image/*" class="visually-hidden-input">
@@ -1245,13 +1272,13 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
             <input type="text" name="title" required maxlength="120" value="${escapeHtml(d.title || '')}">
           </label>
           <div class="form-row">
-            <label class="auth-label">Subject
+            <label class="auth-label"><span data-role="subject-label">${category === 'reading' ? 'Genre' : 'Subject'}</span>
               <select name="subject" required>
                 <option value="">Choose…</option>
                 ${subjects.map(s => `<option ${s === subjectValue ? 'selected' : ''}>${s}</option>`).join('')}
               </select>
             </label>
-            <label class="auth-label">Grade
+            <label class="auth-label"><span data-role="grade-label">${category === 'reading' ? 'Age range' : 'Grade'}</span>
               <select name="grade_level" required>
                 <option value="">Choose…</option>
                 ${grades.map(g => `<option ${g === d.grade_level ? 'selected' : ''}>${g}</option>`).join('')}
@@ -1277,9 +1304,14 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
           <label class="auth-label" id="custom-area-wrap" style="display: ${isCustomArea ? '' : 'none'};">Specify area
             <input type="text" name="custom_area" maxlength="60" placeholder="Type the area only, not your address" value="${escapeHtml(customAreaValue)}" ${isCustomArea ? 'required' : ''}>
           </label>
-          <label class="auth-label">School (optional)
-            <input type="text" name="school" maxlength="120" placeholder="e.g. British School Muscat" value="${escapeHtml(schoolValue)}">
-          </label>
+          <div id="school-field" ${category === 'reading' ? 'hidden' : ''}>
+            <label class="auth-label">School (optional)
+              <select name="school_id" data-school-select></select>
+            </label>
+            <label class="auth-label school-other-wrap" id="school-other-wrap" hidden>School name
+              <input type="text" name="school" maxlength="120" placeholder="e.g. British School Muscat" value="${escapeHtml(schoolValue)}">
+            </label>
+          </div>
           <label class="auth-label">Condition
             <select name="condition" required>
               <option value="">Choose…</option>
@@ -1376,6 +1408,48 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       customAreaInput.value = ''
     }
   })
+  // Category toggle: swap the subject/genre and grade/age lists in place and
+  // hide the school picker for reading books.
+  const createForm = modal.querySelector('#create-form')
+  const fillCreateLists = (cat) => {
+    const subj = cat === 'reading' ? GENRES : BASE_SUBJECTS
+    const lvls = cat === 'reading' ? AGE_BANDS : GRADES
+    const gradeSelect = createForm.grade_level
+    const keepS = subjectSelect.value, keepG = gradeSelect.value
+    subjectSelect.innerHTML = `<option value="">Choose…</option>` + [...subj, 'Other'].map(s => `<option>${escapeHtml(s)}</option>`).join('')
+    gradeSelect.innerHTML = `<option value="">Choose…</option>` + lvls.map(g => `<option>${escapeHtml(g)}</option>`).join('')
+    if ([...subj, 'Other'].includes(keepS)) subjectSelect.value = keepS
+    if (lvls.includes(keepG)) gradeSelect.value = keepG
+    modal.querySelector('[data-role="subject-label"]').textContent = cat === 'reading' ? 'Genre' : 'Subject'
+    modal.querySelector('[data-role="grade-label"]').textContent = cat === 'reading' ? 'Age range' : 'Grade'
+    modal.querySelector('#school-field').hidden = cat === 'reading'
+    subjectSelect.dispatchEvent(new Event('change'))
+  }
+  modal.querySelectorAll('.category-toggle .cat-btn').forEach(b => b.addEventListener('click', () => {
+    modal.querySelectorAll('.category-toggle .cat-btn').forEach(x => x.classList.toggle('is-active', x === b))
+    createForm.category.value = b.dataset.category
+    fillCreateLists(b.dataset.category)
+  }))
+  // School picker: a listed school sets both id and name; "Other" reveals the
+  // free-text box; blank clears both. The text input keeps the name="school"
+  // field, so the old free-text column stays populated for older clients.
+  updateCreateSchoolOptions()
+  const schoolSelect = createForm.school_id
+  const schoolOtherWrap = modal.querySelector('#school-other-wrap')
+  const schoolText = createForm.school
+  const presetSchool = schoolIdValue
+    ? activeSchools().find(s => s.id === schoolIdValue)
+    : activeSchools().find(s => s.name === schoolValue)
+  if (presetSchool) { schoolSelect.value = presetSchool.id; schoolText.value = presetSchool.name }
+  else if (schoolValue) { schoolSelect.value = '__other__'; schoolOtherWrap.hidden = false }
+  schoolSelect.addEventListener('change', () => {
+    if (schoolSelect.value === '__other__') { schoolOtherWrap.hidden = false; schoolText.value = ''; schoolText.focus() }
+    else if (schoolSelect.value) {
+      const s = activeSchools().find(x => x.id === schoolSelect.value)
+      schoolText.value = s ? s.name : ''
+      schoolOtherWrap.hidden = true
+    } else { schoolText.value = ''; schoolOtherWrap.hidden = true }
+  })
   modal.querySelector('#create-close').addEventListener('click', closeCreateModal)
   modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
   modal.addEventListener('click', (e) => { if (e.target === modal) closeCreateModal() })
@@ -1406,8 +1480,12 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
     const finalArea = (form.area.value === 'Other' && form.custom_area && form.custom_area.value.trim())
       ? form.custom_area.value.trim()
       : form.area.value
+    const listingCategory = form.category.value === 'reading' ? 'reading' : 'school'
+    const listingSchoolId = listingCategory === 'reading' ? null
+      : (form.school_id && form.school_id.value && form.school_id.value !== '__other__' ? form.school_id.value : null)
+    const listingSchool = listingCategory === 'reading' ? null : (form.school.value.trim() || null)
     // Details passed validation: remember them for the next listing
-    savePosterDefaults(form.owner_name.value.trim(), contactMethod, contactValue, finalArea, form.school.value.trim())
+    savePosterDefaults(form.owner_name.value.trim(), contactMethod, contactValue, finalArea, listingSchool || '')
     // ---- GUEST PATH: save draft, prompt signup, auto-publish after auth ----
     if (isGuest) {
       // photos can't survive the redirect/storage round-trip easily, so we keep them in-memory
@@ -1418,7 +1496,9 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
         subject: finalSubject,
         grade_level: form.grade_level.value,
         area: finalArea,
-        school: form.school.value.trim() || null,
+        school: listingSchool,
+        school_id: listingSchoolId,
+        category: listingCategory,
         condition: form.condition.value,
         description: form.description.value.trim() || null,
         owner_name: form.owner_name.value.trim(),
@@ -1464,7 +1544,9 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       subject: finalSubject,
       grade_level: form.grade_level.value,
       area: finalArea,
-      school: form.school.value.trim() || null,
+      school: listingSchool,
+      school_id: listingSchoolId,
+      category: listingCategory,
       condition: form.condition.value,
       description: form.description.value.trim() || null,
       owner_name: form.owner_name.value.trim(),
@@ -1472,12 +1554,17 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
       contact_value: form.contact_value.value.trim(),
       photos: photoUrls.length > 0 ? photoUrls : null,
     }
-    let result
-    if (isEditing) {
-      result = await supabase.from('listings').update(data).eq('id', editingListing.id)
-    } else {
-      data.owner_id = currentUser.id
-      result = await supabase.from('listings').insert(data)
+    if (!isEditing) data.owner_id = currentUser.id
+    const saveListing = () => isEditing
+      ? supabase.from('listings').update(data).eq('id', editingListing.id)
+      : supabase.from('listings').insert(data)
+    let result = await saveListing()
+    // Until supabase-schools-requests-alerts.sql has been applied the listings table has no
+    // category / school_id columns. Retry without them so posting never depends on ordering.
+    if (result.error && isMissingColumnError(result.error)) {
+      delete data.category
+      delete data.school_id
+      result = await saveListing()
     }
     if (result.error) {
       errorDiv.textContent = result.error.message || "Something went wrong. Try again?"
@@ -1489,6 +1576,10 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
     showToast(isEditing ? 'Listing updated.' : 'Posted! Your book is live 🌿', 'success')
     await refreshCurrentView()
   })
+}
+// PostgREST reports an unknown column as PGRST204 (schema cache) or Postgres 42703.
+function isMissingColumnError(err) {
+  return err.code === 'PGRST204' || err.code === '42703' || /column .*(schema cache|does not exist)/i.test(err.message || '')
 }
 function closeCreateModal() {
   const modal = document.getElementById('create-modal')
@@ -1592,13 +1683,16 @@ async function loadListings() {
   }
   allListings = data || []
   ensureAreaFilter()
+  updateGradeFilterOptions()
   updateSubjectFilterOptions()
   updateAreaFilterOptions()
+  updateSchoolFilterOptions()
   updateHeroStat()
   refreshImpactFallback()
   currentPage = 1
   applyFilters()
   openListingFromHash()
+  loadRequests()
 }
 function ensureAreaFilter() {
   if (document.getElementById('area-filter')) return
@@ -1607,16 +1701,24 @@ function ensureAreaFilter() {
   const select = document.createElement('select')
   select.id = 'area-filter'
   select.setAttribute('aria-label', 'Filter by area')
-  filterGrid.appendChild(select)
+  // Keep the area select next to the other filters, ahead of school and sort.
+  const before = document.getElementById('school-filter')
+  if (before) filterGrid.insertBefore(select, before)
+  else filterGrid.appendChild(select)
   select.addEventListener('change', applyFilters)
+}
+function listingsInCategory() {
+  return allListings.filter(l => (l.category || 'school') === currentCategory)
 }
 function updateSubjectFilterOptions() {
   const select = document.getElementById('subject-filter')
   if (!select) return
-  const fromListings = [...new Set(allListings.map(l => l.subject).filter(Boolean))]
-  const merged = [...new Set([...BASE_SUBJECTS, ...fromListings])].sort()
+  const base = currentCategory === 'reading' ? GENRES : BASE_SUBJECTS
+  const fromListings = [...new Set(listingsInCategory().map(l => l.subject).filter(Boolean))]
+  const merged = [...new Set([...base, ...fromListings])].sort()
   const currentValue = select.value
-  select.innerHTML = `<option value="">All subjects</option>` + merged.map(s => `<option>${escapeHtml(s)}</option>`).join('')
+  const label = currentCategory === 'reading' ? t('All genres') : t('All subjects')
+  select.innerHTML = `<option value="">${escapeHtml(label)}</option>` + merged.map(s => `<option>${escapeHtml(s)}</option>`).join('')
   if (currentValue && merged.includes(currentValue)) select.value = currentValue
 }
 function updateAreaFilterOptions() {
@@ -1625,8 +1727,73 @@ function updateAreaFilterOptions() {
   const fromListings = [...new Set(allListings.map(l => l.area).filter(Boolean))]
   const merged = [...new Set([...ALL_AREAS, ...fromListings])].sort()
   const currentValue = select.value
-  select.innerHTML = `<option value="">All areas</option>` + merged.map(a => `<option>${escapeHtml(a)}</option>`).join('')
+  select.innerHTML = `<option value="">${escapeHtml(t('All areas'))}</option>` + merged.map(a => `<option>${escapeHtml(a)}</option>`).join('')
   if (currentValue && merged.includes(currentValue)) select.value = currentValue
+}
+function updateGradeFilterOptions() {
+  const select = document.getElementById('grade-filter')
+  if (!select) return
+  const opts = currentCategory === 'reading' ? AGE_BANDS : GRADES
+  const label = currentCategory === 'reading' ? t('All ages') : t('All grades')
+  const currentValue = select.value
+  select.innerHTML = `<option value="">${escapeHtml(label)}</option>` + opts.map(g => `<option>${escapeHtml(g)}</option>`).join('')
+  if (currentValue && opts.includes(currentValue)) select.value = currentValue
+}
+function activeSchools() { return schools.filter(s => s.is_active) }
+// School filter matches on the plain name, so rows created before the schools
+// table existed (free-text school) still filter correctly.
+function updateSchoolFilterOptions() {
+  const select = document.getElementById('school-filter')
+  if (!select) return
+  const fromListings = listingsInCategory().map(l => l.school).filter(Boolean)
+  const merged = [...new Set([...activeSchools().map(s => s.name), ...fromListings])].sort()
+  const currentValue = select.value
+  select.innerHTML = `<option value="">${escapeHtml(t('All schools'))}</option>` + merged.map(s => `<option>${escapeHtml(s)}</option>`).join('')
+  if (currentValue && merged.includes(currentValue)) select.value = currentValue
+  // Reading books have no school, so the control steps aside on that tab.
+  select.hidden = currentCategory === 'reading'
+}
+function updateConditionFilterOptions() {
+  const select = document.getElementById('condition-filter')
+  if (!select) return
+  const currentValue = select.value
+  select.innerHTML = `<option value="">${escapeHtml(t('All conditions'))}</option>` +
+    [['new', 'New'], ['good', 'Good'], ['worn', 'Worn']].map(([v, l]) => `<option value="${v}">${escapeHtml(t(l))}</option>`).join('')
+  select.value = currentValue
+}
+function updateSortFilterOptions() {
+  const select = document.getElementById('sort-filter')
+  if (!select) return
+  const currentValue = select.value || 'newest'
+  select.innerHTML = [['newest', 'Newest first'], ['my_area', 'My area first'], ['photos', 'With photos first'], ['oldest', 'Oldest first']]
+    .map(([v, l]) => `<option value="${v}">${escapeHtml(t(l))}</option>`).join('')
+  select.value = currentValue
+}
+function setCategory(cat) {
+  if (cat !== 'school' && cat !== 'reading') return
+  currentCategory = cat
+  document.querySelectorAll('#category-toggle .cat-btn').forEach(b => {
+    const on = b.dataset.category === cat
+    b.classList.toggle('is-active', on)
+    b.setAttribute('aria-selected', String(on))
+  })
+  // Grade/subject/school mean different things per category, so they reset.
+  ;['grade-filter', 'subject-filter', 'school-filter'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
+  updateGradeFilterOptions()
+  updateSubjectFilterOptions()
+  updateSchoolFilterOptions()
+  const search = document.getElementById('search')
+  if (search) search.placeholder = cat === 'reading' ? t('Search by title or genre…') : t('Search by title or subject…')
+  currentPage = 1
+  applyFilters()
+  updateSearchClearBtn()
+}
+function sortListings(items, sort, myArea) {
+  const arr = [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  if (sort === 'oldest') return arr.reverse()
+  if (sort === 'photos') return [...arr.filter(l => l.photos && l.photos.length), ...arr.filter(l => !(l.photos && l.photos.length))]
+  if (sort === 'my_area' && myArea) return [...arr.filter(l => l.area === myArea), ...arr.filter(l => l.area !== myArea)]
+  return arr
 }
 function renderCard(l, i = 0) {
   const firstPhoto = (l.photos && l.photos.length > 0) ? l.photos[0] : null
@@ -1733,11 +1900,14 @@ function getActiveFilters() {
     subject: document.getElementById('subject-filter')?.value || '',
     condition: document.getElementById('condition-filter')?.value || '',
     area: document.getElementById('area-filter')?.value || '',
+    school: currentCategory === 'reading' ? '' : (document.getElementById('school-filter')?.value || ''),
+    sort: document.getElementById('sort-filter')?.value || 'newest',
+    photosOnly: !!document.getElementById('photos-only')?.checked,
   }
 }
 function anyFiltersActive() {
   const f = getActiveFilters()
-  return !!(f.search || f.grade || f.subject || f.condition || f.area)
+  return !!(f.search || f.grade || f.subject || f.condition || f.area || f.school || f.photosOnly || f.sort !== 'newest')
 }
 function renderFilterChips() {
   const chipsEl = document.getElementById('filter-chips')
@@ -1749,6 +1919,12 @@ function renderFilterChips() {
   if (f.subject) chips.push({ key: 'subject', label: 'Subject', value: f.subject })
   if (f.condition) chips.push({ key: 'condition', label: 'Condition', value: f.condition.charAt(0).toUpperCase() + f.condition.slice(1) })
   if (f.area) chips.push({ key: 'area', label: 'Area', value: f.area })
+  if (f.school) chips.push({ key: 'school', label: 'School', value: f.school })
+  if (f.photosOnly) chips.push({ key: 'photos', label: 'Photos', value: t('Photos only') })
+  if (f.sort !== 'newest') {
+    const sortLabels = { my_area: 'My area first', photos: 'With photos first', oldest: 'Oldest first' }
+    chips.push({ key: 'sort', label: 'Sort', value: t(sortLabels[f.sort] || f.sort) })
+  }
   if (chips.length === 0) { chipsEl.innerHTML = ''; return }
   chipsEl.innerHTML = chips.map(c => `
     <span class="fchip">
@@ -1772,15 +1948,21 @@ function renderFilterChips() {
   if (clearBtn) clearBtn.addEventListener('click', clearAllFilters)
 }
 function clearFilter(key) {
-  const map = { search: 'search', grade: 'grade-filter', subject: 'subject-filter', condition: 'condition-filter', area: 'area-filter' }
+  const map = { search: 'search', grade: 'grade-filter', subject: 'subject-filter', condition: 'condition-filter', area: 'area-filter', school: 'school-filter', sort: 'sort-filter', photos: 'photos-only' }
   const el = document.getElementById(map[key])
-  if (el) { el.value = ''; el.dispatchEvent(new Event(key === 'search' ? 'input' : 'change')) }
+  if (!el) return
+  if (key === 'photos') el.checked = false
+  else if (key === 'sort') el.value = 'newest'
+  else el.value = ''
+  el.dispatchEvent(new Event(key === 'search' ? 'input' : 'change'))
 }
 function clearAllFilters() {
-  ['search', 'grade-filter', 'subject-filter', 'condition-filter', 'area-filter'].forEach(id => {
+  ['search', 'grade-filter', 'subject-filter', 'condition-filter', 'area-filter', 'school-filter'].forEach(id => {
     const el = document.getElementById(id)
     if (el) el.value = ''
   })
+  const sort = document.getElementById('sort-filter'); if (sort) sort.value = 'newest'
+  const photos = document.getElementById('photos-only'); if (photos) photos.checked = false
   applyFilters()
   updateSearchClearBtn()
 }
@@ -1840,21 +2022,24 @@ function renderPagination(totalPages) {
   })
 }
 function applyFilters() {
-  const search = document.getElementById('search').value.toLowerCase().trim()
-  const grade = document.getElementById('grade-filter').value
-  const subject = document.getElementById('subject-filter').value
-  const condition = document.getElementById('condition-filter').value
-  const area = document.getElementById('area-filter') ? document.getElementById('area-filter').value : ''
+  const f = getActiveFilters()
+  const search = f.search.toLowerCase()
   const savedSet = savedOnly ? new Set(getSavedIds()) : null
-  const filtered = allListings.filter(l => {
+  let myArea = ''
+  try { myArea = loadPosterDefaults().area || '' } catch (e) { /* no defaults yet */ }
+  let filtered = allListings.filter(l => {
+    if ((l.category || 'school') !== currentCategory) return false
     if (savedSet && !savedSet.has(String(l.id))) return false
-    if (search && !l.title.toLowerCase().includes(search) && !l.subject.toLowerCase().includes(search)) return false
-    if (grade && l.grade_level !== grade) return false
-    if (subject && l.subject !== subject) return false
-    if (condition && l.condition !== condition) return false
-    if (area && l.area !== area) return false
+    if (search && !l.title.toLowerCase().includes(search) && !(l.subject || '').toLowerCase().includes(search)) return false
+    if (f.grade && l.grade_level !== f.grade) return false
+    if (f.subject && l.subject !== f.subject) return false
+    if (f.condition && l.condition !== f.condition) return false
+    if (f.area && l.area !== f.area) return false
+    if (f.school && l.school !== f.school) return false
+    if (f.photosOnly && !(l.photos && l.photos.length)) return false
     return true
   })
+  filtered = sortListings(filtered, f.sort, myArea)
   currentPage = 1
   renderListings(filtered)
 }
@@ -2130,6 +2315,16 @@ document.getElementById('search').addEventListener('input', () => { applyFilters
 document.getElementById('grade-filter').addEventListener('change', applyFilters)
 document.getElementById('subject-filter').addEventListener('change', applyFilters)
 document.getElementById('condition-filter').addEventListener('change', applyFilters)
+document.getElementById('school-filter')?.addEventListener('change', applyFilters)
+document.getElementById('sort-filter')?.addEventListener('change', applyFilters)
+document.getElementById('photos-only')?.addEventListener('change', applyFilters)
+document.getElementById('category-toggle')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.cat-btn')
+  if (btn) setCategory(btn.dataset.category)
+})
+document.getElementById('notify-btn')?.addEventListener('click', createAlertFromFilters)
+document.getElementById('post-request-btn')?.addEventListener('click', () => showCreateRequestModal())
+document.getElementById('bell-btn')?.addEventListener('click', showInboxPanel)
 document.getElementById('listings-grid').addEventListener('click', handleCardClick)
 const savedToggleEl = document.getElementById('saved-toggle')
 if (savedToggleEl) savedToggleEl.addEventListener('click', () => {
@@ -2244,7 +2439,9 @@ function updateHeroStat() {
   const stat = document.getElementById('hero-stat')
   const num = document.getElementById('hero-stat-num')
   if (!stat || !num) return
-  const count = allListings.length
+  // Books passed on so far = every listing ever posted (available + claimed),
+  // the exact count from loadImpact; the feed length is only a fallback.
+  const count = Math.max(impactBaseTotal, allListings.length)
   if (!siteSettings.show_live_counter || count <= 0) { stat.hidden = true; return }
   stat.hidden = false
   animateCount(num, count)
@@ -2270,6 +2467,514 @@ async function setLiveCounter(enabled) {
   siteSettings.show_live_counter = enabled
   updateHeroStat()
   return true
+}
+
+// ---- SCHOOLS (admin-managed list, public.schools) ----
+async function loadSchools() {
+  try {
+    const { data, error } = await supabase.from('schools').select('*').order('sort_order').order('name')
+    if (error) return   // table not migrated yet: the school controls just stay empty
+    schools = data || []
+  } catch (e) { return }
+  updateSchoolFilterOptions()
+  updateCreateSchoolOptions()
+}
+// Fills the school <select> inside the create-listing / request modals, if open.
+function updateCreateSchoolOptions() {
+  document.querySelectorAll('select[data-school-select]').forEach(select => {
+    const current = select.value
+    select.innerHTML = `<option value="">${escapeHtml(t('No school'))}</option>` +
+      activeSchools().map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('') +
+      `<option value="__other__">${escapeHtml(t('Other / not listed'))}</option>`
+    if (current) select.value = current
+  })
+}
+function renderSchoolAdmin() {
+  const rows = schools.map(s => `
+    <div class="school-row${s.is_active ? '' : ' is-hidden'}">
+      <span class="school-name">${escapeHtml(s.name)}</span>
+      <span class="school-area">${escapeHtml(s.area || '')}</span>
+      <button type="button" class="school-toggle" data-school-id="${escapeHtml(s.id)}" data-active="${s.is_active}">${s.is_active ? 'Hide' : 'Show'}</button>
+    </div>`).join('')
+  return `
+    <div class="admin-card">
+      <h3>Schools (${schools.length})</h3>
+      <p class="admin-setting-desc">This list powers the school dropdown and filter on the website and in the app. Hidden schools stay on old listings but disappear from the pickers.</p>
+      <form class="school-form" id="school-form">
+        <input type="text" name="name" maxlength="120" placeholder="School name" required>
+        <input type="text" name="area" maxlength="60" placeholder="Area (optional)">
+        <button type="submit" class="btn-primary">Add</button>
+      </form>
+      <div class="school-list">${rows || '<p class="muted">No schools yet. Run the schools migration in Supabase, then add one above.</p>'}</div>
+    </div>`
+}
+function wireSchoolAdmin(content) {
+  const form = content.querySelector('#school-form')
+  if (form) form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const name = form.name.value.trim()
+    if (!name) return
+    const { error } = await supabase.from('schools').insert({ name, area: form.area.value.trim() || null })
+    if (error) {
+      showToast(error.code === '23505' ? 'That school is already on the list.' : error.message, 'error')
+      return
+    }
+    showToast('School added.', 'success')
+    await loadSchools()
+    loadAdminStats()
+  })
+  content.querySelectorAll('.school-toggle').forEach(btn => btn.addEventListener('click', async () => {
+    const active = btn.dataset.active === 'true'
+    btn.disabled = true
+    const { error } = await supabase.from('schools').update({ is_active: !active }).eq('id', btn.dataset.schoolId)
+    btn.disabled = false
+    if (error) { showToast(error.message, 'error'); return }
+    await loadSchools()
+    loadAdminStats()
+  }))
+}
+
+// ---- WANTED BOARD (public.book_requests + request_responses) ----
+async function loadRequests() {
+  const grid = document.getElementById('wanted-grid')
+  if (!grid) return
+  try {
+    const { data, error } = await supabase.from('book_requests').select('*').eq('status', 'open').order('created_at', { ascending: false })
+    if (error) throw error
+    openRequests = data || []
+  } catch (e) {
+    grid.innerHTML = `<div class="empty">${escapeHtml(t('Requests are not available yet.'))}</div>`
+    return
+  }
+  renderRequests()
+}
+function renderRequests() {
+  const grid = document.getElementById('wanted-grid')
+  if (!grid) return
+  if (openRequests.length === 0) {
+    grid.innerHTML = `<div class="empty"><div class="empty-title">${escapeHtml(t('No requests yet'))}</div><div class="empty-msg">${escapeHtml(t('Looking for a book nobody has listed? Post a request and we will tell you when someone has it.'))}</div></div>`
+    return
+  }
+  grid.innerHTML = openRequests.map(r => {
+    const mine = currentUser && r.requester_id === currentUser.id
+    const where = [r.area, r.school].filter(Boolean).join(' · ')
+    return `
+      <article class="request-card${mine ? ' is-mine' : ''}" data-request-id="${escapeHtml(r.id)}" tabindex="0" role="button">
+        <div class="request-top">
+          <span class="request-eyebrow">${escapeHtml(mine ? t('Your request') : t('Looking for'))}</span>
+          <span class="request-time">${formatRelativeTime(r.created_at)}</span>
+        </div>
+        <div class="request-title">${escapeHtml(r.title)}</div>
+        <div class="card-meta">
+          ${r.category === 'reading' ? `<span class="tag">${escapeHtml(t('Reading books'))}</span>` : ''}
+          ${r.grade_level ? `<span class="tag tag-grade">${escapeHtml(r.grade_level)}</span>` : ''}
+          ${r.subject ? `<span class="tag tag-subject">${escapeHtml(r.subject)}</span>` : ''}
+        </div>
+        <div class="request-foot">${escapeHtml(t('Posted by {name}').replace('{name}', r.requester_name))}${where ? ' · ' + escapeHtml(where) : ''}</div>
+      </article>`
+  }).join('')
+  grid.querySelectorAll('.request-card').forEach(card => {
+    const open = () => { const r = openRequests.find(x => x.id === card.dataset.requestId); if (r) showRequestModal(r) }
+    card.addEventListener('click', open)
+    card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } })
+  })
+}
+async function showRequestModal(r) {
+  const modal = document.getElementById('modal')
+  const isOwner = currentUser && r.requester_id === currentUser.id
+  const where = [r.area, r.school].filter(Boolean).join(' · ')
+  let responses = []
+  if (currentUser) {
+    const { data } = await supabase.from('request_responses').select('*').eq('request_id', r.id).order('created_at', { ascending: false })
+    responses = data || []
+  }
+  const myReply = currentUser ? responses.find(x => x.responder_id === currentUser.id) : null
+  const responsesHtml = isOwner ? `
+    <div class="modal-section">
+      <h3>${escapeHtml(t('Replies'))}${responses.length ? ` (${responses.length})` : ''}</h3>
+      ${responses.length === 0 ? `<p class="muted">${escapeHtml(t('No replies yet. We will notify you the moment someone has it.'))}</p>` : `
+        <div class="response-list">
+          ${responses.map(x => {
+            const method = x.contact_method || 'whatsapp'
+            const link = x.contact_value ? getContactLink(method, x.contact_value) : null
+            return `<div class="response-card">
+              <div class="response-name">${escapeHtml(x.responder_name)}</div>
+              ${x.message ? `<div class="response-msg">${escapeHtml(x.message)}</div>` : ''}
+              ${link ? `<a href="${escapeHtml(link)}" class="contact-link" target="_blank" rel="noopener noreferrer">${contactLabelFor(method)} ${escapeHtml(x.contact_value)}</a>` : ''}
+              <div class="request-time">${formatRelativeTime(x.created_at)}</div>
+            </div>`
+          }).join('')}
+        </div>`}
+    </div>
+    <div class="owner-actions">
+      <button class="btn-secondary" id="req-toggle-btn">${escapeHtml(r.status === 'fulfilled' ? t('Reopen request') : t('Mark as found'))}</button>
+      <button class="btn-secondary action-delete" id="req-delete-btn">${escapeHtml(t('Delete request'))}</button>
+    </div>` : myReply ? `
+    <div class="replied-note">${escapeHtml(t('You replied to this request.'))}</div>` : `
+    <div class="owner-actions"><button class="btn-primary" id="req-reply-btn">${escapeHtml(t('I have this book'))}</button></div>
+    <form class="reply-form" id="reply-form" hidden>
+      <p class="muted">${escapeHtml(t('Share how the family can reach you. Only they will see it.'))}</p>
+      <label>${escapeHtml(t('Your name'))}<input type="text" name="name" maxlength="60" required></label>
+      <div class="form-row">
+        <label>${escapeHtml(t('Contact via'))}
+          <select name="contact_method">
+            <option value="whatsapp">WhatsApp</option><option value="phone">Phone</option><option value="email">Email</option>
+          </select>
+        </label>
+        <label>${escapeHtml(t('Contact details'))}<input type="text" name="contact_value" maxlength="60" placeholder="96891234567" required></label>
+      </div>
+      <label>${escapeHtml(t('Message (optional)'))}<textarea name="message" maxlength="300"></textarea></label>
+      <div class="auth-error" id="reply-error"></div>
+      <button type="submit" class="btn-primary auth-submit">${escapeHtml(t('Send'))}</button>
+    </form>`
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close" aria-label="${escapeHtml(t('Close'))}">×</button>
+      <div class="modal-body">
+        <div class="request-eyebrow">${escapeHtml(isOwner ? t('Your request') : t('Looking for'))}</div>
+        <h2>${escapeHtml(r.title)}</h2>
+        <div class="modal-tags">
+          ${r.status === 'fulfilled' ? `<span class="tag">${escapeHtml(t('Found'))}</span>` : ''}
+          ${r.category === 'reading' ? `<span class="tag">${escapeHtml(t('Reading books'))}</span>` : ''}
+          ${r.grade_level ? `<span class="tag tag-grade">${escapeHtml(r.grade_level)}</span>` : ''}
+          ${r.subject ? `<span class="tag tag-subject">${escapeHtml(r.subject)}</span>` : ''}
+        </div>
+        ${where ? `<div class="modal-section"><h3>${escapeHtml(t('Area'))}</h3><div>${escapeHtml(where)}</div></div>` : ''}
+        ${r.note ? `<div class="modal-section"><h3>${escapeHtml(t('Anything else (optional)'))}</h3><div class="request-note">${escapeHtml(r.note)}</div></div>` : ''}
+        <div class="request-foot">${escapeHtml(t('Posted by {name}').replace('{name}', r.requester_name))} · ${formatRelativeTime(r.created_at)}</div>
+        ${responsesHtml}
+      </div>
+    </div>`
+  modal.classList.remove('hidden')
+  modal.querySelector('.modal-close').addEventListener('click', closeModal)
+  modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+  modal.addEventListener('click', closeModal)
+  const toggleBtn = modal.querySelector('#req-toggle-btn')
+  if (toggleBtn) toggleBtn.addEventListener('click', async () => {
+    const next = r.status === 'fulfilled' ? 'open' : 'fulfilled'
+    const { error } = await supabase.from('book_requests').update({ status: next }).eq('id', r.id)
+    if (error) { showToast(error.message, 'error'); return }
+    closeModal(); loadRequests()
+  })
+  const deleteBtn = modal.querySelector('#req-delete-btn')
+  if (deleteBtn) deleteBtn.addEventListener('click', async () => {
+    const ok = await customConfirm({ title: t('Delete this request?'), message: '', confirmText: t('Delete request'), cancelText: t('Cancel'), danger: true })
+    if (!ok) return
+    const { error } = await supabase.from('book_requests').delete().eq('id', r.id)
+    if (error) { showToast(error.message, 'error'); return }
+    closeModal(); loadRequests()
+  })
+  const replyBtn = modal.querySelector('#req-reply-btn')
+  if (replyBtn) replyBtn.addEventListener('click', () => {
+    if (!currentUser) { showToast(t('Sign in to reply to a request.'), 'info'); closeModal(); showAuthModal(); return }
+    const form = modal.querySelector('#reply-form')
+    replyBtn.hidden = true
+    form.hidden = false
+    const d = loadPosterDefaults()
+    form.name.value = d.owner_name || (currentProfile && currentProfile.full_name) || ''
+    if (d.contact_method) form.contact_method.value = d.contact_method
+    form.contact_value.value = d.contact_value || ''
+    form.name.focus()
+  })
+  const replyForm = modal.querySelector('#reply-form')
+  if (replyForm) replyForm.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const err = modal.querySelector('#reply-error')
+    const name = replyForm.name.value.trim(), value = replyForm.contact_value.value.trim()
+    if (!name || !value) { err.textContent = t('Add your name.'); return }
+    const { error } = await supabase.from('request_responses').upsert({
+      request_id: r.id, responder_id: currentUser.id, responder_name: name,
+      contact_method: replyForm.contact_method.value, contact_value: value,
+      message: replyForm.message.value.trim() || null,
+    }, { onConflict: 'request_id,responder_id' })
+    if (error) { err.textContent = error.message; return }
+    savePosterDefaults(name, replyForm.contact_method.value, value, loadPosterDefaults().area, loadPosterDefaults().school)
+    showToast(t('Sent. The family will see your contact details.'), 'success')
+    closeModal()
+  })
+}
+function closeRequestModal() {
+  const m = document.getElementById('request-modal')
+  if (m) m.classList.add('hidden')
+}
+function showCreateRequestModal() {
+  if (!currentUser) { showToast(t('Sign in to post a request.'), 'info'); showAuthModal(); return }
+  let modal = document.getElementById('request-modal')
+  if (!modal) {
+    modal = document.createElement('div')
+    modal.id = 'request-modal'
+    modal.className = 'modal-backdrop hidden'
+    document.body.appendChild(modal)
+  }
+  const d = loadPosterDefaults()
+  const areaOpts = `<option value="">${escapeHtml(t('Any'))}</option>` +
+    `<optgroup label="Muscat">${AREAS_MUSCAT.map(a => `<option ${a === d.area ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</optgroup>` +
+    `<optgroup label="Outside Muscat">${AREAS_OTHER_OMAN.map(a => `<option ${a === d.area ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</optgroup>`
+  modal.innerHTML = `
+    <div class="modal create-modal">
+      <button class="modal-close" id="request-close" aria-label="${escapeHtml(t('Close'))}">×</button>
+      <div class="auth-body">
+        <h2 class="auth-title">${escapeHtml(t('Post a request'))}</h2>
+        <p class="auth-subtitle">${escapeHtml(t('Tell families what you need. Anyone who has it can reply with their contact.'))}</p>
+        <form id="request-form" class="request-form">
+          <div class="category-toggle" role="tablist">
+            <button type="button" class="cat-btn is-active" data-category="school">${escapeHtml(t('School books'))}</button>
+            <button type="button" class="cat-btn" data-category="reading">${escapeHtml(t('Reading books'))}</button>
+          </div>
+          <input type="hidden" name="category" value="school">
+          <label>${escapeHtml(t('Book title'))} *<input type="text" name="title" maxlength="120" required placeholder="e.g. Grade 9 Physics, Cambridge"></label>
+          <div class="form-row">
+            <label><span data-role="subject-label">${escapeHtml(t('Subject'))}</span><select name="subject"></select></label>
+            <label><span data-role="grade-label">${escapeHtml(t('Grade'))}</span><select name="grade_level"></select></label>
+          </div>
+          <div class="form-row">
+            <label>${escapeHtml(t('Area'))}<select name="area">${areaOpts}</select></label>
+            <label data-role="school-wrap">${escapeHtml(t('School'))}<select name="school_id" data-school-select></select></label>
+          </div>
+          <div class="school-other-wrap" data-role="school-other" hidden>
+            <label>${escapeHtml(t('School'))}<input type="text" name="school_other" maxlength="120" placeholder="e.g. British School Muscat"></label>
+          </div>
+          <label>${escapeHtml(t('Anything else (optional)'))}<textarea name="note" maxlength="300" placeholder="${escapeHtml(t('Edition, publisher, condition you would accept...'))}"></textarea></label>
+          <label>${escapeHtml(t('Your name'))} *<input type="text" name="requester_name" maxlength="60" required value="${escapeHtml(d.owner_name || (currentProfile && currentProfile.full_name) || '')}"></label>
+          <div class="auth-error" id="request-error"></div>
+          <button type="submit" class="btn-primary auth-submit">${escapeHtml(t('Post request'))}</button>
+        </form>
+      </div>
+    </div>`
+  modal.classList.remove('hidden')
+  const form = modal.querySelector('#request-form')
+  const fillLists = (cat) => {
+    const subjects = cat === 'reading' ? GENRES : BASE_SUBJECTS
+    const levels = cat === 'reading' ? AGE_BANDS : GRADES
+    form.subject.innerHTML = `<option value="">${escapeHtml(t('Any'))}</option>` + subjects.map(s => `<option>${escapeHtml(s)}</option>`).join('')
+    form.grade_level.innerHTML = `<option value="">${escapeHtml(t('Any'))}</option>` + levels.map(g => `<option>${escapeHtml(g)}</option>`).join('')
+    modal.querySelector('[data-role="subject-label"]').textContent = cat === 'reading' ? t('Genre') : t('Subject')
+    modal.querySelector('[data-role="grade-label"]').textContent = cat === 'reading' ? t('Age range') : t('Grade')
+    modal.querySelector('[data-role="school-wrap"]').hidden = cat === 'reading'
+    if (cat === 'reading') modal.querySelector('[data-role="school-other"]').hidden = true
+  }
+  fillLists('school')
+  updateCreateSchoolOptions()
+  const schoolSel = form.school_id
+  if (d.school) {
+    const match = activeSchools().find(s => s.name === d.school)
+    if (match) schoolSel.value = match.id
+    else { schoolSel.value = '__other__'; form.school_other.value = d.school; modal.querySelector('[data-role="school-other"]').hidden = false }
+  }
+  schoolSel.addEventListener('change', () => { modal.querySelector('[data-role="school-other"]').hidden = schoolSel.value !== '__other__' })
+  modal.querySelectorAll('.cat-btn').forEach(b => b.addEventListener('click', () => {
+    modal.querySelectorAll('.cat-btn').forEach(x => x.classList.toggle('is-active', x === b))
+    form.category.value = b.dataset.category
+    fillLists(b.dataset.category)
+  }))
+  modal.querySelector('#request-close').addEventListener('click', closeRequestModal)
+  modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeRequestModal() })
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const err = modal.querySelector('#request-error')
+    err.textContent = ''
+    const title = form.title.value.trim(), name = form.requester_name.value.trim()
+    if (!title) { err.textContent = t('Add the book title.'); return }
+    if (!name) { err.textContent = t('Add your name.'); return }
+    const cat = form.category.value
+    const schoolId = cat === 'reading' ? null : (schoolSel.value && schoolSel.value !== '__other__' ? schoolSel.value : null)
+    const schoolName = cat === 'reading' ? null
+      : schoolId ? (activeSchools().find(s => s.id === schoolId) || {}).name || null
+      : (schoolSel.value === '__other__' ? form.school_other.value.trim() || null : null)
+    const { error } = await supabase.from('book_requests').insert({
+      requester_id: currentUser.id, requester_name: name, title, category: cat,
+      subject: form.subject.value || null, grade_level: form.grade_level.value || null,
+      area: form.area.value || null, school_id: schoolId, school: schoolName,
+      note: form.note.value.trim() || null,
+    })
+    if (error) { err.textContent = error.message; return }
+    closeRequestModal()
+    showToast(t('Posted. We will tell you when someone has it.'), 'success')
+    loadRequests()
+  })
+}
+
+// ---- ALERTS + IN-APP INBOX (public.book_alerts, public.notifications) ----
+async function createAlertFromFilters() {
+  if (!currentUser) { showToast(t('Sign in to get notified about new books.'), 'info'); showAuthModal(); return }
+  const f = getActiveFilters()
+  const school = f.school ? activeSchools().find(s => s.name === f.school) : null
+  const { error } = await supabase.from('book_alerts').insert({
+    user_id: currentUser.id, category: currentCategory, school_id: school ? school.id : null,
+    grade_level: f.grade || null, subject: f.subject || null, area: f.area || null,
+  })
+  if (error) { showToast(error.message, 'error'); return }
+  showToast(t('Saved. We will tell you when a matching book is posted.'), 'success')
+  refreshInbox()
+}
+async function refreshInbox() {
+  const bell = document.getElementById('bell-btn'), count = document.getElementById('bell-count')
+  if (!bell || !count) return
+  if (!currentUser) { bell.hidden = true; myNotifications = []; myAlerts = []; return }
+  try {
+    const [n, a] = await Promise.all([
+      supabase.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(100),
+      supabase.from('book_alerts').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+    ])
+    if (n.error || a.error) return   // tables not migrated yet: keep the bell hidden
+    myNotifications = n.data || []
+    myAlerts = a.data || []
+  } catch (e) { return }
+  bell.hidden = false
+  const unread = myNotifications.filter(x => !x.read_at).length
+  count.textContent = unread > 99 ? '99+' : String(unread)
+  count.hidden = unread === 0
+}
+function describeAlert(a) {
+  const school = a.school_id ? (schools.find(s => s.id === a.school_id) || {}).name : null
+  const parts = [a.grade_level, a.subject, school, a.area].filter(Boolean)
+  return parts.length ? parts.join(' · ') : t('Any')
+}
+function showInboxPanel() {
+  if (!currentUser) { showAuthModal(); return }
+  const modal = document.getElementById('modal')
+  const unread = myNotifications.filter(x => !x.read_at)
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close" aria-label="${escapeHtml(t('Close'))}">×</button>
+      <div class="modal-body">
+        <div class="inbox-head">
+          <h2 style="margin:0">${escapeHtml(t('Notifications'))}</h2>
+          ${unread.length ? `<button type="button" class="btn-secondary" id="inbox-read-all">${escapeHtml(t('Mark all read'))}</button>` : ''}
+        </div>
+        <div class="inbox-list">
+          ${myNotifications.length === 0 ? `<p class="muted">${escapeHtml(t('Nothing yet. Set up an alert with Notify me to hear about new books.'))}</p>` : myNotifications.map(n => `
+            <button type="button" class="inbox-row${n.read_at ? '' : ' is-unread'}" data-notif-id="${escapeHtml(n.id)}">
+              <div>
+                <div class="inbox-title">${escapeHtml(n.title)}</div>
+                ${n.body ? `<div class="inbox-body">${escapeHtml(n.body)}</div>` : ''}
+                <div class="inbox-time">${formatRelativeTime(n.created_at)}</div>
+              </div>
+            </button>`).join('')}
+        </div>
+        <div class="inbox-head"><h3>${escapeHtml(t('Alerts'))}</h3></div>
+        <p class="muted">${escapeHtml(t('We will notify you when a new book matches one of these.'))}</p>
+        <div class="inbox-list">
+          ${myAlerts.length === 0 ? `<p class="muted">${escapeHtml(t('No alerts yet. Set your filters, then tap Notify me.'))}</p>` : myAlerts.map(a => `
+            <div class="alert-row">
+              <div class="alert-desc"><span class="alert-cat">${escapeHtml(a.category === 'reading' ? t('Reading books') : t('School books'))}</span>${escapeHtml(describeAlert(a))}</div>
+              <button type="button" class="alert-remove" data-alert-id="${escapeHtml(a.id)}">${escapeHtml(t('Remove'))}</button>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`
+  modal.classList.remove('hidden')
+  modal.querySelector('.modal-close').addEventListener('click', closeModal)
+  modal.querySelector('.modal').addEventListener('click', e => e.stopPropagation())
+  modal.addEventListener('click', closeModal)
+  const readAll = modal.querySelector('#inbox-read-all')
+  if (readAll) readAll.addEventListener('click', async () => {
+    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', currentUser.id).is('read_at', null)
+    await refreshInbox(); showInboxPanel()
+  })
+  modal.querySelectorAll('.inbox-row').forEach(row => row.addEventListener('click', async () => {
+    const n = myNotifications.find(x => x.id === row.dataset.notifId)
+    if (!n) return
+    if (!n.read_at) {
+      supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', n.id).then(() => refreshInbox())
+    }
+    closeModal()
+    if (n.kind === 'listing_match' && n.listing_id) {
+      const listing = allListings.find(l => l.id === n.listing_id)
+      if (listing) { showModal(listing); return }
+      const { data } = await supabase.from('listings').select('*').eq('id', n.listing_id).maybeSingle()
+      if (data) showModal(data); else showToast(t('That book is no longer listed.'), 'info')
+    } else if (n.kind === 'request_response' && n.request_id) {
+      const { data } = await supabase.from('book_requests').select('*').eq('id', n.request_id).maybeSingle()
+      if (data) showRequestModal(data)
+    }
+  }))
+  modal.querySelectorAll('.alert-remove').forEach(btn => btn.addEventListener('click', async () => {
+    const { error } = await supabase.from('book_alerts').delete().eq('id', btn.dataset.alertId)
+    if (error) { showToast(error.message, 'error'); return }
+    showToast(t('Alert removed.'), 'info')
+    await refreshInbox(); showInboxPanel()
+  }))
+}
+
+// ---- LANGUAGE (English / Arabic) ----
+// UI strings only. Long-form marketing sections and the info pages stay in
+// English for now; the layout flips to RTL so Arabic reads naturally.
+const AR = {
+  'School books': 'كتب مدرسية',
+  'Reading books': 'كتب للقراءة',
+  'The books, right now': 'الكتب المتاحة الآن',
+  "Free for everyone, and you don't need an account just to look.": 'مجاناً للجميع، ولا تحتاج إلى حساب للتصفح.',
+  'Photos only': 'ذات الصور فقط',
+  'Notify me': 'نبّهني',
+  'Looking for a book?': 'تبحث عن كتاب؟',
+  'Post what you need. Anyone who has it can reply with their contact, and only you will see it.': 'انشر ما تحتاجه. من لديه الكتاب يمكنه الرد ببيانات تواصله، ولن يراها غيرك.',
+  'Post a request': 'أضف طلباً',
+  'Pass your school books on,': 'مرّر كتبك المدرسية،',
+  'not into the bin.': 'لا إلى سلة المهملات.',
+  "Find what your child needs next year. Give away what they're done with. Free for everyone, no fees, no commission, direct contact.": 'اعثر على ما يحتاجه طفلك للعام القادم، وتبرّع بما انتهى منه. مجاناً للجميع، بلا رسوم أو عمولة، وتواصل مباشر.',
+  'All schools': 'كل المدارس', 'All subjects': 'كل المواد', 'All genres': 'كل الأنواع', 'All grades': 'كل الصفوف',
+  'All ages': 'كل الأعمار', 'All conditions': 'كل الحالات', 'All areas': 'كل المناطق',
+  'New': 'جديد', 'Good': 'جيد', 'Worn': 'مستعمل',
+  'Newest first': 'الأحدث أولاً', 'My area first': 'منطقتي أولاً', 'With photos first': 'ذات الصور أولاً', 'Oldest first': 'الأقدم أولاً',
+  'Search by title or genre…': 'ابحث بالعنوان أو النوع…', 'Search by title or subject…': 'ابحث بالعنوان أو المادة…',
+  'My profile': 'حسابي', 'Browse': 'تصفح', '+ List': '+ أضف', 'a book': 'كتاباً', 'Sign out': 'تسجيل الخروج', 'Sign in': 'تسجيل الدخول',
+  'Requests are not available yet.': 'الطلبات غير متاحة بعد.',
+  'No requests yet': 'لا توجد طلبات بعد',
+  'Looking for a book nobody has listed? Post a request and we will tell you when someone has it.': 'تبحث عن كتاب لم يضفه أحد؟ أضف طلباً وسنخبرك عندما يتوفر لدى أحدهم.',
+  'Your request': 'طلبك', 'Looking for': 'يبحث عن', 'Posted by {name}': 'نشره {name}',
+  'I have this book': 'لديّ هذا الكتاب', 'Replies': 'الردود',
+  'No replies yet. We will notify you the moment someone has it.': 'لا توجد ردود بعد. سنخبرك فور توفره لدى أحد.',
+  'Mark as found': 'تم العثور عليه', 'Reopen request': 'إعادة فتح الطلب', 'Delete request': 'حذف الطلب', 'Delete this request?': 'حذف هذا الطلب؟',
+  'Sent. The family will see your contact details.': 'تم الإرسال. ستظهر بيانات تواصلك للعائلة.',
+  'You replied to this request.': 'لقد رددت على هذا الطلب.', 'Sign in to reply to a request.': 'سجّل الدخول للرد على الطلب.',
+  'Found': 'تم العثور عليه', 'Share how the family can reach you. Only they will see it.': 'شارك طريقة التواصل معك. لن تراها إلا هذه العائلة.',
+  'Your name': 'اسمك', 'Contact via': 'التواصل عبر', 'Contact details': 'بيانات التواصل', 'Message (optional)': 'رسالة (اختياري)',
+  'Send': 'إرسال', 'Cancel': 'إلغاء', 'Close': 'إغلاق', 'Book title': 'عنوان الكتاب', 'Genre': 'النوع', 'Subject': 'المادة',
+  'Age range': 'الفئة العمرية', 'Grade': 'الصف', 'Area': 'المنطقة', 'School': 'المدرسة', 'Any': 'أي',
+  'Anything else (optional)': 'تفاصيل إضافية (اختياري)', 'Edition, publisher, condition you would accept...': 'الطبعة، الناشر، الحالة المقبولة...',
+  'Post request': 'نشر الطلب', 'Add the book title.': 'أضف عنوان الكتاب.', 'Add your name.': 'أضف اسمك.',
+  'Sign in to post a request.': 'سجّل الدخول لنشر طلب.', 'Posted. We will tell you when someone has it.': 'تم النشر. سنخبرك عندما يتوفر لدى أحد.',
+  'Tell families what you need. Anyone who has it can reply with their contact.': 'أخبر العائلات بما تحتاجه. من لديه الكتاب يمكنه الرد ببيانات تواصله.',
+  'No school': 'بدون مدرسة', 'Other / not listed': 'أخرى / غير مدرجة', 'What kind of book?': 'ما نوع الكتاب؟',
+  'Sign in to get notified about new books.': 'سجّل الدخول لتصلك تنبيهات الكتب الجديدة.',
+  'Saved. We will tell you when a matching book is posted.': 'تم الحفظ. سنخبرك عند نشر كتاب مطابق.',
+  'Notifications': 'الإشعارات', 'Nothing yet. Set up an alert with Notify me to hear about new books.': 'لا شيء بعد. فعّل تنبيهاً عبر "نبّهني" لتصلك الكتب الجديدة.',
+  'Mark all read': 'تعليم الكل كمقروء', 'Alerts': 'التنبيهات',
+  'We will notify you when a new book matches one of these.': 'سنخبرك عند نشر كتاب يطابق أحد هذه التنبيهات.',
+  'No alerts yet. Set your filters, then tap Notify me.': 'لا توجد تنبيهات بعد. اختر التصفية ثم اضغط نبّهني.',
+  'Remove': 'إزالة', 'Alert removed.': 'تمت إزالة التنبيه.', 'That book is no longer listed.': 'هذا الكتاب لم يعد معروضاً.',
+}
+function t(s) { return currentLang === 'ar' ? (AR[s] || s) : s }
+function initLanguage() {
+  try { currentLang = localStorage.getItem('gs-lang') === 'ar' ? 'ar' : 'en' } catch (e) { currentLang = 'en' }
+  applyLanguage()
+  const btn = document.getElementById('lang-toggle')
+  if (btn) btn.addEventListener('click', () => {
+    currentLang = currentLang === 'ar' ? 'en' : 'ar'
+    try { localStorage.setItem('gs-lang', currentLang) } catch (e) { /* private mode */ }
+    applyLanguage()
+    updateNav()
+    renderRequests()
+    applyFilters()
+  })
+}
+function applyLanguage() {
+  const d = document.documentElement
+  d.lang = currentLang
+  d.dir = currentLang === 'ar' ? 'rtl' : 'ltr'
+  const btn = document.getElementById('lang-toggle')
+  if (btn) { btn.textContent = currentLang === 'ar' ? 'EN' : 'ع'; btn.setAttribute('aria-label', currentLang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية') }
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n) })
+  const search = document.getElementById('search')
+  if (search) search.placeholder = currentCategory === 'reading' ? t('Search by title or genre…') : t('Search by title or subject…')
+  updateGradeFilterOptions()
+  updateSubjectFilterOptions()
+  updateConditionFilterOptions()
+  updateAreaFilterOptions()
+  updateSchoolFilterOptions()
+  updateSortFilterOptions()
 }
 
 // ---- IMPACT COUNTERS ----
@@ -2887,10 +3592,13 @@ document.addEventListener('keydown', (e) => {
     closeModal()
     closeAuthModal()
     closeCreateModal()
+    closeRequestModal()
   }
 })
+initLanguage()
 updateNav()
 loadListings()
+loadSchools()
 loadSiteSettings()
 loadImpact()
 ;(async () => {
@@ -2899,7 +3607,7 @@ loadImpact()
     if (session?.user) {
       currentUser = session.user
       updateNav()
-      loadCurrentUserProfile().then(() => updateNav()).catch(console.error)
+      loadCurrentUserProfile().then(() => { updateNav(); refreshInbox(); renderRequests() }).catch(console.error)
     }
   } catch (e) {
     console.error('getSession failed:', e)
