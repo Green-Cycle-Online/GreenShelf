@@ -36,6 +36,8 @@ const PAGE_SIZE = 24
 // Reading books reuse the subject column for a genre and grade_level for an
 // age band, so every existing filter and card keeps working. Same lists as
 // mobile/lib/constants.ts.
+// Shown on the create form for reading books (Oman publication regulations).
+const CONTENT_RULES = "Oman's publication rules apply. Only list reading books that are suitable for children and families: no adult or explicit content, no extremist or hateful material, and nothing that offends religion or public morals. We remove listings that break this and can suspend the account."
 const GENRES = ['Fiction', 'Non-fiction', 'Picture books', 'Early readers', 'Comics & graphic novels', 'Fantasy & adventure', 'Mystery', 'Science & nature', 'History & biography', 'Poetry', 'Religion', 'Self-help', 'Exam prep']
 const AGE_BANDS = ['Ages 3-5', 'Ages 6-8', 'Ages 9-12', 'Teen (13+)', 'Adult']
 const GRADES = Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)
@@ -1266,6 +1268,11 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
             </div>
             <input type="hidden" name="category" value="${category}">
           </div>
+          <div class="content-notice" id="content-notice" ${category === 'reading' ? '' : 'hidden'}>
+            <strong>${escapeHtml(t('Keep it family-safe'))}</strong>
+            <p>${escapeHtml(t(CONTENT_RULES))}</p>
+            <label class="content-notice-ack"><input type="checkbox" name="content_ok" ${category === 'reading' ? 'required' : ''}><span>${escapeHtml(t('This book is appropriate for all ages and follows these rules.'))}</span></label>
+          </div>
           <div class="auth-label">Photos (optional, up to ${MAX_PHOTOS})
             <div class="photos-grid" id="photos-grid"></div>
             <input type="file" id="photos-input" accept="image/*" class="visually-hidden-input">
@@ -1420,6 +1427,9 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
     modal.querySelector('[data-role="subject-label"]').textContent = cat === 'reading' ? 'Genre' : 'Subject'
     modal.querySelector('[data-role="grade-label"]').textContent = cat === 'reading' ? 'Age range' : 'Grade'
     createForm.title.placeholder = cat === 'reading' ? 'e.g. Diary of a Wimpy Kid' : 'e.g. Grade 9 Physics, Cambridge'
+    // Reading books carry the family-safe content rules and must be acknowledged.
+    modal.querySelector('#content-notice').hidden = cat !== 'reading'
+    createForm.content_ok.required = cat === 'reading'
     modal.querySelector('#school-field').hidden = cat === 'reading'
     subjectSelect.dispatchEvent(new Event('change'))
   }
@@ -1482,6 +1492,10 @@ function showCreateListingModal(editingListing = null, prefillDraft = null) {
     const listingSchoolId = listingCategory === 'reading' ? null
       : (form.school_id && form.school_id.value && form.school_id.value !== '__other__' ? form.school_id.value : null)
     const listingSchool = listingCategory === 'reading' ? null : (form.school.value.trim() || null)
+    if (listingCategory === 'reading' && !form.content_ok.checked) {
+      errorDiv.textContent = t('Please confirm the book follows the content rules.')
+      return
+    }
     // Details passed validation: remember them for the next listing
     savePosterDefaults(form.owner_name.value.trim(), contactMethod, contactValue, finalArea, listingSchool || '')
     // ---- GUEST PATH: save draft, prompt signup, auto-publish after auth ----
@@ -3010,6 +3024,10 @@ const AR = {
   'Send': 'إرسال', 'Cancel': 'إلغاء', 'Close': 'إغلاق', 'Book title': 'عنوان الكتاب', 'Genre': 'النوع', 'Subject': 'المادة',
   'Age range': 'الفئة العمرية', 'Grade': 'الصف', 'Area': 'المنطقة', 'School': 'المدرسة', 'Any': 'أي',
   'Choose your area': 'اختر منطقتك', 'Choose your area.': 'اختر منطقتك.',
+  'Keep it family-safe': 'حافظ على محتوى مناسب للعائلة',
+  [CONTENT_RULES]: 'تنطبق أنظمة المطبوعات في سلطنة عُمان. أدرج فقط كتب القراءة المناسبة للأطفال والعائلات: لا محتوى للبالغين أو صريحاً، ولا مواد متطرفة أو تحض على الكراهية، ولا ما يسيء إلى الدين أو الآداب العامة. نحذف الإعلانات المخالفة وقد نعلّق الحساب.',
+  'This book is appropriate for all ages and follows these rules.': 'هذا الكتاب مناسب لجميع الأعمار ويلتزم بهذه القواعد.',
+  'Please confirm the book follows the content rules.': 'يرجى تأكيد التزام الكتاب بقواعد المحتوى.',
   'Anything else (optional)': 'تفاصيل إضافية (اختياري)', 'Edition, publisher, condition you would accept...': 'الطبعة، الناشر، الحالة المقبولة...',
   'Post request': 'نشر الطلب', 'Add the book title.': 'أضف عنوان الكتاب.', 'Add your name.': 'أضف اسمك.',
   'Sign in to post a request.': 'سجّل الدخول لنشر طلب.', 'Posted. We will tell you when someone has it.': 'تم النشر. سنخبرك عندما يتوفر لدى أحد.',

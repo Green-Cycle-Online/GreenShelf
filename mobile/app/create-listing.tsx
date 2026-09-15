@@ -54,10 +54,11 @@ export default function CreateModal() {
   const insets = useSafeAreaInsets();
   const { user, profile, refreshProfile } = useAuth();
   const toast = useToast();
-  const params = useLocalSearchParams<{ editId?: string }>();
+  // `category=reading` lets the Browse Reading tab open the form preselected.
+  const params = useLocalSearchParams<{ editId?: string; category?: string }>();
   const isEditing = !!params.editId;
 
-  const [category, setCategory] = useState<Category>('school');
+  const [category, setCategory] = useState<Category>(params.category === 'reading' ? 'reading' : 'school');
   const [photos, setPhotos] = useState<PhotoSlot[]>([]);
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
@@ -72,6 +73,9 @@ export default function CreateModal() {
   const [ownerName, setOwnerName] = useState('');
   const [contactMethod, setContactMethod] = useState<ContactMethod>('whatsapp');
   const [contactValue, setContactValue] = useState('');
+  // Reading books: the poster must accept the family-safe content rules (Oman
+  // publication regulations) before the listing can be published.
+  const [contentOk, setContentOk] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -193,6 +197,7 @@ export default function CreateModal() {
 
   function validate(): string | null {
     if (!title.trim()) return 'Add the book title.';
+    if (isReading && !contentOk) return t('create.contentAck');
     if (!subject) return isReading ? t('create.chooseGenre') : 'Choose a subject.';
     if (subject === OTHER && !customSubject.trim()) return isReading ? 'Specify the genre.' : 'Specify the subject.';
     if (!grade) return isReading ? t('create.chooseAge') : 'Choose a grade.';
@@ -308,6 +313,25 @@ export default function CreateModal() {
         <View style={{ marginBottom: spacing.lg }}>
           <CategoryToggle value={category} onChange={switchCategory} />
         </View>
+
+        {isReading && (
+          <View style={[styles.notice, { backgroundColor: colors.surface, borderColor: colors.hairlineStrong }]}>
+            <View style={styles.noticeHead}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.accent} />
+              <Text style={[styles.noticeTitle, { color: colors.ink }]}>{t('create.contentTitle')}</Text>
+            </View>
+            <Text style={[styles.noticeBody, { color: colors.inkSoft }]}>{t('create.contentBody')}</Text>
+            <Pressable
+              onPress={() => { haptic.selection(); setContentOk((v) => !v); }}
+              style={styles.ackRow}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: contentOk }}
+            >
+              <Ionicons name={contentOk ? 'checkbox' : 'square-outline'} size={22} color={contentOk ? colors.accent : colors.inkFaint} />
+              <Text style={[styles.ackText, { color: colors.ink }]}>{t('create.contentCheck')}</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Photos */}
         <Text style={[styles.label, { color: colors.inkSoft }]}>Photos (optional, up to {MAX_PHOTOS})</Text>
@@ -484,4 +508,10 @@ const styles = StyleSheet.create({
   },
   photoAddText: { fontFamily: font.bodyMedium, fontSize: type.xs },
   error: { fontFamily: font.bodyMedium, fontSize: type.sm, marginTop: spacing.md },
+  notice: { borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg, gap: spacing.sm },
+  noticeHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  noticeTitle: { fontFamily: font.bodySemi, fontSize: type.base },
+  noticeBody: { fontFamily: font.body, fontSize: type.sm, lineHeight: type.sm * 1.5 },
+  ackRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+  ackText: { flex: 1, fontFamily: font.bodyMedium, fontSize: type.sm, lineHeight: type.sm * 1.4 },
 });

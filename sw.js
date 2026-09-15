@@ -1,4 +1,4 @@
-const CACHE_NAME = 'greenshelf-v42';
+const CACHE_NAME = 'greenshelf-v43';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

@@ -2004,3 +2004,12 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
 [dir="rtl"] .inbox-row { text-align: right; }
 [dir="rtl"] .card-new-badge { left: auto; right: 10px; }
 [dir="rtl"] .card-save { right: auto; left: 10px; }
+
+/* Reading-book content rules (Oman publication regulations), shown on the create form */
+.content-notice { border: 1px solid var(--hairline-strong); border-left: 4px solid var(--gold); border-radius: var(--r-md); padding: 12px 14px; margin: 0 0 16px; background: var(--surface); font-size: 0.9rem; }
+.content-notice[hidden] { display: none; }
+.content-notice strong { display: block; margin-bottom: 4px; color: var(--ink); }
+.content-notice p { margin: 0 0 10px; color: var(--ink-soft); line-height: 1.5; }
+.content-notice-ack { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; color: var(--ink); cursor: pointer; }
+.content-notice-ack input { margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+[dir="rtl"] .content-notice { border-left: 1px solid var(--hairline-strong); border-right: 4px solid var(--gold); }

@@ -132,6 +132,10 @@ const en = {
   'create.chooseGenre': 'Choose a genre.',
   'create.chooseAge': 'Choose an age range.',
   'create.chooseArea': 'Choose your area...',
+  'create.contentTitle': 'Keep it family-safe',
+  'create.contentBody': "Oman's publication rules apply. Only list reading books that are suitable for children and families: no adult or explicit content, no extremist or hateful material, and nothing that offends religion or public morals. We remove listings that break this and can suspend the account.",
+  'create.contentCheck': 'This book is appropriate for all ages and follows these rules.',
+  'create.contentAck': 'Please confirm the book follows the content rules.',
   'request.needArea': 'Choose your area.',
 
   'schools.other': 'Other / not listed',
@@ -299,6 +303,10 @@ const ar: Record<StringKey, string> = {
   'create.chooseGenre': 'اختر النوع.',
   'create.chooseAge': 'اختر الفئة العمرية.',
   'create.chooseArea': 'اختر منطقتك...',
+  'create.contentTitle': 'حافظ على محتوى مناسب للعائلة',
+  'create.contentBody': 'تنطبق أنظمة المطبوعات في سلطنة عُمان. أدرج فقط كتب القراءة المناسبة للأطفال والعائلات: لا محتوى للبالغين أو صريحاً، ولا مواد متطرفة أو تحض على الكراهية، ولا ما يسيء إلى الدين أو الآداب العامة. نحذف الإعلانات المخالفة وقد نعلّق الحساب.',
+  'create.contentCheck': 'هذا الكتاب مناسب لجميع الأعمار ويلتزم بهذه القواعد.',
+  'create.contentAck': 'يرجى تأكيد التزام الكتاب بقواعد المحتوى.',
   'request.needArea': 'اختر منطقتك.',
 
   'schools.other': 'أخرى / غير مدرجة',
