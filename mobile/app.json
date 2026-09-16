@@ -20,6 +20,7 @@
     },
     "android": {
       "package": "com.greenshelf.oman",
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#2f5e44",
         "foregroundImage": "./assets/adaptive-icon.png"
