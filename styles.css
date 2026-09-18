@@ -2013,3 +2013,45 @@ footer { border-top: 1px solid var(--hairline); background: var(--surface); font
 .content-notice-ack { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; color: var(--ink); cursor: pointer; }
 .content-notice-ack input { margin: 3px 0 0; accent-color: var(--accent); flex: none; }
 [dir="rtl"] .content-notice { border-left: 1px solid var(--hairline-strong); border-right: 4px solid var(--gold); }
+
+/* App Store / Google Play buttons (hero + footer). Drawn in-page so they follow the
+   theme and need no external badge artwork. */
+.hero-store {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 22px;
+  animation: heroRise 0.8s var(--ease-out) 0.74s both;
+}
+.hero-store-label {
+  font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint); margin-right: 4px;
+}
+.store-btn {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 50px; padding: 7px 18px 7px 13px;
+  border-radius: var(--r-md); background: var(--ink); color: var(--paper); text-decoration: none;
+  border: 1px solid transparent; box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.store-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); background: var(--accent-deep); }
+.store-btn:active { transform: translateY(0); }
+.store-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.store-btn svg { width: 24px; height: 24px; flex: none; }
+.store-btn-text { display: flex; flex-direction: column; line-height: 1.12; font-family: 'Inter', sans-serif; }
+.store-btn-text small { font-size: 0.64rem; font-weight: 500; letter-spacing: 0.02em; opacity: 0.82; }
+.store-btn-text strong { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+.store-btn-sm { min-height: 44px; padding: 5px 14px 5px 11px; gap: 8px; box-shadow: none; }
+.store-btn-sm svg { width: 20px; height: 20px; }
+.store-btn-sm .store-btn-text small { font-size: 0.58rem; }
+.store-btn-sm .store-btn-text strong { font-size: 0.92rem; }
+.footer-store-title {
+  font-family: 'Inter', sans-serif; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint); margin: 22px 0 12px;
+}
+.footer-store { display: flex; flex-wrap: wrap; gap: 10px; }
+:root[data-theme="dark"] .store-btn { background: var(--surface); color: var(--ink); border-color: var(--hairline-strong); }
+:root[data-theme="dark"] .store-btn:hover { background: var(--surface-2); }
+[dir="rtl"] .hero-store-label { margin-right: 0; margin-left: 4px; }
+[dir="rtl"] .store-btn { padding: 7px 13px 7px 18px; }
+@media (max-width: 480px) {
+  .hero-store-label { flex-basis: 100%; }
+  .hero-store .store-btn { flex: 1 1 140px; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) { .hero-store { animation: none; } }
