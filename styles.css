@@ -282,8 +282,23 @@ nav {
   #nav-auth a[href="#browse"], #nav-auth .nav-user { display: none; }
   #nav-auth .cta-extra { display: none; }
   #nav-auth .btn-primary, #nav-auth .btn-secondary {
-    padding: 10px 11px; font-size: 0.78rem; min-height: 42px;
+    padding: 10px 10px; font-size: 0.76rem; min-height: 42px;
   }
+  /* The round utility buttons lose their desktop breathing room, and if a state
+     still cannot fit on one row (signed in with the admin badge, long Arabic
+     labels, 320px phones) the auth buttons wrap inside their own group,
+     right-aligned, instead of being clipped off-screen. */
+  .nav-right { gap: 5px; }
+  .nav-links { gap: 6px 5px; flex-wrap: wrap; justify-content: flex-end; }
+  .nav-links a { font-size: 0.84rem; white-space: nowrap; }
+  /* `nav` prefix: the base .lang-toggle rule sits later in this file and would win otherwise. */
+  nav .theme-toggle, nav .lang-toggle, nav .bell-btn { width: 34px; height: 34px; margin-right: 0; }
+  #nav-auth .admin-badge { padding: 3px 7px; font-size: 0.6rem; }
+}
+@media (max-width: 400px) {
+  /* Leaf mark only; the accessible name stays on the logo's aria-label. */
+  .logo span { display: none; }
+  .logo { gap: 0; }
 }
 
 /* Theme toggle */
